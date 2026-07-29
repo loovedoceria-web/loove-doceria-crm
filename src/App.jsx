@@ -61,7 +61,6 @@ export default function App() {
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
   const [expenses, setExpenses] = useState([]);
-  const [companySales, setCompanySales] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
 
   useEffect(() => {
@@ -82,21 +81,18 @@ export default function App() {
       setProducts([]);
       setSales([]);
       setExpenses([]);
-      setCompanySales([]);
       return;
     }
     (async () => {
       setDataLoading(true);
-      const [p, s, g, cs] = await Promise.all([
+      const [p, s, g] = await Promise.all([
         supabase.from("products").select("*").order("created_at"),
         supabase.from("sales").select("*").order("date", { ascending: false }),
         supabase.from("expenses").select("*").order("date", { ascending: false }),
-        supabase.from("company_sales").select("*").order("date", { ascending: false }),
       ]);
       if (p.data) setProducts(p.data);
       if (s.data) setSales(s.data);
       if (g.data) setExpenses(g.data);
-      if (cs.data) setCompanySales(cs.data);
       setDataLoading(false);
     })();
   }, [session]);
@@ -113,7 +109,7 @@ export default function App() {
 
   async function addSale(sale) {
     const { data, error } = await supabase.from("sales").insert(sale).select().single();
-    if (!error) setSales((prev) => [data, ...prev]);
+    if (!error && data) setSales((prev) => [data, ...prev]);
   }
 
   async function removeSale(id) {
@@ -131,22 +127,10 @@ export default function App() {
     if (!error) setExpenses((prev) => prev.filter((g) => g.id !== id));
   }
 
-  async function addCompanySale(sale) {
-    const { data, error } = await supabase.from("company_sales").insert(sale).select().single();
-    if (!error && data) {
-      setCompanySales((prev) => [data, ...prev]);
-    }
-  }
-
-  async function removeCompanySale(id) {
-    const { error } = await supabase.from("company_sales").delete().eq("id", id);
-    if (!error) setCompanySales((prev) => prev.filter((cs) => cs.id !== id));
-  }
-
   const today = todayISO();
 
   const vendasHoje = useMemo(
-    () => sales.filter((s) => s.date === today).reduce((sum, s) => sum + Number(s.total), 0),
+    () => sales.filter((s) => s.date === today && s.payment !== "Empresa (Fiado)").reduce((sum, s) => sum + Number(s.total), 0),
     [sales, today]
   );
 
@@ -156,7 +140,7 @@ export default function App() {
   );
 
   const lucroMes = useMemo(() => {
-    const vendasMes = sales.filter((s) => isSameMonth(s.date, today)).reduce((sum, s) => sum + Number(s.total), 0);
+    const vendasMes = sales.filter((s) => isSameMonth(s.date, today) && s.payment !== "Empresa (Fiado)").reduce((sum, s) => sum + Number(s.total), 0);
     const gastosMes = expenses.filter((g) => isSameMonth(g.date, today)).reduce((sum, g) => sum + Number(g.value), 0);
     return vendasMes - gastosMes;
   }, [sales, expenses, today]);
@@ -164,8 +148,8 @@ export default function App() {
   const maisVendido = useMemo(() => {
     const counts = {};
     sales.forEach((s) => {
-      if (s.product_name) {
-        counts[s.product_name] = (counts[s.product_name] || 0) + Number(s.qty);
+      if (s.product_name && s.payment !== "Empresa (Fiado)") {
+        counts[s.product_name] = (counts[s.product_name] || 0) + Number(s.qty || 1);
       }
     });
     const entries = Object.entries(counts);
@@ -236,7 +220,7 @@ export default function App() {
               {view === "produtos" && <Produtos products={products} onAdd={addProduct} onRemove={removeProduct} />}
               {view === "vendas" && <Vendas products={products} sales={sales} onAdd={addSale} onRemove={removeSale} />}
               {view === "gastos" && <Gastos expenses={expenses} onAdd={addExpense} onRemove={removeExpense} />}
-              {view === "empresa" && <VendasEmpresa companySales={companySales} onAdd={addCompanySale} onRemove={removeCompanySale} />}
+              {view === "empresa" && <VendasEmpresa sales={sales} onAdd={addSale} onRemove={removeSale} />}
             </>
           )}
         </div>
@@ -355,7 +339,7 @@ function SalesChart({ sales, expenses }) {
       d.setDate(d.getDate() - i);
       const iso = d.toISOString().slice(0, 10);
       const label = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-      const vendas = sales.filter((s) => s.date === iso).reduce((sum, s) => sum + Number(s.total), 0);
+      const vendas = sales.filter((s) => s.date === iso && s.payment !== "Empresa (Fiado)").reduce((sum, s) => sum + Number(s.total), 0);
       const gastos = expenses.filter((g) => g.date === iso).reduce((sum, g) => sum + Number(g.value), 0);
       days.push({ iso, label, Vendas: vendas, Gastos: gastos });
     }
@@ -443,6 +427,8 @@ function Vendas({ products, sales, onAdd, onRemove }) {
     setShowForm(false);
   }
 
+  const salesNormais = sales.filter((s) => s.payment !== "Empresa (Fiado)");
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -476,7 +462,7 @@ function Vendas({ products, sales, onAdd, onRemove }) {
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
-        {sales.map((s) => <ListRow key={s.id} title={s.product_name} subtitle={`${formatDatePt(s.date)} · ${s.payment}`} value={brl(s.total)} valueColor="#1f9d6b" onDelete={() => onRemove(s.id)} />)}
+        {salesNormais.map((s) => <ListRow key={s.id} title={s.product_name} subtitle={`${formatDatePt(s.date)} · ${s.payment}`} value={brl(s.total)} valueColor="#1f9d6b" onDelete={() => onRemove(s.id)} />)}
       </div>
     </div>
   );
@@ -517,7 +503,7 @@ function Gastos({ expenses, onAdd, onRemove }) {
   );
 }
 
-function VendasEmpresa({ companySales, onAdd, onRemove }) {
+function VendasEmpresa({ sales, onAdd, onRemove }) {
   const [employeeName, setEmployeeName] = useState("");
   const [total, setTotal] = useState("");
   const [date, setDate] = useState(todayISO());
@@ -525,15 +511,23 @@ function VendasEmpresa({ companySales, onAdd, onRemove }) {
 
   async function submit() {
     if (!employeeName.trim() || !total || !date) return;
+    // Salva na mesma tabela 'sales', usando o product_name para o nome e payment="Empresa (Fiado)"
     await onAdd({
       date: date,
-      employee_name: employeeName.trim(),
+      product_name: employeeName.trim(),
+      qty: 1,
       total: parseFloat(total),
+      payment: "Empresa (Fiado)",
     });
     setEmployeeName("");
     setTotal("");
     setDate(todayISO());
   }
+
+  // Filtra apenas as vendas da empresa
+  const companySales = useMemo(() => {
+    return sales.filter((s) => s.payment === "Empresa (Fiado)");
+  }, [sales]);
 
   const mesesDisponiveis = useMemo(() => {
     const setMeses = new Set([todayISO().slice(0, 7)]);
@@ -553,7 +547,7 @@ function VendasEmpresa({ companySales, onAdd, onRemove }) {
     const map = {};
     companySales.forEach((s) => {
       if (s.date && s.date.slice(0, 7) === selectedMonth) {
-        const nome = s.employee_name || "Desconhecido";
+        const nome = s.product_name || "Desconhecido";
         map[nome] = (map[nome] || 0) + Number(s.total);
       }
     });
@@ -591,7 +585,6 @@ function VendasEmpresa({ companySales, onAdd, onRemove }) {
     <div>
       <SectionTitle>Vendas Empresa</SectionTitle>
 
-      {/* Caixa de Lançamento ajustada com largura livre para o nome */}
       <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 16, marginBottom: 18 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#2b2323", marginBottom: 12 }}>Lançar venda</div>
         
@@ -649,7 +642,6 @@ function VendasEmpresa({ companySales, onAdd, onRemove }) {
         </div>
       </div>
 
-      {/* Caixa de Listagem e Filtro por Mês */}
       <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 10 }}>
           <select
@@ -789,5 +781,5 @@ const primaryBtnStyle = {
   fontSize: 14,
   fontWeight: 700,
   cursor: "pointer",
-  marginTop: 4,
+  marginTop: "4px",
 };
