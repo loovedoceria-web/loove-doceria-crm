@@ -133,7 +133,9 @@ export default function App() {
 
   async function addCompanySale(sale) {
     const { data, error } = await supabase.from("company_sales").insert(sale).select().single();
-    if (!error) setCompanySales((prev) => [data, ...prev]);
+    if (!error && data) {
+      setCompanySales((prev) => [data, ...prev]);
+    }
   }
 
   async function removeCompanySale(id) {
@@ -519,12 +521,10 @@ function VendasEmpresa({ companySales, onAdd, onRemove }) {
   const [employeeName, setEmployeeName] = useState("");
   const [total, setTotal] = useState("");
   const [date, setDate] = useState(todayISO());
-
-  // Mês selecionado no formato "AAAA-MM" (ex: "2026-07")
   const [selectedMonth, setSelectedMonth] = useState(todayISO().slice(0, 7));
 
   async function submit() {
-    if (!employeeName || !total || !date) return;
+    if (!employeeName.trim() || !total || !date) return;
     await onAdd({
       date: date,
       employee_name: employeeName.trim(),
@@ -535,7 +535,6 @@ function VendasEmpresa({ companySales, onAdd, onRemove }) {
     setDate(todayISO());
   }
 
-  // Lista de meses disponíveis com base nas vendas registradas + mês atual
   const mesesDisponiveis = useMemo(() => {
     const setMeses = new Set([todayISO().slice(0, 7)]);
     companySales.forEach((s) => {
@@ -544,14 +543,12 @@ function VendasEmpresa({ companySales, onAdd, onRemove }) {
     return Array.from(setMeses).sort().reverse();
   }, [companySales]);
 
-  // Formata o mês "AAAA-MM" para exibição amigável ("julho de 2026")
   function formatMonthLabel(ym) {
     const [y, m] = ym.split("-");
     const dataRef = new Date(Number(y), Number(m) - 1, 1);
     return dataRef.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   }
 
-  // Filtra e soma por pessoa apenas no mês selecionado
   const resumoMes = useMemo(() => {
     const map = {};
     companySales.forEach((s) => {
@@ -594,11 +591,11 @@ function VendasEmpresa({ companySales, onAdd, onRemove }) {
     <div>
       <SectionTitle>Vendas Empresa</SectionTitle>
 
-      {/* Caixa de Lançamento idêntica ao modelo */}
+      {/* Caixa de Lançamento ajustada com largura livre para o nome */}
       <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 16, marginBottom: 18 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#2b2323", marginBottom: 12 }}>Lançar venda</div>
         
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 140px auto", gap: 8, alignItems: "end" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", marginBottom: 4 }}>Nome</div>
             <input
@@ -609,44 +606,46 @@ function VendasEmpresa({ companySales, onAdd, onRemove }) {
             />
           </div>
 
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", marginBottom: 4 }}>Valor (R$)</div>
-            <input
-              style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
-              type="number"
-              step="0.01"
-              placeholder="0,00"
-              value={total}
-              onChange={(e) => setTotal(e.target.value)}
-            />
-          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 140px auto", gap: 8, alignItems: "end" }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", marginBottom: 4 }}>Valor (R$)</div>
+              <input
+                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+                type="number"
+                step="0.01"
+                placeholder="0,00"
+                value={total}
+                onChange={(e) => setTotal(e.target.value)}
+              />
+            </div>
 
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", marginBottom: 4 }}>Data</div>
-            <input
-              style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", marginBottom: 4 }}>Data</div>
+              <input
+                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
 
-          <button
-            onClick={submit}
-            style={{
-              background: "#7d2a3f",
-              color: "#ffffff",
-              border: "none",
-              borderRadius: 10,
-              padding: "11px 16px",
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: "pointer",
-              height: 43,
-            }}
-          >
-            Adicionar
-          </button>
+            <button
+              onClick={submit}
+              style={{
+                background: "#7d2a3f",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: 10,
+                padding: "11px 18px",
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: "pointer",
+                height: 43,
+              }}
+            >
+              Adicionar
+            </button>
+          </div>
         </div>
       </div>
 
