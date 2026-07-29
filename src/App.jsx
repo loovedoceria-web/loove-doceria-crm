@@ -64,7 +64,6 @@ export default function App() {
   const [companySales, setCompanySales] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
 
-  // Watch auth state
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -78,7 +77,6 @@ export default function App() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  // Load data whenever the user logs in
   useEffect(() => {
     if (!session) {
       setProducts([]);
@@ -104,11 +102,7 @@ export default function App() {
   }, [session]);
 
   async function addProduct(product) {
-    const { data, error } = await supabase
-      .from("products")
-      .insert(product)
-      .select()
-      .single();
+    const { data, error } = await supabase.from("products").insert(product).select().single();
     if (!error) setProducts((prev) => [...prev, data]);
   }
 
@@ -118,11 +112,7 @@ export default function App() {
   }
 
   async function addSale(sale) {
-    const { data, error } = await supabase
-      .from("sales")
-      .insert(sale)
-      .select()
-      .single();
+    const { data, error } = await supabase.from("sales").insert(sale).select().single();
     if (!error) setSales((prev) => [data, ...prev]);
   }
 
@@ -132,11 +122,7 @@ export default function App() {
   }
 
   async function addExpense(expense) {
-    const { data, error } = await supabase
-      .from("expenses")
-      .insert(expense)
-      .select()
-      .single();
+    const { data, error } = await supabase.from("expenses").insert(expense).select().single();
     if (!error) setExpenses((prev) => [data, ...prev]);
   }
 
@@ -146,11 +132,7 @@ export default function App() {
   }
 
   async function addCompanySale(sale) {
-    const { data, error } = await supabase
-      .from("company_sales")
-      .insert(sale)
-      .select()
-      .single();
+    const { data, error } = await supabase.from("company_sales").insert(sale).select().single();
     if (!error) setCompanySales((prev) => [data, ...prev]);
   }
 
@@ -172,12 +154,8 @@ export default function App() {
   );
 
   const lucroMes = useMemo(() => {
-    const vendasMes = sales
-      .filter((s) => isSameMonth(s.date, today))
-      .reduce((sum, s) => sum + Number(s.total), 0);
-    const gastosMes = expenses
-      .filter((g) => isSameMonth(g.date, today))
-      .reduce((sum, g) => sum + Number(g.value), 0);
+    const vendasMes = sales.filter((s) => isSameMonth(s.date, today)).reduce((sum, s) => sum + Number(s.total), 0);
+    const gastosMes = expenses.filter((g) => isSameMonth(g.date, today)).reduce((sum, g) => sum + Number(g.value), 0);
     return vendasMes - gastosMes;
   }, [sales, expenses, today]);
 
@@ -203,15 +181,14 @@ export default function App() {
   const shellStyle = {
     minHeight: "100vh",
     background: "#fdf6f6",
-    fontFamily:
-      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     display: "flex",
     justifyContent: "center",
   };
 
   const innerStyle = {
     width: "100%",
-    maxWidth: 460,
+    maxWidth: 480,
     minHeight: "100vh",
     background: "#fdf6f6",
     display: "flex",
@@ -240,9 +217,7 @@ export default function App() {
 
         <div style={{ flex: 1, padding: "20px 20px 100px" }}>
           {dataLoading ? (
-            <div style={{ textAlign: "center", color: "#b3a3a3", padding: "40px 0" }}>
-              Carregando...
-            </div>
+            <div style={{ textAlign: "center", color: "#b3a3a3", padding: "40px 0" }}>Carregando...</div>
           ) : (
             <>
               {view === "dashboard" && (
@@ -256,35 +231,10 @@ export default function App() {
                   expenses={expenses}
                 />
               )}
-              {view === "produtos" && (
-                <Produtos
-                  products={products}
-                  onAdd={addProduct}
-                  onRemove={removeProduct}
-                />
-              )}
-              {view === "vendas" && (
-                <Vendas
-                  products={products}
-                  sales={sales}
-                  onAdd={addSale}
-                  onRemove={removeSale}
-                />
-              )}
-              {view === "gastos" && (
-                <Gastos
-                  expenses={expenses}
-                  onAdd={addExpense}
-                  onRemove={removeExpense}
-                />
-              )}
-              {view === "empresa" && (
-                <VendasEmpresa
-                  companySales={companySales}
-                  onAdd={addCompanySale}
-                  onRemove={removeCompanySale}
-                />
-              )}
+              {view === "produtos" && <Produtos products={products} onAdd={addProduct} onRemove={removeProduct} />}
+              {view === "vendas" && <Vendas products={products} sales={sales} onAdd={addSale} onRemove={removeSale} />}
+              {view === "gastos" && <Gastos expenses={expenses} onAdd={addExpense} onRemove={removeExpense} />}
+              {view === "empresa" && <VendasEmpresa companySales={companySales} onAdd={addCompanySale} onRemove={removeCompanySale} />}
             </>
           )}
         </div>
@@ -315,10 +265,9 @@ function AuthScreen() {
     if (mode === "create") {
       const { error } = await supabase.auth.signUp({ email, password });
       setLoading(false);
-      if (error) {
-        setError(error.message);
-      } else {
-        setInfo("Conta criada! Verifique seu e-mail para confirmar o acesso, depois faça login.");
+      if (error) setError(error.message);
+      else {
+        setInfo("Conta criada! Verifique seu e-mail.");
         setMode("login");
       }
     } else {
@@ -329,111 +278,40 @@ function AuthScreen() {
   }
 
   return (
-    <div
-      style={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        padding: "32px 28px",
-        minHeight: "100vh",
-      }}
-    >
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "32px 28px", minHeight: "100vh" }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 28 }}>
-        <img
-          src="/logo.png"
-          alt="Loove Doceria"
-          style={{ width: 76, height: 76, borderRadius: 18, objectFit: "cover", marginBottom: 14 }}
-        />
+        <img src="/logo.png" alt="Loove Doceria" style={{ width: 76, height: 76, borderRadius: 18, objectFit: "cover", marginBottom: 14 }} />
         <div style={{ fontWeight: 700, fontSize: 19, color: "#2b2323" }}>Loove Doceria</div>
         <div style={{ fontSize: 12, color: "#9c8b8b", marginTop: 2 }}>CRM Financeiro</div>
       </div>
-
-      <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 16, textAlign: "center" }}>
-        {mode === "create" ? "Crie seu acesso" : "Entrar na sua conta"}
-      </div>
-
       <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ position: "relative" }}>
           <Mail size={16} color="#c9b6b6" style={{ position: "absolute", left: 12, top: 13 }} />
-          <input
-            style={{ ...inputStyle, paddingLeft: 36, width: "100%", boxSizing: "border-box" }}
-            type="email"
-            placeholder="E-mail"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+          <input style={{ ...inputStyle, paddingLeft: 36, width: "100%", boxSizing: "border-box" }} type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div style={{ position: "relative" }}>
           <Lock size={16} color="#c9b6b6" style={{ position: "absolute", left: 12, top: 13 }} />
-          <input
-            style={{ ...inputStyle, paddingLeft: 36, width: "100%", boxSizing: "border-box" }}
-            type="password"
-            placeholder="Senha (mín. 6 caracteres)"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <input style={{ ...inputStyle, paddingLeft: 36, width: "100%", boxSizing: "border-box" }} type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
-
         {error && <div style={{ color: "#d1445b", fontSize: 12.5, textAlign: "center" }}>{error}</div>}
         {info && <div style={{ color: "#1f9d6b", fontSize: 12.5, textAlign: "center" }}>{info}</div>}
-
-        <button style={{ ...primaryBtnStyle, marginTop: 8 }} type="submit" disabled={loading}>
-          {loading ? "Aguarde..." : mode === "create" ? "Criar conta" : "Entrar"}
-        </button>
+        <button style={{ ...primaryBtnStyle, marginTop: 8 }} type="submit" disabled={loading}>{loading ? "Aguarde..." : mode === "create" ? "Criar conta" : "Entrar"}</button>
       </form>
-
-      <button
-        onClick={() => {
-          setMode(mode === "create" ? "login" : "create");
-          setError("");
-          setInfo("");
-        }}
-        style={{
-          border: "none",
-          background: "transparent",
-          color: "#c1707d",
-          fontSize: 12.5,
-          textAlign: "center",
-          marginTop: 16,
-          cursor: "pointer",
-        }}
-      >
-        {mode === "create" ? "Já tenho conta, entrar" : "Ainda não tenho conta, criar acesso"}
-      </button>
     </div>
   );
 }
 
 function Header({ onLogout }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 12,
-        padding: "18px 20px",
-        borderBottom: "1px solid #f1dede",
-        background: "#fdf6f6",
-      }}
-    >
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px", borderBottom: "1px solid #f1dede", background: "#fdf6f6" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <img
-          src="/logo.png"
-          alt="Loove Doceria"
-          style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover", flexShrink: 0 }}
-        />
+        <img src="/logo.png" alt="Loove" style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }} />
         <div>
           <div style={{ fontWeight: 700, fontSize: 17, color: "#2b2323" }}>Loove Doceria</div>
           <div style={{ fontSize: 12, color: "#9c8b8b" }}>CRM Financeiro</div>
         </div>
       </div>
-      <button
-        onClick={onLogout}
-        aria-label="Sair"
-        style={{ border: "none", background: "transparent", color: "#c9b6b6", cursor: "pointer", display: "flex", padding: 6 }}
-      >
+      <button onClick={onLogout} style={{ border: "none", background: "transparent", color: "#c9b6b6", cursor: "pointer", display: "flex", padding: 6 }}>
         <LogOut size={18} />
       </button>
     </div>
@@ -442,25 +320,10 @@ function Header({ onLogout }) {
 
 function Card({ label, value, icon, iconBg, valueColor }) {
   return (
-    <div
-      style={{
-        background: "#ffffff",
-        border: "1px solid #f2dede",
-        borderRadius: 16,
-        padding: "18px 18px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 14,
-        minHeight: 108,
-      }}
-    >
+    <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: "18px", display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", color: "#a08f8f", textTransform: "uppercase" }}>
-          {label}
-        </span>
-        <div style={{ width: 30, height: 30, borderRadius: 9, background: iconBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          {icon}
-        </div>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", textTransform: "uppercase" }}>{label}</span>
+        <div style={{ width: 30, height: 30, borderRadius: 9, background: iconBg, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
       </div>
       <div style={{ fontSize: 22, fontWeight: 700, color: valueColor || "#2b2323" }}>{value}</div>
     </div>
@@ -470,22 +333,13 @@ function Card({ label, value, icon, iconBg, valueColor }) {
 function Dashboard({ dataFormatada, vendasHoje, gastosHoje, lucroMes, maisVendido, sales, expenses }) {
   return (
     <div>
-      <div style={{ color: "#c1707d", fontSize: 14, marginBottom: 18, textTransform: "capitalize" }}>
-        {dataFormatada}
-      </div>
+      <div style={{ color: "#c1707d", fontSize: 14, marginBottom: 18, textTransform: "capitalize" }}>{dataFormatada}</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         <Card label="Vendas hoje" value={brl(vendasHoje)} icon={<ShoppingCart size={15} color="#e0687a" />} iconBg="#fbe0e2" />
         <Card label="Gastos hoje" value={brl(gastosHoje)} icon={<Receipt size={15} color="#e0687a" />} iconBg="#fbe0e2" />
-        <Card
-          label="Lucro do mês"
-          value={brl(lucroMes)}
-          icon={<TrendingUp size={15} color="#1f9d6b" />}
-          iconBg="#d7f5e6"
-          valueColor={lucroMes >= 0 ? "#1f9d6b" : "#d1445b"}
-        />
+        <Card label="Lucro do mês" value={brl(lucroMes)} icon={<TrendingUp size={15} color="#1f9d6b" />} iconBg="#d7f5e6" valueColor={lucroMes >= 0 ? "#1f9d6b" : "#d1445b"} />
         <Card label="Mais vendido" value={maisVendido || "—"} icon={<Star size={15} color="#e0687a" />} iconBg="#fbe0e2" />
       </div>
-
       <SalesChart sales={sales} expenses={expenses} />
     </div>
   );
@@ -506,35 +360,21 @@ function SalesChart({ sales, expenses }) {
     return days;
   }, [sales, expenses]);
 
-  const hasData = data.some((d) => d.Vendas > 0 || d.Gastos > 0);
-
   return (
     <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: "18px 14px 8px", marginTop: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 6px 14px" }}>
-        <div style={{ width: 26, height: 26, borderRadius: 8, background: "#fbe0e2", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <BarChart3 size={14} color="#e0687a" />
-        </div>
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#2b2323" }}>Vendas x Gastos (últimos 7 dias)</span>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "#2b2323", marginBottom: 10 }}>Vendas x Gastos (últimos 7 dias)</div>
+      <div style={{ width: "100%", height: 200 }}>
+        <ResponsiveContainer>
+          <BarChart data={data} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f2dede" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#a08f8f" }} />
+            <YAxis tick={{ fontSize: 11, fill: "#a08f8f" }} width={40} />
+            <Tooltip formatter={(v) => brl(v)} />
+            <Bar dataKey="Vendas" fill="#e0687a" radius={[4, 4, 0, 0]} maxBarSize={18} />
+            <Bar dataKey="Gastos" fill="#d9b8ba" radius={[4, 4, 0, 0]} maxBarSize={18} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
-
-      {!hasData ? (
-        <div style={{ padding: "8px 6px 20px" }}>
-          <EmptyState text="Ainda não há vendas ou gastos suficientes para mostrar o gráfico." />
-        </div>
-      ) : (
-        <div style={{ width: "100%", height: 200 }}>
-          <ResponsiveContainer>
-            <BarChart data={data} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f2dede" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#a08f8f" }} axisLine={{ stroke: "#f2dede" }} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#a08f8f" }} axisLine={false} tickLine={false} width={40} />
-              <Tooltip formatter={(value) => brl(value)} contentStyle={{ borderRadius: 10, border: "1px solid #f2dede", fontSize: 12 }} />
-              <Bar dataKey="Vendas" fill="#e0687a" radius={[4, 4, 0, 0]} maxBarSize={18} />
-              <Bar dataKey="Gastos" fill="#d9b8ba" radius={[4, 4, 0, 0]} maxBarSize={18} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
     </div>
   );
 }
@@ -544,11 +384,7 @@ function SectionTitle({ children }) {
 }
 
 function EmptyState({ text }) {
-  return (
-    <div style={{ textAlign: "center", color: "#b3a3a3", fontSize: 13, padding: "28px 0", border: "1px dashed #eeddde", borderRadius: 12 }}>
-      {text}
-    </div>
-  );
+  return <div style={{ textAlign: "center", color: "#b3a3a3", fontSize: 13, padding: "28px 0", border: "1px dashed #eeddde", borderRadius: 12 }}>{text}</div>;
 }
 
 function Produtos({ products, onAdd, onRemove }) {
@@ -560,10 +396,7 @@ function Produtos({ products, onAdd, onRemove }) {
   async function submit() {
     if (!name || !price) return;
     await onAdd({ name, price: parseFloat(price), category });
-    setName("");
-    setPrice("");
-    setCategory("");
-    setShowForm(false);
+    setName(""); setPrice(""); setCategory(""); setShowForm(false);
   }
 
   return (
@@ -572,21 +405,16 @@ function Produtos({ products, onAdd, onRemove }) {
         <SectionTitle>Produtos</SectionTitle>
         <IconButton onClick={() => setShowForm(!showForm)} active={showForm} />
       </div>
-
       {showForm && (
         <div style={formPanelStyle}>
           <input style={inputStyle} placeholder="Nome do doce" value={name} onChange={(e) => setName(e.target.value)} />
-          <input style={inputStyle} placeholder="Preço (ex: 8.50)" type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} />
-          <input style={inputStyle} placeholder="Categoria (opcional)" value={category} onChange={(e) => setCategory(e.target.value)} />
+          <input style={inputStyle} type="number" step="0.01" placeholder="Preço" value={price} onChange={(e) => setPrice(e.target.value)} />
+          <input style={inputStyle} placeholder="Categoria" value={category} onChange={(e) => setCategory(e.target.value)} />
           <button style={primaryBtnStyle} onClick={submit}>Adicionar produto</button>
         </div>
       )}
-
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
-        {products.length === 0 && <EmptyState text="Nenhum produto cadastrado ainda." />}
-        {products.map((p) => (
-          <ListRow key={p.id} title={p.name} subtitle={p.category || "Sem categoria"} value={brl(p.price)} onDelete={() => onRemove(p.id)} />
-        ))}
+        {products.map((p) => <ListRow key={p.id} title={p.name} subtitle={p.category} value={brl(p.price)} onDelete={() => onRemove(p.id)} />)}
       </div>
     </div>
   );
@@ -603,33 +431,15 @@ function Vendas({ products, sales, onAdd, onRemove }) {
 
   async function submit() {
     if (mode === "catalogo") {
-      const product = products.find((p) => String(p.id) === String(productId));
-      if (!product || !qty) return;
-      await onAdd({
-        date: todayISO(),
-        product_name: product.name,
-        qty: parseFloat(qty),
-        total: product.price * parseFloat(qty),
-        payment,
-      });
+      const p = products.find((x) => String(x.id) === String(productId));
+      if (!p) return;
+      await onAdd({ date: todayISO(), product_name: p.name, qty: Number(qty), total: p.price * Number(qty), payment });
     } else {
       if (!manualDesc || !manualValue) return;
-      await onAdd({
-        date: todayISO(),
-        product_name: manualDesc,
-        qty: 1,
-        total: parseFloat(manualValue),
-        payment,
-      });
+      await onAdd({ date: todayISO(), product_name: manualDesc, qty: 1, total: Number(manualValue), payment });
     }
-    setProductId("");
-    setQty(1);
-    setManualDesc("");
-    setManualValue("");
     setShowForm(false);
   }
-
-  const sorted = [...sales].sort((a, b) => (a.date < b.date ? 1 : -1));
 
   return (
     <div>
@@ -637,51 +447,34 @@ function Vendas({ products, sales, onAdd, onRemove }) {
         <SectionTitle>Vendas</SectionTitle>
         <IconButton onClick={() => setShowForm(!showForm)} active={showForm} />
       </div>
-
       {showForm && (
         <div style={formPanelStyle}>
           <div style={{ display: "flex", gap: 8 }}>
-            <ToggleButton active={mode === "catalogo"} onClick={() => setMode("catalogo")}>Do catálogo</ToggleButton>
-            <ToggleButton active={mode === "manual"} onClick={() => setMode("manual")}>Valor manual</ToggleButton>
+            <ToggleButton active={mode === "catalogo"} onClick={() => setMode("catalogo")}>Catálogo</ToggleButton>
+            <ToggleButton active={mode === "manual"} onClick={() => setMode("manual")}>Manual</ToggleButton>
           </div>
-
           {mode === "catalogo" ? (
             <>
               <select style={inputStyle} value={productId} onChange={(e) => setProductId(e.target.value)}>
-                <option value="">Selecione um produto</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} — {brl(p.price)}</option>
-                ))}
+                <option value="">Selecione</option>
+                {products.map((p) => <option key={p.id} value={p.id}>{p.name} — {brl(p.price)}</option>)}
               </select>
-              <input style={inputStyle} type="number" min="1" placeholder="Quantidade" value={qty} onChange={(e) => setQty(e.target.value)} />
+              <input style={inputStyle} type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} />
             </>
           ) : (
             <>
-              <input style={inputStyle} placeholder="Descrição da venda" value={manualDesc} onChange={(e) => setManualDesc(e.target.value)} />
-              <input style={inputStyle} type="number" step="0.01" placeholder="Valor (ex: 15.00)" value={manualValue} onChange={(e) => setManualValue(e.target.value)} />
+              <input style={inputStyle} placeholder="Descrição" value={manualDesc} onChange={(e) => setManualDesc(e.target.value)} />
+              <input style={inputStyle} type="number" step="0.01" placeholder="Valor" value={manualValue} onChange={(e) => setManualValue(e.target.value)} />
             </>
           )}
-
           <select style={inputStyle} value={payment} onChange={(e) => setPayment(e.target.value)}>
             {FORMAS_PAGAMENTO.map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
-
-          <button style={primaryBtnStyle} onClick={submit}>Registrar venda</button>
+          <button style={primaryBtnStyle} onClick={submit}>Registrar</button>
         </div>
       )}
-
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
-        {sorted.length === 0 && <EmptyState text="Nenhuma venda registrada ainda." />}
-        {sorted.map((s) => (
-          <ListRow
-            key={s.id}
-            title={s.product_name}
-            subtitle={`${formatDatePt(s.date)} · ${s.payment}${s.qty > 1 ? ` · x${s.qty}` : ""}`}
-            value={brl(s.total)}
-            valueColor="#1f9d6b"
-            onDelete={() => onRemove(s.id)}
-          />
-        ))}
+        {sales.map((s) => <ListRow key={s.id} title={s.product_name} subtitle={`${formatDatePt(s.date)} · ${s.payment}`} value={brl(s.total)} valueColor="#1f9d6b" onDelete={() => onRemove(s.id)} />)}
       </div>
     </div>
   );
@@ -695,14 +488,9 @@ function Gastos({ expenses, onAdd, onRemove }) {
 
   async function submit() {
     if (!description || !value) return;
-    await onAdd({ date: todayISO(), description, category, value: parseFloat(value) });
-    setDescription("");
-    setValue("");
-    setCategory(CATEGORIAS_GASTO[0]);
-    setShowForm(false);
+    await onAdd({ date: todayISO(), description, category, value: Number(value) });
+    setDescription(""); setValue(""); setShowForm(false);
   }
-
-  const sorted = [...expenses].sort((a, b) => (a.date < b.date ? 1 : -1));
 
   return (
     <div>
@@ -710,64 +498,80 @@ function Gastos({ expenses, onAdd, onRemove }) {
         <SectionTitle>Gastos</SectionTitle>
         <IconButton onClick={() => setShowForm(!showForm)} active={showForm} />
       </div>
-
       {showForm && (
         <div style={formPanelStyle}>
-          <input style={inputStyle} placeholder="Descrição do gasto" value={description} onChange={(e) => setDescription(e.target.value)} />
+          <input style={inputStyle} placeholder="Descrição" value={description} onChange={(e) => setDescription(e.target.value)} />
           <select style={inputStyle} value={category} onChange={(e) => setCategory(e.target.value)}>
             {CATEGORIAS_GASTO.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <input style={inputStyle} type="number" step="0.01" placeholder="Valor (ex: 50.00)" value={value} onChange={(e) => setValue(e.target.value)} />
-          <button style={primaryBtnStyle} onClick={submit}>Registrar gasto</button>
+          <input style={inputStyle} type="number" step="0.01" placeholder="Valor" value={value} onChange={(e) => setValue(e.target.value)} />
+          <button style={primaryBtnStyle} onClick={submit}>Registrar</button>
         </div>
       )}
-
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
-        {sorted.length === 0 && <EmptyState text="Nenhum gasto registrado ainda." />}
-        {sorted.map((g) => (
-          <ListRow key={g.id} title={g.description} subtitle={`${formatDatePt(g.date)} · ${g.category}`} value={brl(g.value)} valueColor="#d1445b" onDelete={() => onRemove(g.id)} />
-        ))}
+        {expenses.map((g) => <ListRow key={g.id} title={g.description} subtitle={`${formatDatePt(g.date)} · ${g.category}`} value={brl(g.value)} valueColor="#d1445b" onDelete={() => onRemove(g.id)} />)}
       </div>
     </div>
   );
 }
 
 function VendasEmpresa({ companySales, onAdd, onRemove }) {
-  const [showForm, setShowForm] = useState(false);
   const [employeeName, setEmployeeName] = useState("");
   const [total, setTotal] = useState("");
-  const [activeTab, setActiveTab] = useState("totais"); // "totais" | "historico"
+  const [date, setDate] = useState(todayISO());
+
+  // Mês selecionado no formato "AAAA-MM" (ex: "2026-07")
+  const [selectedMonth, setSelectedMonth] = useState(todayISO().slice(0, 7));
 
   async function submit() {
-    if (!employeeName || !total) return;
+    if (!employeeName || !total || !date) return;
     await onAdd({
-      date: todayISO(),
+      date: date,
       employee_name: employeeName.trim(),
       total: parseFloat(total),
     });
     setEmployeeName("");
     setTotal("");
-    setShowForm(false);
+    setDate(todayISO());
   }
 
-  // Agrupa e soma automaticamente os valores por pessoa no mês atual
+  // Lista de meses disponíveis com base nas vendas registradas + mês atual
+  const mesesDisponiveis = useMemo(() => {
+    const setMeses = new Set([todayISO().slice(0, 7)]);
+    companySales.forEach((s) => {
+      if (s.date) setMeses.add(s.date.slice(0, 7));
+    });
+    return Array.from(setMeses).sort().reverse();
+  }, [companySales]);
+
+  // Formata o mês "AAAA-MM" para exibição amigável ("julho de 2026")
+  function formatMonthLabel(ym) {
+    const [y, m] = ym.split("-");
+    const dataRef = new Date(Number(y), Number(m) - 1, 1);
+    return dataRef.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  }
+
+  // Filtra e soma por pessoa apenas no mês selecionado
   const resumoMes = useMemo(() => {
     const map = {};
     companySales.forEach((s) => {
-      if (isSameMonth(s.date, todayISO())) {
+      if (s.date && s.date.slice(0, 7) === selectedMonth) {
         const nome = s.employee_name || "Desconhecido";
         map[nome] = (map[nome] || 0) + Number(s.total);
       }
     });
     return Object.entries(map).map(([name, sum]) => ({ name, sum })).sort((a, b) => b.sum - a.sum);
-  }, [companySales]);
+  }, [companySales, selectedMonth]);
 
-  // Função para exportar relatório em PDF
+  const totalGeralMes = useMemo(() => {
+    return resumoMes.reduce((acc, item) => acc + item.sum, 0);
+  }, [resumoMes]);
+
   function gerarPDF() {
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.text("Relatório - Vendas Empresa (Fechamento do Mês)", 14, 20);
+    doc.text(`Relatório - Vendas Empresa (${formatMonthLabel(selectedMonth)})`, 14, 20);
 
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
@@ -777,101 +581,116 @@ function VendasEmpresa({ companySales, onAdd, onRemove }) {
 
     doc.autoTable({
       startY: 36,
-      head: [["Funcionário / Cliente", "Total Devido no Mês"]],
+      head: [["Funcionário / Cliente", "Total Devido"]],
       body: dadosTabela,
       theme: "grid",
       headStyles: { fillColor: [224, 104, 122] },
     });
 
-    doc.save(`vendas-empresa-${todayISO().slice(0, 7)}.pdf`);
+    doc.save(`vendas-empresa-${selectedMonth}.pdf`);
   }
-
-  const sortedHistorico = [...companySales].sort((a, b) => (a.date < b.date ? 1 : -1));
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <SectionTitle>Vendas Empresa</SectionTitle>
-        <div style={{ display: "flex", gap: 8 }}>
-          {resumoMes.length > 0 && (
+      <SectionTitle>Vendas Empresa</SectionTitle>
+
+      {/* Caixa de Lançamento idêntica ao modelo */}
+      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 16, marginBottom: 18 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#2b2323", marginBottom: 12 }}>Lançar venda</div>
+        
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 140px auto", gap: 8, alignItems: "end" }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", marginBottom: 4 }}>Nome</div>
+            <input
+              style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+              placeholder="Nome da pessoa"
+              value={employeeName}
+              onChange={(e) => setEmployeeName(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", marginBottom: 4 }}>Valor (R$)</div>
+            <input
+              style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+              type="number"
+              step="0.01"
+              placeholder="0,00"
+              value={total}
+              onChange={(e) => setTotal(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", marginBottom: 4 }}>Data</div>
+            <input
+              style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </div>
+
+          <button
+            onClick={submit}
+            style={{
+              background: "#7d2a3f",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: 10,
+              padding: "11px 16px",
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: "pointer",
+              height: 43,
+            }}
+          >
+            Adicionar
+          </button>
+        </div>
+      </div>
+
+      {/* Caixa de Listagem e Filtro por Mês */}
+      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 10 }}>
+          <select
+            style={{ ...inputStyle, background: "#ffffff", fontWeight: 600, cursor: "pointer" }}
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+          >
+            {mesesDisponiveis.map((ym) => (
+              <option key={ym} value={ym}>{formatMonthLabel(ym)}</option>
+            ))}
+          </select>
+
+          <div style={{ background: "#fbe0e2", color: "#7d2a3f", padding: "8px 14px", borderRadius: 12, fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
+            Total: {brl(totalGeralMes)}
+          </div>
+        </div>
+
+        {resumoMes.length > 0 && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
             <button
               onClick={gerarPDF}
-              style={{
-                background: "#1f9d6b",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: 10,
-                padding: "0 12px",
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
+              style={{ background: "#1f9d6b", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
             >
-              Exportar PDF
+              Exportar Relatório PDF
             </button>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {resumoMes.length === 0 && (
+            <EmptyState text="Nenhuma venda registrada nesse mês ainda." />
           )}
-          <IconButton onClick={() => setShowForm(!showForm)} active={showForm} />
-        </div>
-      </div>
-
-      {showForm && (
-        <div style={formPanelStyle}>
-          <input
-            style={inputStyle}
-            placeholder="Nome da pessoa (ex: João Silva)"
-            value={employeeName}
-            onChange={(e) => setEmployeeName(e.target.value)}
-          />
-          <input
-            style={inputStyle}
-            type="number"
-            step="0.01"
-            placeholder="Valor da venda (ex: 12.50)"
-            value={total}
-            onChange={(e) => setTotal(e.target.value)}
-          />
-          <button style={primaryBtnStyle} onClick={submit}>Registrar venda empresa</button>
-        </div>
-      )}
-
-      <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-        <ToggleButton active={activeTab === "totais"} onClick={() => setActiveTab("totais")}>
-          Totais do Mês
-        </ToggleButton>
-        <ToggleButton active={activeTab === "historico"} onClick={() => setActiveTab("historico")}>
-          Histórico Completo
-        </ToggleButton>
-      </div>
-
-      {activeTab === "totais" ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
-          {resumoMes.length === 0 && <EmptyState text="Nenhuma venda corporativa registrada neste mês." />}
           {resumoMes.map((item, index) => (
-            <ListRow
-              key={index}
-              title={item.name}
-              subtitle="Total acumulado no mês atual"
-              value={brl(item.sum)}
-              valueColor="#e0687a"
-              onDelete={null} // Oculta botão de deletar na visão de totais agrupados
-            />
+            <div key={index} style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 12, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontWeight: 600, color: "#2b2323", fontSize: 14 }}>{item.name}</div>
+              <div style={{ fontWeight: 700, color: "#7d2a3f", fontSize: 14 }}>{brl(item.sum)}</div>
+            </div>
           ))}
         </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
-          {sortedHistorico.length === 0 && <EmptyState text="Nenhum histórico registrado." />}
-          {sortedHistorico.map((s) => (
-            <ListRow
-              key={s.id}
-              title={s.employee_name}
-              subtitle={formatDatePt(s.date)}
-              value={brl(s.total)}
-              valueColor="#e0687a"
-              onDelete={() => removeCompanySale(s.id)}
-            />
-          ))}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -886,7 +705,7 @@ function ListRow({ title, subtitle, value, valueColor, onDelete }) {
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
         <span style={{ fontSize: 14, fontWeight: 700, color: valueColor || "#2b2323" }}>{value}</span>
         {onDelete && (
-          <button onClick={onDelete} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 4, color: "#c9b6b6", display: "flex" }} aria-label="Excluir">
+          <button onClick={onDelete} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 4, color: "#c9b6b6", display: "flex" }}>
             <Trash2 size={15} />
           </button>
         )}
@@ -897,11 +716,7 @@ function ListRow({ title, subtitle, value, valueColor, onDelete }) {
 
 function IconButton({ onClick, active }) {
   return (
-    <button
-      onClick={onClick}
-      style={{ width: 34, height: 34, borderRadius: 10, border: "none", background: active ? "#e0687a" : "#fbe0e2", color: active ? "#ffffff" : "#e0687a", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
-      aria-label={active ? "Fechar formulário" : "Adicionar"}
-    >
+    <button onClick={onClick} style={{ width: 34, height: 34, borderRadius: 10, border: "none", background: active ? "#e0687a" : "#fbe0e2", color: active ? "#ffffff" : "#e0687a", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
       {active ? <X size={17} /> : <Plus size={17} />}
     </button>
   );
@@ -909,10 +724,7 @@ function IconButton({ onClick, active }) {
 
 function ToggleButton({ active, onClick, children }) {
   return (
-    <button
-      onClick={onClick}
-      style={{ flex: 1, padding: "9px 0", borderRadius: 10, border: active ? "1px solid #e0687a" : "1px solid #f2dede", background: active ? "#fbe0e2" : "#ffffff", color: active ? "#c14a5c" : "#a08f8f", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-    >
+    <button onClick={onClick} style={{ flex: 1, padding: "9px 0", borderRadius: 10, border: active ? "1px solid #e0687a" : "1px solid #f2dede", background: active ? "#fbe0e2" : "#ffffff", color: active ? "#c14a5c" : "#a08f8f", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
       {children}
     </button>
   );
@@ -932,11 +744,7 @@ function BottomNav({ view, setView }) {
       {items.map(({ key, label, icon: Icon }) => {
         const isActive = view === key;
         return (
-          <button
-            key={key}
-            onClick={() => setView(key)}
-            style={{ border: "none", background: "transparent", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: isActive ? "#e0687a" : "#b3a3a3", cursor: "pointer", fontSize: 11, fontWeight: 600 }}
-          >
+          <button key={key} onClick={() => setView(key)} style={{ border: "none", background: "transparent", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: isActive ? "#e0687a" : "#b3a3a3", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>
             <Icon size={19} />
             {label}
           </button>
@@ -947,6 +755,7 @@ function BottomNav({ view, setView }) {
 }
 
 function formatDatePt(dateStr) {
+  if (!dateStr) return "";
   const [y, m, d] = dateStr.split("-");
   return `${d}/${m}/${y}`;
 }
