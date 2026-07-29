@@ -169,27 +169,38 @@ export default function App() {
     background: "#fdf6f6",
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     display: "flex",
-    justifyContent: "center",
   };
 
-  const innerStyle = {
-    width: "100%",
-    maxWidth: 480,
-    minHeight: "100vh",
-    background: "#fdf6f6",
+  const sidebarStyle = {
+    width: 260,
+    background: "#ffffff",
+    borderRight: "1px solid #f1dede",
     display: "flex",
     flexDirection: "column",
-    position: "relative",
+    justifyContent: "space-between",
+    padding: "24px 20px",
+    position: "fixed",
+    top: 0,
+    bottom: 0,
+    left: 0,
+  };
+
+  const mainContentStyle = {
+    flex: 1,
+    marginLeft: 260,
+    padding: "32px 40px",
+    maxWidth: 1200,
+    boxSizing: "border-box",
   };
 
   if (!authChecked) {
-    return <div style={shellStyle}><div style={innerStyle} /></div>;
+    return <div style={shellStyle} />;
   }
 
   if (!session) {
     return (
-      <div style={shellStyle}>
-        <div style={innerStyle}>
+      <div style={{ minHeight: "100vh", background: "#fdf6f6", display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <div style={{ width: "100%", maxWidth: 420 }}>
           <AuthScreen />
         </div>
       </div>
@@ -198,35 +209,106 @@ export default function App() {
 
   return (
     <div style={shellStyle}>
-      <div style={innerStyle}>
-        <Header onLogout={() => supabase.auth.signOut()} />
+      <Sidebar view={view} setView={setView} onLogout={() => supabase.auth.signOut()} />
 
-        <div style={{ flex: 1, padding: "20px 20px 100px" }}>
-          {dataLoading ? (
-            <div style={{ textAlign: "center", color: "#b3a3a3", padding: "40px 0" }}>Carregando...</div>
-          ) : (
-            <>
-              {view === "dashboard" && (
-                <Dashboard
-                  dataFormatada={dataFormatada}
-                  vendasHoje={vendasHoje}
-                  gastosHoje={gastosHoje}
-                  lucroMes={lucroMes}
-                  maisVendido={maisVendido}
-                  sales={sales}
-                  expenses={expenses}
-                />
-              )}
-              {view === "produtos" && <Produtos products={products} onAdd={addProduct} onRemove={removeProduct} />}
-              {view === "vendas" && <Vendas products={products} sales={sales} onAdd={addSale} onRemove={removeSale} />}
-              {view === "gastos" && <Gastos expenses={expenses} onAdd={addExpense} onRemove={removeExpense} />}
-              {view === "empresa" && <VendasEmpresa sales={sales} onAdd={addSale} onRemove={removeSale} />}
-            </>
-          )}
+      <div style={mainContentStyle}>
+        {dataLoading ? (
+          <div style={{ textAlign: "center", color: "#b3a3a3", padding: "60px 0" }}>Carregando dados...</div>
+        ) : (
+          <>
+            {view === "dashboard" && (
+              <Dashboard
+                dataFormatada={dataFormatada}
+                vendasHoje={vendasHoje}
+                gastosHoje={gastosHoje}
+                lucroMes={lucroMes}
+                maisVendido={maisVendido}
+                sales={sales}
+                expenses={expenses}
+              />
+            )}
+            {view === "produtos" && <Produtos products={products} onAdd={addProduct} onRemove={removeProduct} />}
+            {view === "vendas" && <Vendas products={products} sales={sales} onAdd={addSale} onRemove={removeSale} />}
+            {view === "gastos" && <Gastos expenses={expenses} onAdd={addExpense} onRemove={removeExpense} />}
+            {view === "empresa" && <VendasEmpresa sales={sales} onAdd={addSale} onRemove={removeSale} />}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Sidebar({ view, setView, onLogout }) {
+  const items = [
+    { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
+    { key: "produtos", label: "Produtos", icon: Cookie },
+    { key: "vendas", label: "Vendas", icon: ShoppingCart },
+    { key: "gastos", label: "Gastos", icon: Receipt },
+    { key: "empresa", label: "Vendas Empresa", icon: Briefcase },
+  ];
+
+  return (
+    <div style={{ width: 260, background: "#ffffff", borderRight: "1px solid #f1dede", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "24px 20px", position: "fixed", top: 0, bottom: 0, left: 0 }}>
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32, paddingLeft: 8 }}>
+          <img src="/logo.png" alt="Loove" style={{ width: 42, height: 42, borderRadius: 12, objectFit: "cover" }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: "#2b2323" }}>Loove Doceria</div>
+            <div style={{ fontSize: 11, color: "#9c8b8b" }}>CRM Financeiro</div>
+          </div>
         </div>
 
-        <BottomNav view={view} setView={setView} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {items.map(({ key, label, icon: Icon }) => {
+            const isActive = view === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setView(key)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  width: "100%",
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: isActive ? "#fbe0e2" : "transparent",
+                  color: isActive ? "#e0687a" : "#7d6e6e",
+                  fontSize: 14,
+                  fontWeight: isActive ? 700 : 600,
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                <Icon size={19} />
+                {label}
+              </button>
+            );
+          })}
+        </div>
       </div>
+
+      <button
+        onClick={onLogout}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          background: "transparent",
+          border: "1px solid #f2dede",
+          borderRadius: 12,
+          padding: "11px 14px",
+          color: "#a08f8f",
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: "pointer",
+          width: "100%",
+        }}
+      >
+        <LogOut size={17} />
+        Sair da conta
+      </button>
     </div>
   );
 }
@@ -264,54 +346,37 @@ function AuthScreen() {
   }
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "32px 28px", minHeight: "100vh" }}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 28 }}>
-        <img src="/logo.png" alt="Loove Doceria" style={{ width: 76, height: 76, borderRadius: 18, objectFit: "cover", marginBottom: 14 }} />
-        <div style={{ fontWeight: 700, fontSize: 19, color: "#2b2323" }}>Loove Doceria</div>
-        <div style={{ fontSize: 12, color: "#9c8b8b", marginTop: 2 }}>CRM Financeiro</div>
+    <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 20, padding: 32, boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
+        <img src="/logo.png" alt="Loove Doceria" style={{ width: 64, height: 64, borderRadius: 16, objectFit: "cover", marginBottom: 12 }} />
+        <div style={{ fontWeight: 700, fontSize: 18, color: "#2b2323" }}>Loove Doceria</div>
+        <div style={{ fontSize: 12, color: "#9c8b8b" }}>CRM Financeiro</div>
       </div>
-      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ position: "relative" }}>
-          <Mail size={16} color="#c9b6b6" style={{ position: "absolute", left: 12, top: 13 }} />
-          <input style={{ ...inputStyle, paddingLeft: 36, width: "100%", boxSizing: "border-box" }} type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Mail size={16} color="#c9b6b6" style={{ position: "absolute", left: 14, top: 14 }} />
+          <input style={{ ...inputStyle, paddingLeft: 40, width: "100%", boxSizing: "border-box" }} type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div style={{ position: "relative" }}>
-          <Lock size={16} color="#c9b6b6" style={{ position: "absolute", left: 12, top: 13 }} />
-          <input style={{ ...inputStyle, paddingLeft: 36, width: "100%", boxSizing: "border-box" }} type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Lock size={16} color="#c9b6b6" style={{ position: "absolute", left: 14, top: 14 }} />
+          <input style={{ ...inputStyle, paddingLeft: 40, width: "100%", boxSizing: "border-box" }} type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
         {error && <div style={{ color: "#d1445b", fontSize: 12.5, textAlign: "center" }}>{error}</div>}
         {info && <div style={{ color: "#1f9d6b", fontSize: 12.5, textAlign: "center" }}>{info}</div>}
-        <button style={{ ...primaryBtnStyle, marginTop: 8 }} type="submit" disabled={loading}>{loading ? "Aguarde..." : mode === "create" ? "Criar conta" : "Entrar"}</button>
+        <button style={{ ...primaryBtnStyle, marginTop: 4 }} type="submit" disabled={loading}>{loading ? "Aguarde..." : mode === "create" ? "Criar conta" : "Entrar"}</button>
       </form>
-    </div>
-  );
-}
-
-function Header({ onLogout }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px", borderBottom: "1px solid #f1dede", background: "#fdf6f6" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <img src="/logo.png" alt="Loove" style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }} />
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 17, color: "#2b2323" }}>Loove Doceria</div>
-          <div style={{ fontSize: 12, color: "#9c8b8b" }}>CRM Financeiro</div>
-        </div>
-      </div>
-      <button onClick={onLogout} style={{ border: "none", background: "transparent", color: "#c9b6b6", cursor: "pointer", display: "flex", padding: 6 }}>
-        <LogOut size={18} />
-      </button>
     </div>
   );
 }
 
 function Card({ label, value, icon, iconBg, valueColor }) {
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: "18px", display: "flex", flexDirection: "column", gap: 14 }}>
+    <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", textTransform: "uppercase" }}>{label}</span>
-        <div style={{ width: 30, height: 30, borderRadius: 9, background: iconBg, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", textTransform: "uppercase" }}>{label}</span>
+        <div style={{ width: 34, height: 34, borderRadius: 10, background: iconBg, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
       </div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: valueColor || "#2b2323" }}>{value}</div>
+      <div style={{ fontSize: 26, fontWeight: 700, color: valueColor || "#2b2323" }}>{value}</div>
     </div>
   );
 }
@@ -319,12 +384,12 @@ function Card({ label, value, icon, iconBg, valueColor }) {
 function Dashboard({ dataFormatada, vendasHoje, gastosHoje, lucroMes, maisVendido, sales, expenses }) {
   return (
     <div>
-      <div style={{ color: "#c1707d", fontSize: 14, marginBottom: 18, textTransform: "capitalize" }}>{dataFormatada}</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        <Card label="Vendas hoje" value={brl(vendasHoje)} icon={<ShoppingCart size={15} color="#e0687a" />} iconBg="#fbe0e2" />
-        <Card label="Gastos hoje" value={brl(gastosHoje)} icon={<Receipt size={15} color="#e0687a" />} iconBg="#fbe0e2" />
-        <Card label="Lucro do mês" value={brl(lucroMes)} icon={<TrendingUp size={15} color="#1f9d6b" />} iconBg="#d7f5e6" valueColor={lucroMes >= 0 ? "#1f9d6b" : "#d1445b"} />
-        <Card label="Mais vendido" value={maisVendido || "—"} icon={<Star size={15} color="#e0687a" />} iconBg="#fbe0e2" />
+      <div style={{ color: "#c1707d", fontSize: 15, marginBottom: 20, textTransform: "capitalize", fontWeight: 600 }}>{dataFormatada}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
+        <Card label="Vendas hoje" value={brl(vendasHoje)} icon={<ShoppingCart size={17} color="#e0687a" />} iconBg="#fbe0e2" />
+        <Card label="Gastos hoje" value={brl(gastosHoje)} icon={<Receipt size={17} color="#e0687a" />} iconBg="#fbe0e2" />
+        <Card label="Lucro do mês" value={brl(lucroMes)} icon={<TrendingUp size={17} color="#1f9d6b" />} iconBg="#d7f5e6" valueColor={lucroMes >= 0 ? "#1f9d6b" : "#d1445b"} />
+        <Card label="Mais vendido" value={maisVendido || "—"} icon={<Star size={17} color="#e0687a" />} iconBg="#fbe0e2" />
       </div>
       <SalesChart sales={sales} expenses={expenses} />
     </div>
@@ -347,17 +412,17 @@ function SalesChart({ sales, expenses }) {
   }, [sales, expenses]);
 
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: "18px 14px 8px", marginTop: 16 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: "#2b2323", marginBottom: 10 }}>Vendas x Gastos (últimos 7 dias)</div>
-      <div style={{ width: "100%", height: 200 }}>
+    <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: "24px 20px 14px" }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Vendas x Gastos (últimos 7 dias)</div>
+      <div style={{ width: "100%", height: 280 }}>
         <ResponsiveContainer>
-          <BarChart data={data} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
+          <BarChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f2dede" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#a08f8f" }} />
-            <YAxis tick={{ fontSize: 11, fill: "#a08f8f" }} width={40} />
+            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#a08f8f" }} />
+            <YAxis tick={{ fontSize: 12, fill: "#a08f8f" }} />
             <Tooltip formatter={(v) => brl(v)} />
-            <Bar dataKey="Vendas" fill="#e0687a" radius={[4, 4, 0, 0]} maxBarSize={18} />
-            <Bar dataKey="Gastos" fill="#d9b8ba" radius={[4, 4, 0, 0]} maxBarSize={18} />
+            <Bar dataKey="Vendas" fill="#e0687a" radius={[4, 4, 0, 0]} maxBarSize={32} />
+            <Bar dataKey="Gastos" fill="#d9b8ba" radius={[4, 4, 0, 0]} maxBarSize={32} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -366,11 +431,11 @@ function SalesChart({ sales, expenses }) {
 }
 
 function SectionTitle({ children }) {
-  return <h2 style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", margin: "0 0 14px" }}>{children}</h2>;
+  return <h2 style={{ fontSize: 20, fontWeight: 700, color: "#2b2323", margin: "0 0 20px" }}>{children}</h2>;
 }
 
 function EmptyState({ text }) {
-  return <div style={{ textAlign: "center", color: "#b3a3a3", fontSize: 13, padding: "28px 0", border: "1px dashed #eeddde", borderRadius: 12 }}>{text}</div>;
+  return <div style={{ textAlign: "center", color: "#b3a3a3", fontSize: 14, padding: "40px 0", border: "1px dashed #eeddde", borderRadius: 16, background: "#ffffff" }}>{text}</div>;
 }
 
 function Produtos({ products, onAdd, onRemove }) {
@@ -392,14 +457,15 @@ function Produtos({ products, onAdd, onRemove }) {
         <IconButton onClick={() => setShowForm(!showForm)} active={showForm} />
       </div>
       {showForm && (
-        <div style={formPanelStyle}>
+        <div style={{ ...formPanelStyle, maxWidth: 450, marginBottom: 20 }}>
           <input style={inputStyle} placeholder="Nome do doce" value={name} onChange={(e) => setName(e.target.value)} />
           <input style={inputStyle} type="number" step="0.01" placeholder="Preço" value={price} onChange={(e) => setPrice(e.target.value)} />
           <input style={inputStyle} placeholder="Categoria" value={category} onChange={(e) => setCategory(e.target.value)} />
           <button style={primaryBtnStyle} onClick={submit}>Adicionar produto</button>
         </div>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+        {products.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum produto cadastrado." /></div>}
         {products.map((p) => <ListRow key={p.id} title={p.name} subtitle={p.category} value={brl(p.price)} onDelete={() => onRemove(p.id)} />)}
       </div>
     </div>
@@ -436,7 +502,7 @@ function Vendas({ products, sales, onAdd, onRemove }) {
         <IconButton onClick={() => setShowForm(!showForm)} active={showForm} />
       </div>
       {showForm && (
-        <div style={formPanelStyle}>
+        <div style={{ ...formPanelStyle, maxWidth: 450, marginBottom: 20 }}>
           <div style={{ display: "flex", gap: 8 }}>
             <ToggleButton active={mode === "catalogo"} onClick={() => setMode("catalogo")}>Catálogo</ToggleButton>
             <ToggleButton active={mode === "manual"} onClick={() => setMode("manual")}>Manual</ToggleButton>
@@ -458,10 +524,11 @@ function Vendas({ products, sales, onAdd, onRemove }) {
           <select style={inputStyle} value={payment} onChange={(e) => setPayment(e.target.value)}>
             {FORMAS_PAGAMENTO.map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
-          <button style={primaryBtnStyle} onClick={submit}>Registrar</button>
+          <button style={primaryBtnStyle} onClick={submit}>Registrar venda</button>
         </div>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+        {salesNormais.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhuma venda registrada." /></div>}
         {salesNormais.map((s) => <ListRow key={s.id} title={s.product_name} subtitle={`${formatDatePt(s.date)} · ${s.payment}`} value={brl(s.total)} valueColor="#1f9d6b" onDelete={() => onRemove(s.id)} />)}
       </div>
     </div>
@@ -487,16 +554,17 @@ function Gastos({ expenses, onAdd, onRemove }) {
         <IconButton onClick={() => setShowForm(!showForm)} active={showForm} />
       </div>
       {showForm && (
-        <div style={formPanelStyle}>
+        <div style={{ ...formPanelStyle, maxWidth: 450, marginBottom: 20 }}>
           <input style={inputStyle} placeholder="Descrição" value={description} onChange={(e) => setDescription(e.target.value)} />
           <select style={inputStyle} value={category} onChange={(e) => setCategory(e.target.value)}>
             {CATEGORIAS_GASTO.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
           <input style={inputStyle} type="number" step="0.01" placeholder="Valor" value={value} onChange={(e) => setValue(e.target.value)} />
-          <button style={primaryBtnStyle} onClick={submit}>Registrar</button>
+          <button style={primaryBtnStyle} onClick={submit}>Registrar gasto</button>
         </div>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+        {expenses.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum gasto registrado." /></div>}
         {expenses.map((g) => <ListRow key={g.id} title={g.description} subtitle={`${formatDatePt(g.date)} · ${g.category}`} value={brl(g.value)} valueColor="#d1445b" onDelete={() => onRemove(g.id)} />)}
       </div>
     </div>
@@ -511,7 +579,6 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
 
   async function submit() {
     if (!employeeName.trim() || !total || !date) return;
-    // Salva na mesma tabela 'sales', usando o product_name para o nome e payment="Empresa (Fiado)"
     await onAdd({
       date: date,
       product_name: employeeName.trim(),
@@ -524,7 +591,6 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
     setDate(todayISO());
   }
 
-  // Filtra apenas as vendas da empresa
   const companySales = useMemo(() => {
     return sales.filter((s) => s.payment === "Empresa (Fiado)");
   }, [sales]);
@@ -585,12 +651,12 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
     <div>
       <SectionTitle>Vendas Empresa</SectionTitle>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 16, marginBottom: 18 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#2b2323", marginBottom: 12 }}>Lançar venda</div>
+      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20, marginBottom: 24 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 14 }}>Lançar venda para funcionário / empresa</div>
         
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", marginBottom: 4 }}>Nome</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Nome</div>
             <input
               style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
               placeholder="Nome da pessoa"
@@ -599,9 +665,9 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
             />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 140px auto", gap: 8, alignItems: "end" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 12, alignItems: "end" }}>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", marginBottom: 4 }}>Valor (R$)</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Valor (R$)</div>
               <input
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
                 type="number"
@@ -613,7 +679,7 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
             </div>
 
             <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", marginBottom: 4 }}>Data</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Data</div>
               <input
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
                 type="date"
@@ -628,12 +694,12 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
                 background: "#7d2a3f",
                 color: "#ffffff",
                 border: "none",
-                borderRadius: 10,
-                padding: "11px 18px",
+                borderRadius: 12,
+                padding: "12px 24px",
                 fontSize: 14,
                 fontWeight: 700,
                 cursor: "pointer",
-                height: 43,
+                height: 45,
               }}
             >
               Adicionar
@@ -642,10 +708,10 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 10 }}>
+      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12 }}>
           <select
-            style={{ ...inputStyle, background: "#ffffff", fontWeight: 600, cursor: "pointer" }}
+            style={{ ...inputStyle, width: 220, background: "#ffffff", fontWeight: 600, cursor: "pointer" }}
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
           >
@@ -654,30 +720,31 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
             ))}
           </select>
 
-          <div style={{ background: "#fbe0e2", color: "#7d2a3f", padding: "8px 14px", borderRadius: 12, fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
-            Total: {brl(totalGeralMes)}
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ background: "#fbe0e2", color: "#7d2a3f", padding: "10px 18px", borderRadius: 12, fontSize: 14, fontWeight: 700 }}>
+              Total: {brl(totalGeralMes)}
+            </div>
+            {resumoMes.length > 0 && (
+              <button
+                onClick={gerarPDF}
+                style={{ background: "#1f9d6b", color: "#ffffff", border: "none", borderRadius: 12, padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+              >
+                Exportar PDF
+              </button>
+            )}
           </div>
         </div>
 
-        {resumoMes.length > 0 && (
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-            <button
-              onClick={gerarPDF}
-              style={{ background: "#1f9d6b", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-            >
-              Exportar Relatório PDF
-            </button>
-          </div>
-        )}
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
           {resumoMes.length === 0 && (
-            <EmptyState text="Nenhuma venda registrada nesse mês ainda." />
+            <div style={{ gridColumn: "span 2" }}>
+              <EmptyState text="Nenhuma venda registrada nesse mês ainda." />
+            </div>
           )}
           {resumoMes.map((item, index) => (
-            <div key={index} style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 12, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 600, color: "#2b2323", fontSize: 14 }}>{item.name}</div>
-              <div style={{ fontWeight: 700, color: "#7d2a3f", fontSize: 14 }}>{brl(item.sum)}</div>
+            <div key={index} style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontWeight: 600, color: "#2b2323", fontSize: 15 }}>{item.name}</div>
+              <div style={{ fontWeight: 700, color: "#7d2a3f", fontSize: 16 }}>{brl(item.sum)}</div>
             </div>
           ))}
         </div>
@@ -688,16 +755,16 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
 
 function ListRow({ title, subtitle, value, valueColor, onDelete }) {
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 14, padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+    <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: "#2b2323", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
-        <div style={{ fontSize: 12, color: "#a08f8f", marginTop: 2 }}>{subtitle}</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
+        <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 4 }}>{subtitle}</div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: valueColor || "#2b2323" }}>{value}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: valueColor || "#2b2323" }}>{value}</span>
         {onDelete && (
-          <button onClick={onDelete} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 4, color: "#c9b6b6", display: "flex" }}>
-            <Trash2 size={15} />
+          <button onClick={onDelete} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#c9b6b6", display: "flex" }} aria-label="Excluir">
+            <Trash2 size={16} />
           </button>
         )}
       </div>
@@ -707,41 +774,17 @@ function ListRow({ title, subtitle, value, valueColor, onDelete }) {
 
 function IconButton({ onClick, active }) {
   return (
-    <button onClick={onClick} style={{ width: 34, height: 34, borderRadius: 10, border: "none", background: active ? "#e0687a" : "#fbe0e2", color: active ? "#ffffff" : "#e0687a", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-      {active ? <X size={17} /> : <Plus size={17} />}
+    <button onClick={onClick} style={{ width: 40, height: 40, borderRadius: 12, border: "none", background: active ? "#e0687a" : "#fbe0e2", color: active ? "#ffffff" : "#e0687a", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+      {active ? <X size={19} /> : <Plus size={19} />}
     </button>
   );
 }
 
 function ToggleButton({ active, onClick, children }) {
   return (
-    <button onClick={onClick} style={{ flex: 1, padding: "9px 0", borderRadius: 10, border: active ? "1px solid #e0687a" : "1px solid #f2dede", background: active ? "#fbe0e2" : "#ffffff", color: active ? "#c14a5c" : "#a08f8f", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+    <button onClick={onClick} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: active ? "1px solid #e0687a" : "1px solid #f2dede", background: active ? "#fbe0e2" : "#ffffff", color: active ? "#c14a5c" : "#a08f8f", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
       {children}
     </button>
-  );
-}
-
-function BottomNav({ view, setView }) {
-  const items = [
-    { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
-    { key: "produtos", label: "Produtos", icon: Cookie },
-    { key: "vendas", label: "Vendas", icon: ShoppingCart },
-    { key: "gastos", label: "Gastos", icon: Receipt },
-    { key: "empresa", label: "Empresa", icon: Briefcase },
-  ];
-
-  return (
-    <div style={{ position: "sticky", bottom: 0, left: 0, right: 0, background: "#ffffff", borderTop: "1px solid #f1dede", display: "flex", justifyContent: "space-around", padding: "10px 0 14px" }}>
-      {items.map(({ key, label, icon: Icon }) => {
-        const isActive = view === key;
-        return (
-          <button key={key} onClick={() => setView(key)} style={{ border: "none", background: "transparent", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: isActive ? "#e0687a" : "#b3a3a3", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>
-            <Icon size={19} />
-            {label}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -754,18 +797,18 @@ function formatDatePt(dateStr) {
 const formPanelStyle = {
   display: "flex",
   flexDirection: "column",
-  gap: 10,
+  gap: 12,
   background: "#ffffff",
   border: "1px solid #f2dede",
-  borderRadius: 14,
-  padding: 14,
-  marginTop: 14,
+  borderRadius: 16,
+  padding: 20,
+  marginTop: 10,
 };
 
 const inputStyle = {
   border: "1px solid #f2dede",
-  borderRadius: 10,
-  padding: "10px 12px",
+  borderRadius: 12,
+  padding: "12px 14px",
   fontSize: 14,
   outline: "none",
   color: "#2b2323",
@@ -774,12 +817,12 @@ const inputStyle = {
 
 const primaryBtnStyle = {
   border: "none",
-  borderRadius: 10,
-  padding: "11px 0",
+  borderRadius: 12,
+  padding: "12px 0",
   background: "#e0687a",
   color: "#ffffff",
   fontSize: 14,
   fontWeight: 700,
   cursor: "pointer",
-  marginTop: "4px",
+  marginTop: 4,
 };
