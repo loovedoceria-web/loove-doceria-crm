@@ -654,7 +654,7 @@ function Vendas({ products, sales, onAdd, onRemove }) {
           <ListRow
             key={s.id}
             title={s.product_name}
-            subtitle={${formatDatePt(s.date)} · ${s.payment}${s.qty > 1 ? ` · x${s.qty} : ""}`}
+            subtitle={${formatDatePt(s.date)} · ${s.payment}${s.qty > 1 ? " · x" + s.qty : ""}}
             value={brl(s.total)}
             valueColor="#1f9d6b"
             onDelete={() => onRemove(s.id)}
