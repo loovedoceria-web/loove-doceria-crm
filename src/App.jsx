@@ -13,6 +13,7 @@ import {
   Mail,
   LogOut,
   BarChart3,
+  Briefcase,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -23,6 +24,8 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import { supabase } from "./supabaseClient";
 
 const CATEGORIAS_GASTO = [
@@ -58,6 +61,7 @@ export default function App() {
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
   const [expenses, setExpenses] = useState([]);
+  const [companySales, setCompanySales] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
 
   // Watch auth state
@@ -80,18 +84,21 @@ export default function App() {
       setProducts([]);
       setSales([]);
       setExpenses([]);
+      setCompanySales([]);
       return;
     }
     (async () => {
       setDataLoading(true);
-      const [p, s, g] = await Promise.all([
+      const [p, s, g, cs] = await Promise.all([
         supabase.from("products").select("*").order("created_at"),
         supabase.from("sales").select("*").order("date", { ascending: false }),
         supabase.from("expenses").select("*").order("date", { ascending: false }),
+        supabase.from("company_sales").select("*").order("date", { ascending: false }),
       ]);
       if (p.data) setProducts(p.data);
       if (s.data) setSales(s.data);
       if (g.data) setExpenses(g.data);
+      if (cs.data) setCompanySales(cs.data);
       setDataLoading(false);
     })();
   }, [session]);
@@ -136,6 +143,20 @@ export default function App() {
   async function removeExpense(id) {
     const { error } = await supabase.from("expenses").delete().eq("id", id);
     if (!error) setExpenses((prev) => prev.filter((g) => g.id !== id));
+  }
+
+  async function addCompanySale(sale) {
+    const { data, error } = await supabase
+      .from("company_sales")
+      .insert(sale)
+      .select()
+      .single();
+    if (!error) setCompanySales((prev) => [data, ...prev]);
+  }
+
+  async function removeCompanySale(id) {
+    const { error } = await supabase.from("company_sales").delete().eq("id", id);
+    if (!error) setCompanySales((prev) => prev.filter((cs) => cs.id !== id));
   }
 
   const today = todayISO();
@@ -257,6 +278,13 @@ export default function App() {
                   onRemove={removeExpense}
                 />
               )}
+              {view === "empresa" && (
+                <VendasEmpresa
+                  companySales={companySales}
+                  onAdd={addCompanySale}
+                  onRemove={removeCompanySale}
+                />
+              )}
             </>
           )}
         </div>
@@ -268,7 +296,7 @@ export default function App() {
 }
 
 function AuthScreen() {
-  const [mode, setMode] = useState("login"); // login | create
+  const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -704,6 +732,150 @@ function Gastos({ expenses, onAdd, onRemove }) {
   );
 }
 
+function VendasEmpresa({ companySales, onAdd, onRemove }) {
+  const [showForm, setShowForm] = useState(false);
+  const [employeeName, setEmployeeName] = useState("");
+  const [total, setTotal] = useState("");
+  const [activeTab, setActiveTab] = useState("totais"); // "totais" | "historico"
+
+  async function submit() {
+    if (!employeeName || !total) return;
+    await onAdd({
+      date: todayISO(),
+      employee_name: employeeName.trim(),
+      total: parseFloat(total),
+    });
+    setEmployeeName("");
+    setTotal("");
+    setShowForm(false);
+  }
+
+  // Agrupa e soma automaticamente os valores por pessoa no mês atual
+  const resumoMes = useMemo(() => {
+    const map = {};
+    companySales.forEach((s) => {
+      if (isSameMonth(s.date, todayISO())) {
+        const nome = s.employee_name || "Desconhecido";
+        map[nome] = (map[nome] || 0) + Number(s.total);
+      }
+    });
+    return Object.entries(map).map(([name, sum]) => ({ name, sum })).sort((a, b) => b.sum - a.sum);
+  }, [companySales]);
+
+  // Função para exportar relatório em PDF
+  function gerarPDF() {
+    const doc = new jsPDF();
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("Relatório - Vendas Empresa (Fechamento do Mês)", 14, 20);
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 28);
+
+    const dadosTabela = resumoMes.map((item) => [item.name, brl(item.sum)]);
+
+    doc.autoTable({
+      startY: 36,
+      head: [["Funcionário / Cliente", "Total Devido no Mês"]],
+      body: dadosTabela,
+      theme: "grid",
+      headStyles: { fillColor: [224, 104, 122] },
+    });
+
+    doc.save(`vendas-empresa-${todayISO().slice(0, 7)}.pdf`);
+  }
+
+  const sortedHistorico = [...companySales].sort((a, b) => (a.date < b.date ? 1 : -1));
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <SectionTitle>Vendas Empresa</SectionTitle>
+        <div style={{ display: "flex", gap: 8 }}>
+          {resumoMes.length > 0 && (
+            <button
+              onClick={gerarPDF}
+              style={{
+                background: "#1f9d6b",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: 10,
+                padding: "0 12px",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Exportar PDF
+            </button>
+          )}
+          <IconButton onClick={() => setShowForm(!showForm)} active={showForm} />
+        </div>
+      </div>
+
+      {showForm && (
+        <div style={formPanelStyle}>
+          <input
+            style={inputStyle}
+            placeholder="Nome da pessoa (ex: João Silva)"
+            value={employeeName}
+            onChange={(e) => setEmployeeName(e.target.value)}
+          />
+          <input
+            style={inputStyle}
+            type="number"
+            step="0.01"
+            placeholder="Valor da venda (ex: 12.50)"
+            value={total}
+            onChange={(e) => setTotal(e.target.value)}
+          />
+          <button style={primaryBtnStyle} onClick={submit}>Registrar venda empresa</button>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+        <ToggleButton active={activeTab === "totais"} onClick={() => setActiveTab("totais")}>
+          Totais do Mês
+        </ToggleButton>
+        <ToggleButton active={activeTab === "historico"} onClick={() => setActiveTab("historico")}>
+          Histórico Completo
+        </ToggleButton>
+      </div>
+
+      {activeTab === "totais" ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
+          {resumoMes.length === 0 && <EmptyState text="Nenhuma venda corporativa registrada neste mês." />}
+          {resumoMes.map((item, index) => (
+            <ListRow
+              key={index}
+              title={item.name}
+              subtitle="Total acumulado no mês atual"
+              value={brl(item.sum)}
+              valueColor="#e0687a"
+              onDelete={null} // Oculta botão de deletar na visão de totais agrupados
+            />
+          ))}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
+          {sortedHistorico.length === 0 && <EmptyState text="Nenhum histórico registrado." />}
+          {sortedHistorico.map((s) => (
+            <ListRow
+              key={s.id}
+              title={s.employee_name}
+              subtitle={formatDatePt(s.date)}
+              value={brl(s.total)}
+              valueColor="#e0687a"
+              onDelete={() => removeCompanySale(s.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ListRow({ title, subtitle, value, valueColor, onDelete }) {
   return (
     <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 14, padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
@@ -713,9 +885,11 @@ function ListRow({ title, subtitle, value, valueColor, onDelete }) {
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
         <span style={{ fontSize: 14, fontWeight: 700, color: valueColor || "#2b2323" }}>{value}</span>
-        <button onClick={onDelete} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 4, color: "#c9b6b6", display: "flex" }} aria-label="Excluir">
-          <Trash2 size={15} />
-        </button>
+        {onDelete && (
+          <button onClick={onDelete} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 4, color: "#c9b6b6", display: "flex" }} aria-label="Excluir">
+            <Trash2 size={15} />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -750,6 +924,7 @@ function BottomNav({ view, setView }) {
     { key: "produtos", label: "Produtos", icon: Cookie },
     { key: "vendas", label: "Vendas", icon: ShoppingCart },
     { key: "gastos", label: "Gastos", icon: Receipt },
+    { key: "empresa", label: "Empresa", icon: Briefcase },
   ];
 
   return (
