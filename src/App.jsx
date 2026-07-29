@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase } from "./supabaseClient";
 
 const styles = {
   page: { display: 'flex', flexDirection: 'column', gap: 18, fontFamily: 'inherit' },
