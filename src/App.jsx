@@ -811,7 +811,18 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
     const ing = ingredients.find((i) => String(i.id) === String(selectedIngId));
     if (!ing) return;
 
-    const unitCost = Number(ing.package_price) / Number(ing.package_amount);
+    let totalAmountInPackage = Number(ing.package_amount);
+    let displayUnit = ing.unit;
+    let multiplier = 1;
+
+    // Se o ingrediente foi cadastrado em kg, convertemos a quantidade da embalagem para gramas (1kg = 1000g)
+    if (ing.unit === "kg") {
+      totalAmountInPackage = totalAmountInPackage * 1000;
+      displayUnit = "g";
+    }
+
+    // Custo por unidade base (por grama, por ml ou por unidade)
+    const unitCost = Number(ing.package_price) / totalAmountInPackage;
     const cost = unitCost * Number(usedAmount);
 
     setCurrentRecipeItems((prev) => [
@@ -820,7 +831,7 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
         ingredient_id: ing.id,
         name: ing.name,
         used_amount: Number(usedAmount),
-        unit: ing.unit,
+        unit: displayUnit,
         cost: cost,
       },
     ]);
@@ -875,15 +886,15 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
               </div>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Qtd Embalagem</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 1000" value={pkgAmount} onChange={(e) => setPkgAmount(e.target.value)} />
+                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 1 ou 1000" value={pkgAmount} onChange={(e) => setPkgAmount(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Unidade</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Unidade do Pacote</div>
                 <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={unit} onChange={(e) => setUnit(e.target.value)}>
                   <option value="g">Gramas (g)</option>
+                  <option value="kg">Quilos (kg)</option>
                   <option value="ml">Mililitros (ml)</option>
                   <option value="un">Unidade (un)</option>
-                  <option value="kg">Quilos (kg)</option>
                 </select>
               </div>
               <button onClick={submitIngredient} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", height: 45 }}>
@@ -895,13 +906,15 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
             {ingredients.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum ingrediente cadastrado ainda." /></div>}
             {ingredients.map((i) => {
-              const custoUnitario = Number(i.package_price) / Number(i.package_amount);
+              const totalAmount = i.unit === "kg" ? Number(i.package_amount) * 1000 : Number(i.package_amount);
+              const displayUnit = i.unit === "kg" ? "g" : i.unit;
+              const custoUnitario = Number(i.package_price) / totalAmount;
               return (
                 <div key={i.id} style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323" }}>{i.name}</div>
                     <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 4 }}>
-                      Pacote: {i.package_amount}{i.unit} por {brl(i.package_price)} · Custo: {brl(custoUnitario)} por {i.unit}
+                      Pacote: {i.package_amount}{i.unit} por {brl(i.package_price)} · Custo: {brl(custoUnitario)} por {displayUnit}
                     </div>
                   </div>
                   <button onClick={() => onRemoveIng(i.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6 }}>
@@ -928,7 +941,7 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 160px auto", gap: 12, alignItems: "end", marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 12, alignItems: "end", marginBottom: 16 }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Selecionar Ingrediente</div>
                 <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={selectedIngId} onChange={(e) => setSelectedIngId(e.target.value)}>
@@ -939,7 +952,7 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
                 </select>
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Quantidade a usar</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Quantidade a usar (g/ml)</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 100" value={usedAmount} onChange={(e) => setUsedAmount(e.target.value)} />
               </div>
               <button onClick={addIngredientToRecipe} style={{ background: "#e0687a", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", height: 45 }}>
