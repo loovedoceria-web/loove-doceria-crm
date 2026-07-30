@@ -14,6 +14,7 @@ import {
   LogOut,
   BarChart3,
   Briefcase,
+  Calculator,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -61,6 +62,8 @@ export default function App() {
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
   const [expenses, setExpenses] = useState([]);
+  const [ingredients, setIngredients] = useState([]);
+  const [recipes, setRecipes] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
 
   useEffect(() => {
@@ -81,18 +84,24 @@ export default function App() {
       setProducts([]);
       setSales([]);
       setExpenses([]);
+      setIngredients([]);
+      setRecipes([]);
       return;
     }
     (async () => {
       setDataLoading(true);
-      const [p, s, g] = await Promise.all([
+      const [p, s, g, ing, rec] = await Promise.all([
         supabase.from("products").select("*").order("created_at"),
         supabase.from("sales").select("*").order("date", { ascending: false }),
         supabase.from("expenses").select("*").order("date", { ascending: false }),
+        supabase.from("ingredients").select("*").order("name"),
+        supabase.from("recipes").select("*").order("created_at", { ascending: false }),
       ]);
       if (p.data) setProducts(p.data);
       if (s.data) setSales(s.data);
       if (g.data) setExpenses(g.data);
+      if (ing.data) setIngredients(ing.data);
+      if (rec.data) setRecipes(rec.data);
       setDataLoading(false);
     })();
   }, [session]);
@@ -125,6 +134,26 @@ export default function App() {
   async function removeExpense(id) {
     const { error } = await supabase.from("expenses").delete().eq("id", id);
     if (!error) setExpenses((prev) => prev.filter((g) => g.id !== id));
+  }
+
+  async function addIngredient(ing) {
+    const { data, error } = await supabase.from("ingredients").insert(ing).select().single();
+    if (!error && data) setIngredients((prev) => [...prev, data]);
+  }
+
+  async function removeIngredient(id) {
+    const { error } = await supabase.from("ingredients").delete().eq("id", id);
+    if (!error) setIngredients((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  async function addRecipe(rec) {
+    const { data, error } = await supabase.from("recipes").insert(rec).select().single();
+    if (!error && data) setRecipes((prev) => [data, ...prev]);
+  }
+
+  async function removeRecipe(id) {
+    const { error } = await supabase.from("recipes").delete().eq("id", id);
+    if (!error) setRecipes((prev) => prev.filter((r) => r.id !== id));
   }
 
   const today = todayISO();
@@ -169,20 +198,6 @@ export default function App() {
     background: "#fdf6f6",
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     display: "flex",
-  };
-
-  const sidebarStyle = {
-    width: 260,
-    background: "#ffffff",
-    borderRight: "1px solid #f1dede",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-    padding: "24px 20px",
-    position: "fixed",
-    top: 0,
-    bottom: 0,
-    left: 0,
   };
 
   const mainContentStyle = {
@@ -231,6 +246,7 @@ export default function App() {
             {view === "vendas" && <Vendas products={products} sales={sales} onAdd={addSale} onRemove={removeSale} />}
             {view === "gastos" && <Gastos expenses={expenses} onAdd={addExpense} onRemove={removeExpense} />}
             {view === "empresa" && <VendasEmpresa sales={sales} onAdd={addSale} onRemove={removeSale} />}
+            {view === "precificacao" && <Precificacao ingredients={ingredients} recipes={recipes} onAddIng={addIngredient} onRemoveIng={removeIngredient} onAddRec={addRecipe} onRemoveRec={removeRecipe} />}
           </>
         )}
       </div>
@@ -245,6 +261,7 @@ function Sidebar({ view, setView, onLogout }) {
     { key: "vendas", label: "Vendas", icon: ShoppingCart },
     { key: "gastos", label: "Gastos", icon: Receipt },
     { key: "empresa", label: "Vendas Empresa", icon: Briefcase },
+    { key: "precificacao", label: "Precificação", icon: Calculator },
   ];
 
   return (
@@ -314,35 +331,22 @@ function Sidebar({ view, setView, onLogout }) {
 }
 
 function AuthScreen() {
-  const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
     setError("");
-    setInfo("");
     if (!email || !password) {
       setError("Preencha e-mail e senha.");
       return;
     }
     setLoading(true);
-    if (mode === "create") {
-      const { error } = await supabase.auth.signUp({ email, password });
-      setLoading(false);
-      if (error) setError(error.message);
-      else {
-        setInfo("Conta criada! Verifique seu e-mail.");
-        setMode("login");
-      }
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      setLoading(false);
-      if (error) setError(error.message);
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (error) setError(error.message);
   }
 
   return (
@@ -362,8 +366,7 @@ function AuthScreen() {
           <input style={{ ...inputStyle, paddingLeft: 40, width: "100%", boxSizing: "border-box" }} type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
         {error && <div style={{ color: "#d1445b", fontSize: 12.5, textAlign: "center" }}>{error}</div>}
-        {info && <div style={{ color: "#1f9d6b", fontSize: 12.5, textAlign: "center" }}>{info}</div>}
-        <button style={{ ...primaryBtnStyle, marginTop: 4 }} type="submit" disabled={loading}>{loading ? "Aguarde..." : mode === "create" ? "Criar conta" : "Entrar"}</button>
+        <button style={{ ...primaryBtnStyle, marginTop: 4 }} type="submit" disabled={loading}>{loading ? "Aguarde..." : "Entrar"}</button>
       </form>
     </div>
   );
@@ -753,6 +756,243 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
   );
 }
 
+function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, onRemoveRec }) {
+  const [tab, setTab] = useState("ingredientes"); // "ingredientes" | "receitas"
+
+  // Estado para novo ingrediente
+  const [ingName, setIngName] = useState("");
+  const [pkgPrice, setPkgPrice] = useState("");
+  const [pkgAmount, setPkgAmount] = useState("");
+  const [unit, setUnit] = useState("g"); // g, ml, un
+
+  // Estado para nova receita / ficha técnica
+  const [recName, setRecName] = useState("");
+  const [selectedIngId, setSelectedIngId] = useState("");
+  const [usedAmount, setUsedAmount] = useState("");
+  const [currentRecipeItems, setCurrentRecipeItems] = useState([]);
+  const [yieldAmount, setYieldAmount] = useState("1"); // rendimento
+
+  async function submitIngredient() {
+    if (!ingName || !pkgPrice || !pkgAmount) return;
+    await onAddIng({
+      name: ingName.trim(),
+      package_price: parseFloat(pkgPrice),
+      package_amount: parseFloat(pkgAmount),
+      unit,
+    });
+    setIngName("");
+    setPkgPrice("");
+    setPkgAmount("");
+  }
+
+  function addIngredientToRecipe() {
+    if (!selectedIngId || !usedAmount) return;
+    const ing = ingredients.find((i) => String(i.id) === String(selectedIngId));
+    if (!ing) return;
+
+    // Cálculo proporcional: (preço da embalagem / quantidade da embalagem) * quantidade usada
+    const unitCost = Number(ing.package_price) / Number(ing.package_amount);
+    const cost = unitCost * Number(usedAmount);
+
+    setCurrentRecipeItems((prev) => [
+      ...prev,
+      {
+        ingredient_id: ing.id,
+        name: ing.name,
+        used_amount: Number(usedAmount),
+        unit: ing.unit,
+        cost: cost,
+      },
+    ]);
+    setSelectedIngId("");
+    setUsedAmount("");
+  }
+
+  const recipeTotalCost = useMemo(() => {
+    return currentRecipeItems.reduce((acc, item) => acc + item.cost, 0);
+  }, [currentRecipeItems]);
+
+  async function saveRecipe() {
+    if (!recName.trim() || currentRecipeItems.length === 0) return;
+    await onAddRec({
+      product_name: recName.trim(),
+      ingredients_used: currentRecipeItems,
+      total_cost: recipeTotalCost,
+      yield_amount: parseFloat(yieldAmount) || 1,
+    });
+    setRecName("");
+    setCurrentRecipeItems([]);
+    setYieldAmount("1");
+  }
+
+  return (
+    <div>
+      <SectionTitle>Precificação e Ficha Técnica</SectionTitle>
+
+      <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+        <ToggleButton active={tab === "ingredientes"} onClick={() => setTab("ingredientes")}>
+          1. Meus Ingredientes (Estoque de Preços)
+        </ToggleButton>
+        <ToggleButton active={tab === "receitas"} onClick={() => setTab("receitas")}>
+          2. Ficha Técnica / Receitas (Custo de Produção)
+        </ToggleButton>
+      </div>
+
+      {tab === "ingredientes" ? (
+        <div>
+          <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20, marginBottom: 24 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 14 }}>Cadastrar Ingrediente ou Embalagem</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 120px auto", gap: 12, alignItems: "end" }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Nome</div>
+                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Farinha de Trigo" value={ingName} onChange={(e) => setIngName(e.target.value)} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Preço Pago (R$)</div>
+                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="Ex: 10.00" value={pkgPrice} onChange={(e) => setPkgPrice(e.target.value)} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Qtd Embalagem</div>
+                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 1000" value={pkgAmount} onChange={(e) => setPkgAmount(e.target.value)} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Unidade</div>
+                <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={unit} onChange={(e) => setUnit(e.target.value)}>
+                  <option value="g">Gramas (g)</option>
+                  <option value="ml">Mililitros (ml)</option>
+                  <option value="un">Unidade (un)</option>
+                  <option value="kg">Quilos (kg)</option>
+                </select>
+              </div>
+              <button onClick={submitIngredient} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", height: 45 }}>
+                Cadastrar
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+            {ingredients.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum ingrediente cadastrado ainda." /></div>}
+            {ingredients.map((i) => {
+              const custoUnitario = Number(i.package_price) / Number(i.package_amount);
+              return (
+                <div key={i.id} style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323" }}>{i.name}</div>
+                    <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 4 }}>
+                      Pacote: {i.package_amount}{i.unit} por {brl(i.package_price)} · Custo: {brl(custoUnitario)} por {i.unit}
+                    </div>
+                  </div>
+                  <button onClick={() => onRemoveIng(i.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6 }}>
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20, marginBottom: 24 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 14 }}>Montar Ficha Técnica / Receita</div>
+            
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 180px", gap: 12, marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Nome do Produto / Receita</div>
+                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Pão Caseiro / Massa de Brigadeiro" value={recName} onChange={(e) => setRecName(e.target.value)} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Rendimento (unidades/porções)</div>
+                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" min="1" value={yieldAmount} onChange={(e) => setYieldAmount(e.target.value)} />
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 160px auto", gap: 12, alignItems: "end", marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Selecionar Ingrediente</div>
+                <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={selectedIngId} onChange={(e) => setSelectedIngId(e.target.value)}>
+                  <option value="">Selecione o ingrediente...</option>
+                  {ingredients.map((ing) => (
+                    <option key={ing.id} value={ing.id}>{ing.name} (Comprou {ing.package_amount}{ing.unit} por {brl(ing.package_price)})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Quantidade a usar</div>
+                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 100" value={usedAmount} onChange={(e) => setUsedAmount(e.target.value)} />
+              </div>
+              <button onClick={addIngredientToRecipe} style={{ background: "#e0687a", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", height: 45 }}>
+                Adicionar na Receita
+              </button>
+            </div>
+
+            {/* Lista de ingredientes adicionados nesta receita */}
+            {currentRecipeItems.length > 0 && (
+              <div style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 12, padding: 14, marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#7d2a3f", marginBottom: 10 }}>Ingredientes desta receita:</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {currentRecipeItems.map((item, idx) => (
+                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, borderBottom: "1px solid #f9e8e8", paddingBottom: 6 }}>
+                      <span>{item.name} — {item.used_amount}{item.unit}</span>
+                      <span style={{ fontWeight: 700, color: "#7d2a3f" }}>{brl(item.cost)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, paddingTop: 8, borderTop: "1px solid #f2dede", fontWeight: 700, fontSize: 15 }}>
+                  <span>Custo Total da Receita:</span>
+                  <span style={{ color: "#7d2a3f" }}>{brl(recipeTotalCost)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 13, color: "#a08f8f" }}>
+                  <span>Custo por Unidade (Rendimento: {yieldAmount}):</span>
+                  <span style={{ fontWeight: 700, color: "#1f9d6b" }}>{brl(recipeTotalCost / Number(yieldAmount || 1))}</span>
+                </div>
+              </div>
+            )}
+
+            <button onClick={saveRecipe} disabled={currentRecipeItems.length === 0 || !recName} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 700, cursor: currentRecipeItems.length === 0 || !recName ? "not-allowed" : "pointer", opacity: currentRecipeItems.length === 0 || !recName ? 0.6 : 1, width: "100%" }}>
+              Salvar Ficha Técnica
+            </button>
+          </div>
+
+          {/* Listagem de Receitas Salvas */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {recipes.length === 0 && <EmptyState text="Nenhuma ficha técnica salva ainda." />}
+            {recipes.map((rec) => {
+              const custoPorUnidade = Number(rec.total_cost) / Number(rec.yield_amount || 1);
+              return (
+                <div key={rec.id} style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <div>
+                      <div style={{ fontSize: 17, fontWeight: 700, color: "#2b2323" }}>{rec.product_name}</div>
+                      <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 2 }}>Rendimento: {rec.yield_amount} unidades/porções</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 12, color: "#a08f8f", fontWeight: 600 }}>Custo Unitário</div>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: "#1f9d6b" }}>{brl(custoPorUnidade)}</div>
+                      </div>
+                      <button onClick={() => onRemoveRec(rec.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6 }}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ background: "#fdf9f9", borderRadius: 10, padding: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {rec.ingredients_used?.map((ing, idx) => (
+                      <span key={idx} style={{ background: "#ffffff", border: "1px solid #f2dede", padding: "4px 10px", borderRadius: 8, fontSize: 12, color: "#7d6e6e" }}>
+                        {ing.name}: <b>{ing.used_amount}{ing.unit}</b> ({brl(ing.cost)})
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ListRow({ title, subtitle, value, valueColor, onDelete }) {
   return (
     <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
@@ -763,7 +1003,7 @@ function ListRow({ title, subtitle, value, valueColor, onDelete }) {
       <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
         <span style={{ fontSize: 15, fontWeight: 700, color: valueColor || "#2b2323" }}>{value}</span>
         {onDelete && (
-          <button onClick={onDelete} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#c9b6b6", display: "flex" }} aria-label="Excluir">
+          <button onClick={onDelete} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#c9b6b6", display: "flex" }}>
             <Trash2 size={16} />
           </button>
         )}
