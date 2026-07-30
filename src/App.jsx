@@ -15,6 +15,8 @@ import {
   BarChart3,
   Briefcase,
   Calculator,
+  ArrowUpRight,
+  ArrowDownRight,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -201,34 +203,65 @@ export default function App() {
 
   const today = todayISO();
 
-  const vendasHoje = useMemo(
-    () => sales.filter((s) => s.date === today && s.payment !== "Empresa (Fiado)").reduce((sum, s) => sum + Number(s.total), 0),
-    [sales, today]
-  );
+  // Cálculos comparativos (Mês Atual vs Mês Anterior)
+  const metrics = useMemo(() => {
+    const now = new Date();
+    const currentMonthStr = today.slice(0, 7); // "YYYY-MM"
+    
+    const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthStr = prevDate.toISOString().slice(0, 7);
 
-  const gastosHoje = useMemo(
-    () => expenses.filter((g) => g.date === today).reduce((sum, g) => sum + Number(g.value), 0),
-    [expenses, today]
-  );
+    const salesNormal = sales.filter((s) => s.payment !== "Empresa (Fiado)");
+    const companySales = sales.filter((s) => s.payment === "Empresa (Fiado)");
 
-  const lucroMes = useMemo(() => {
-    const vendasMes = sales.filter((s) => isSameMonth(s.date, today) && s.payment !== "Empresa (Fiado)").reduce((sum, s) => sum + Number(s.total), 0);
-    const gastosMes = expenses.filter((g) => isSameMonth(g.date, today)).reduce((sum, g) => sum + Number(g.value), 0);
-    return vendasMes - gastosMes;
-  }, [sales, expenses, today]);
+    // Vendas hoje
+    const vendasHojeVal = salesNormal.filter((s) => s.date === today).reduce((sum, s) => sum + Number(s.total), 0);
+    
+    // Vendas mês atual vs anterior
+    const vendasMesAtual = salesNormal.filter((s) => isSameMonth(s.date, today)).reduce((sum, s) => sum + Number(s.total), 0);
+    const vendasMesAnterior = salesNormal.filter((s) => isSameMonth(s.date, `${prevMonthStr}-01`)).reduce((sum, s) => sum + Number(s.total), 0);
+    const variacaoVendas = vendasMesAnterior > 0 ? ((vendasMesAtual - vendasMesAnterior) / vendasMesAnterior) * 100 : 0;
 
-  const maisVendido = useMemo(() => {
+    // Gastos hoje
+    const gastosHojeVal = expenses.filter((g) => g.date === today).reduce((sum, g) => sum + Number(g.value), 0);
+
+    // Gastos mês atual vs anterior
+    const gastosMesAtual = expenses.filter((g) => isSameMonth(g.date, today)).reduce((sum, g) => sum + Number(g.value), 0);
+    const gastosMesAnterior = expenses.filter((g) => isSameMonth(g.date, `${prevMonthStr}-01`)).reduce((sum, g) => sum + Number(g.value), 0);
+    const variacaoGastos = gastosMesAnterior > 0 ? ((gastosMesAtual - gastosMesAnterior) / gastosMesAnterior) * 100 : 0;
+
+    // Lucro mês atual vs anterior
+    const lucroMesAtual = vendasMesAtual - gastosMesAtual;
+    const lucroMesAnterior = vendasMesAnterior - gastosMesAnterior;
+    const variacaoLucro = lucroMesAnterior !== 0 ? ((lucroMesAtual - lucroMesAnterior) / Math.abs(lucroMesAnterior)) * 100 : 0;
+
+    // Mais vendido com contagem
     const counts = {};
-    sales.forEach((s) => {
-      if (s.product_name && s.payment !== "Empresa (Fiado)") {
+    salesNormal.forEach((s) => {
+      if (s.product_name) {
         counts[s.product_name] = (counts[s.product_name] || 0) + Number(s.qty || 1);
       }
     });
     const entries = Object.entries(counts);
-    if (entries.length === 0) return null;
     entries.sort((a, b) => b[1] - a[1]);
-    return entries[0][0];
-  }, [sales]);
+    const maisVendidoInfo = entries.length > 0 ? `${entries[0][0]} — ${entries[0][1]} un.` : "—";
+
+    // Total a receber empresa (mês atual)
+    const totalEmpresaMes = companySales
+      .filter((s) => isSameMonth(s.date, today))
+      .reduce((sum, s) => sum + Number(s.total), 0);
+
+    return {
+      vendasHoje: vendasHojeVal,
+      gastosHoje: gastosHojeVal,
+      lucroMes: lucroMesAtual,
+      maisVendido: maisVendidoInfo,
+      totalEmpresa: totalEmpresaMes,
+      variacaoVendas,
+      variacaoGastos,
+      variacaoLucro,
+    };
+  }, [sales, expenses, today]);
 
   const dataFormatada = new Intl.DateTimeFormat("pt-BR", {
     weekday: "long",
@@ -277,12 +310,10 @@ export default function App() {
             {view === "dashboard" && (
               <Dashboard
                 dataFormatada={dataFormatada}
-                vendasHoje={vendasHoje}
-                gastosHoje={gastosHoje}
-                lucroMes={lucroMes}
-                maisVendido={maisVendido}
+                metrics={metrics}
                 sales={sales}
                 expenses={expenses}
+                setView={setView}
               />
             )}
             {view === "produtos" && <Produtos products={products} onAdd={addProduct} onRemove={removeProduct} />}
@@ -415,28 +446,96 @@ function AuthScreen() {
   );
 }
 
-function Card({ label, value, icon, iconBg, valueColor }) {
+function Card({ label, value, icon, iconBg, valueColor, comparison }) {
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", textTransform: "uppercase" }}>{label}</span>
-        <div style={{ width: 34, height: 34, borderRadius: 10, background: iconBg, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
+    <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12, minHeight: 120 }}>
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", textTransform: "uppercase" }}>{label}</span>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: iconBg, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
+        </div>
+        <div style={{ fontSize: 24, fontWeight: 700, color: valueColor || "#2b2323" }}>{value}</div>
       </div>
-      <div style={{ fontSize: 26, fontWeight: 700, color: valueColor || "#2b2323" }}>{value}</div>
+      {comparison && (
+        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: comparison.color }}>
+          {comparison.icon}
+          <span>{comparison.text}</span>
+        </div>
+      )}
     </div>
   );
 }
 
-function Dashboard({ dataFormatada, vendasHoje, gastosHoje, lucroMes, maisVendido, sales, expenses }) {
+function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
+  function getComparison(val) {
+    if (val === 0) return { text: "Sem alteração vs mês passado", color: "#7d6e6e", icon: null };
+    const isPositive = val > 0;
+    return {
+      text: `${isPositive ? "↑" : "↓"} ${Math.abs(val).toFixed(1)}% vs mês passado`,
+      color: isPositive ? "#1f9d6b" : "#d1445b",
+      icon: isPositive ? <ArrowUpRight size={14} color="#1f9d6b" /> : <ArrowDownRight size={14} color="#d1445b" />,
+    };
+  }
+
   return (
     <div>
-      <div style={{ color: "#c1707d", fontSize: 15, marginBottom: 20, textTransform: "capitalize", fontWeight: 600 }}>{dataFormatada}</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
-        <Card label="Vendas hoje" value={brl(vendasHoje)} icon={<ShoppingCart size={17} color="#e0687a" />} iconBg="#fbe0e2" />
-        <Card label="Gastos hoje" value={brl(gastosHoje)} icon={<Receipt size={17} color="#e0687a" />} iconBg="#fbe0e2" />
-        <Card label="Lucro do mês" value={brl(lucroMes)} icon={<TrendingUp size={17} color="#1f9d6b" />} iconBg="#d7f5e6" valueColor={lucroMes >= 0 ? "#1f9d6b" : "#d1445b"} />
-        <Card label="Mais vendido" value={maisVendido || "—"} icon={<Star size={17} color="#e0687a" />} iconBg="#fbe0e2" />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ color: "#c1707d", fontSize: 15, textTransform: "capitalize", fontWeight: 600 }}>{dataFormatada}</div>
+        
+        {/* Atalhos Rápidos */}
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => setView("vendas")} style={{ background: "#e0687a", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+            <Plus size={15} /> + Nova Venda
+          </button>
+          <button onClick={() => setView("gastos")} style={{ background: "#ffffff", color: "#e0687a", border: "1px solid #e0687a", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+            <Plus size={15} /> + Novo Gasto
+          </button>
+          <button onClick={() => setView("empresa")} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+            <Plus size={15} /> + Venda Empresa
+          </button>
+        </div>
       </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginBottom: 24 }}>
+        <Card
+          label="Vendas hoje"
+          value={brl(metrics.vendasHoje)}
+          icon={<ShoppingCart size={17} color="#e0687a" />}
+          iconBg="#fbe0e2"
+          comparison={getComparison(metrics.variacaoVendas)}
+        />
+        <Card
+          label="Gastos hoje"
+          value={brl(metrics.gastosHoje)}
+          icon={<Receipt size={17} color="#d1445b" />}
+          iconBg="#fbe2e5"
+          valueColor="#d1445b"
+          comparison={getComparison(metrics.variacaoGastos)}
+        />
+        <Card
+          label="Lucro do mês"
+          value={brl(metrics.lucroMes)}
+          icon={<TrendingUp size={17} color="#1f9d6b" />}
+          iconBg="#d7f5e6"
+          valueColor={metrics.lucroMes >= 0 ? "#1f9d6b" : "#d1445b"}
+          comparison={getComparison(metrics.variacaoLucro)}
+        />
+        <Card
+          label="Mais vendido"
+          value={metrics.maisVendido}
+          icon={<Star size={17} color="#607d8b" />}
+          iconBg="#eceff1"
+          valueColor="#37474f"
+        />
+        <Card
+          label="Total a receber (Empresa)"
+          value={brl(metrics.totalEmpresa)}
+          icon={<Briefcase size={17} color="#5c6bc0" />}
+          iconBg="#e8eaf6"
+          valueColor="#3f51b5"
+        />
+      </div>
+
       <SalesChart sales={sales} expenses={expenses} />
     </div>
   );
@@ -457,21 +556,42 @@ function SalesChart({ sales, expenses }) {
     return days;
   }, [sales, expenses]);
 
+  const hasData = data.some((d) => d.Vendas > 0 || d.Gastos > 0);
+
   return (
     <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: "24px 20px 14px" }}>
-      <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Vendas x Gastos (últimos 7 dias)</div>
-      <div style={{ width: "100%", height: 280 }}>
-        <ResponsiveContainer>
-          <BarChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f2dede" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#a08f8f" }} />
-            <YAxis tick={{ fontSize: 12, fill: "#a08f8f" }} />
-            <Tooltip formatter={(v) => brl(v)} />
-            <Bar dataKey="Vendas" fill="#e0687a" radius={[4, 4, 0, 0]} maxBarSize={32} />
-            <Bar dataKey="Gastos" fill="#d9b8ba" radius={[4, 4, 0, 0]} maxBarSize={32} />
-          </BarChart>
-        </ResponsiveContainer>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323" }}>Vendas x Gastos (últimos 7 dias)</div>
+        
+        {/* Legenda de Cores */}
+        <div style={{ display: "flex", gap: 16, fontSize: 13, fontWeight: 600, color: "#7d6e6e" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ width: 12, height: 12, borderRadius: 3, background: "#e0687a" }}></div>
+            <span>Vendas</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ width: 12, height: 12, borderRadius: 3, background: "#d1445b" }}></div>
+            <span>Gastos</span>
+          </div>
+        </div>
       </div>
+
+      {!hasData ? (
+        <EmptyState text="Sem movimentações nos últimos 7 dias." />
+      ) : (
+        <div style={{ width: "100%", height: 280 }}>
+          <ResponsiveContainer>
+            <BarChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f2dede" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#a08f8f" }} />
+              <YAxis tick={{ fontSize: 12, fill: "#a08f8f" }} />
+              <Tooltip formatter={(v) => brl(v)} />
+              <Bar dataKey="Vendas" fill="#e0687a" radius={[4, 4, 0, 0]} maxBarSize={32} />
+              <Bar dataKey="Gastos" fill="#d1445b" radius={[4, 4, 0, 0]} maxBarSize={32} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 }
