@@ -138,7 +138,14 @@ export default function App() {
 
   async function addIngredient(ing) {
     const { data, error } = await supabase.from("ingredients").insert(ing).select().single();
-    if (!error && data) setIngredients((prev) => [...prev, data]);
+    if (error) {
+      alert("Erro ao salvar ingrediente: " + error.message);
+      return false;
+    }
+    if (data) {
+      setIngredients((prev) => [...prev, data]);
+      return true;
+    }
   }
 
   async function removeIngredient(id) {
@@ -148,7 +155,14 @@ export default function App() {
 
   async function addRecipe(rec) {
     const { data, error } = await supabase.from("recipes").insert(rec).select().single();
-    if (!error && data) setRecipes((prev) => [data, ...prev]);
+    if (error) {
+      alert("Erro ao salvar receita: " + error.message);
+      return false;
+    }
+    if (data) {
+      setRecipes((prev) => [data, ...prev]);
+      return true;
+    }
   }
 
   async function removeRecipe(id) {
@@ -757,32 +771,35 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
 }
 
 function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, onRemoveRec }) {
-  const [tab, setTab] = useState("ingredientes"); // "ingredientes" | "receitas"
+  const [tab, setTab] = useState("ingredientes");
 
-  // Estado para novo ingrediente
   const [ingName, setIngName] = useState("");
   const [pkgPrice, setPkgPrice] = useState("");
   const [pkgAmount, setPkgAmount] = useState("");
-  const [unit, setUnit] = useState("g"); // g, ml, un
+  const [unit, setUnit] = useState("g");
 
-  // Estado para nova receita / ficha técnica
   const [recName, setRecName] = useState("");
   const [selectedIngId, setSelectedIngId] = useState("");
   const [usedAmount, setUsedAmount] = useState("");
   const [currentRecipeItems, setCurrentRecipeItems] = useState([]);
-  const [yieldAmount, setYieldAmount] = useState("1"); // rendimento
+  const [yieldAmount, setYieldAmount] = useState("1");
 
   async function submitIngredient() {
-    if (!ingName || !pkgPrice || !pkgAmount) return;
-    await onAddIng({
+    if (!ingName.trim() || !pkgPrice || !pkgAmount) {
+      alert("Preencha todos os campos do ingrediente.");
+      return;
+    }
+    const success = await onAddIng({
       name: ingName.trim(),
       package_price: parseFloat(pkgPrice),
       package_amount: parseFloat(pkgAmount),
       unit,
     });
-    setIngName("");
-    setPkgPrice("");
-    setPkgAmount("");
+    if (success !== false) {
+      setIngName("");
+      setPkgPrice("");
+      setPkgAmount("");
+    }
   }
 
   function addIngredientToRecipe() {
@@ -790,7 +807,6 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
     const ing = ingredients.find((i) => String(i.id) === String(selectedIngId));
     if (!ing) return;
 
-    // Cálculo proporcional: (preço da embalagem / quantidade da embalagem) * quantidade usada
     const unitCost = Number(ing.package_price) / Number(ing.package_amount);
     const cost = unitCost * Number(usedAmount);
 
@@ -814,15 +830,17 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
 
   async function saveRecipe() {
     if (!recName.trim() || currentRecipeItems.length === 0) return;
-    await onAddRec({
+    const success = await onAddRec({
       product_name: recName.trim(),
       ingredients_used: currentRecipeItems,
       total_cost: recipeTotalCost,
       yield_amount: parseFloat(yieldAmount) || 1,
     });
-    setRecName("");
-    setCurrentRecipeItems([]);
-    setYieldAmount("1");
+    if (success !== false) {
+      setRecName("");
+      setCurrentRecipeItems([]);
+      setYieldAmount("1");
+    }
   }
 
   return (
@@ -925,7 +943,6 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
               </button>
             </div>
 
-            {/* Lista de ingredientes adicionados nesta receita */}
             {currentRecipeItems.length > 0 && (
               <div style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 12, padding: 14, marginBottom: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#7d2a3f", marginBottom: 10 }}>Ingredientes desta receita:</div>
@@ -953,7 +970,6 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
             </button>
           </div>
 
-          {/* Listagem de Receitas Salvas */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {recipes.length === 0 && <EmptyState text="Nenhuma ficha técnica salva ainda." />}
             {recipes.map((rec) => {
@@ -1027,23 +1043,6 @@ function ToggleButton({ active, onClick, children }) {
     </button>
   );
 }
-
-function formatDatePt(dateStr) {
-  if (!dateStr) return "";
-  const [y, m, d] = dateStr.split("-");
-  return `${d}/${m}/${y}`;
-}
-
-const formPanelStyle = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 12,
-  background: "#ffffff",
-  border: "1px solid #f2dede",
-  borderRadius: 16,
-  padding: 20,
-  marginTop: 10,
-};
 
 const inputStyle = {
   border: "1px solid #f2dede",
