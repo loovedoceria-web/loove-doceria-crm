@@ -84,17 +84,31 @@ export default function App() {
   const [documents, setDocuments] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
 
+  // Verificação rigorosa de sessão ativa do Supabase Auth
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setAuthChecked(true);
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
-        setSession(newSession);
+    let mounted = true;
+
+    async function checkAuth() {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (mounted) {
+        setSession(currentSession);
+        setAuthChecked(true);
       }
-    );
-    return () => listener.subscription.unsubscribe();
+    }
+
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      if (mounted) {
+        setSession(newSession);
+        setAuthChecked(true);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -125,13 +139,14 @@ export default function App() {
         if (rec.data) setRecipes(rec.data);
         if (doc.data) setDocuments(doc.data);
       } catch (err) {
-        console.error("Erro ao carregar dados:", err);
+        console.error("Erro de segurança ao carregar dados autorizados:", err);
       }
       setDataLoading(false);
     })();
   }, [session]);
 
   async function addProduct(product) {
+    if (!session) return false;
     const { data, error } = await supabase.from("products").insert(product).select().single();
     if (error) {
       alert("Erro ao salvar produto: " + error.message);
@@ -144,11 +159,17 @@ export default function App() {
   }
 
   async function removeProduct(id) {
+    if (!session) return;
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (!error) setProducts((prev) => prev.filter((p) => p.id !== id));
   }
 
   async function addSale(sale) {
+    if (!session) return false;
+    if (Number(sale.total) < 0) {
+      alert("Valor inválido.");
+      return false;
+    }
     const { data, error } = await supabase.from("sales").insert(sale).select().single();
     if (error) {
       alert("Erro ao salvar venda: " + error.message);
@@ -161,11 +182,13 @@ export default function App() {
   }
 
   async function removeSale(id) {
+    if (!session) return;
     const { error } = await supabase.from("sales").delete().eq("id", id);
     if (!error) setSales((prev) => prev.filter((s) => s.id !== id));
   }
 
   async function updateSale(id, updates) {
+    if (!session) return false;
     const { data, error } = await supabase.from("sales").update(updates).eq("id", id).select().single();
     if (error) {
       alert("Erro ao atualizar venda: " + error.message);
@@ -178,6 +201,11 @@ export default function App() {
   }
 
   async function addExpense(expense) {
+    if (!session) return false;
+    if (Number(expense.value) < 0) {
+      alert("Valor de gasto inválido.");
+      return false;
+    }
     const { data, error } = await supabase.from("expenses").insert(expense).select().single();
     if (error) {
       alert("Erro ao salvar gasto: " + error.message);
@@ -190,11 +218,13 @@ export default function App() {
   }
 
   async function removeExpense(id) {
+    if (!session) return;
     const { error } = await supabase.from("expenses").delete().eq("id", id);
     if (!error) setExpenses((prev) => prev.filter((g) => g.id !== id));
   }
 
   async function addIngredient(ing) {
+    if (!session) return false;
     const { data, error } = await supabase.from("ingredients").insert(ing).select().single();
     if (error) {
       alert("Erro ao salvar ingrediente: " + error.message);
@@ -207,11 +237,13 @@ export default function App() {
   }
 
   async function removeIngredient(id) {
+    if (!session) return;
     const { error } = await supabase.from("ingredients").delete().eq("id", id);
     if (!error) setIngredients((prev) => prev.filter((i) => i.id !== id));
   }
 
   async function addRecipe(rec) {
+    if (!session) return false;
     const { data, error } = await supabase.from("recipes").insert(rec).select().single();
     if (error) {
       alert("Erro ao salvar receita: " + error.message);
@@ -224,6 +256,7 @@ export default function App() {
   }
 
   async function removeRecipe(id) {
+    if (!session) return;
     const { error } = await supabase.from("recipes").delete().eq("id", id);
     if (error) {
       alert("Erro ao excluir receita: " + error.message);
@@ -233,6 +266,7 @@ export default function App() {
   }
 
   async function addDocument(doc) {
+    if (!session) return false;
     const { data, error } = await supabase.from("documents").insert(doc).select().single();
     if (error) {
       alert("Erro ao salvar documento: " + error.message);
@@ -245,6 +279,7 @@ export default function App() {
   }
 
   async function removeDocument(id) {
+    if (!session) return;
     const { error } = await supabase.from("documents").delete().eq("id", id);
     if (!error) setDocuments((prev) => prev.filter((d) => d.id !== id));
   }
@@ -327,6 +362,7 @@ export default function App() {
     return <div style={shellStyle} />;
   }
 
+  // Redirecionamento e Bloqueio automático para a tela de Login se não houver sessão ativa
   if (!session) {
     return (
       <div style={{ minHeight: "100vh", background: "#fdf6f6", display: "flex", justifyContent: "center", alignItems: "center" }}>
@@ -349,7 +385,7 @@ export default function App() {
 
       <div style={mainContentStyle}>
         {dataLoading ? (
-          <div style={{ textAlign: "center", color: "#b3a3a3", padding: "60px 0" }}>Carregando dados...</div>
+          <div style={{ textAlign: "center", color: "#b3a3a3", padding: "60px 0" }}>Verificando credenciais e carregando...</div>
         ) : (
           <>
             {view === "dashboard" && (
@@ -418,7 +454,7 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
             {!isCollapsed && (
               <div style={{ whiteSpace: "nowrap" }}>
                 <div style={{ fontWeight: 700, fontSize: 16, color: "#2b2323" }}>Loove Doceria</div>
-                <div style={{ fontSize: 11, color: "#9c8b8b" }}>CRM Financeiro</div>
+                <div style={{ fontSize: 11, color: "#9c8b8b" }}>CRM Seguro</div>
               </div>
             )}
           </div>
@@ -531,7 +567,7 @@ function AuthScreen() {
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
         <img src="/logo.png" alt="Loove Doceria" style={{ width: 64, height: 64, borderRadius: 16, objectFit: "cover", marginBottom: 12 }} />
         <div style={{ fontWeight: 700, fontSize: 18, color: "#2b2323" }}>Loove Doceria</div>
-        <div style={{ fontSize: 12, color: "#9c8b8b" }}>CRM Financeiro</div>
+        <div style={{ fontSize: 12, color: "#9c8b8b" }}>Área Restrita e Protegida</div>
       </div>
       <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ position: "relative" }}>
@@ -543,7 +579,7 @@ function AuthScreen() {
           <input style={{ ...inputStyle, paddingLeft: 40, width: "100%", boxSizing: "border-box" }} type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
         {error && <div style={{ color: "#d1445b", fontSize: 12.5, textAlign: "center" }}>{error}</div>}
-        <button style={{ ...primaryBtnStyle, marginTop: 4 }} type="submit" disabled={loading}>{loading ? "Aguarde..." : "Entrar"}</button>
+        <button style={{ ...primaryBtnStyle, marginTop: 4 }} type="submit" disabled={loading}>{loading ? "Validando..." : "Entrar com Segurança"}</button>
       </form>
     </div>
   );
@@ -1585,7 +1621,6 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validação de tamanho máximo (2MB = 2 * 1024 * 1024 bytes)
     if (file.size > 2 * 1024 * 1024) {
       alert("O arquivo é muito grande! O tamanho máximo permitido é 2MB.");
       e.target.value = "";
@@ -1620,7 +1655,6 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
       setExpenseLink("");
       setFileBase64("");
       setFileType("");
-      // Limpa input file
       const fileInput = document.getElementById("file-input");
       if (fileInput) fileInput.value = "";
     }
@@ -1652,7 +1686,6 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
     <div>
       <h2 style={{ fontSize: 20, fontWeight: 700, color: "#2b2323", margin: "0 0 20px" }}>Gerenciador de Documentos</h2>
 
-      {/* Formulário de Upload */}
       <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 24, marginBottom: 28, boxShadow: "0 4px 15px rgba(0,0,0,0.02)" }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Fazer Upload de Documento</div>
         
@@ -1694,7 +1727,6 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
         </div>
       </div>
 
-      {/* Filtros de Mês e Categoria */}
       <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -1723,7 +1755,6 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
           </div>
         </div>
 
-        {/* Grade de Documentos */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
           {filteredDocs.length === 0 && (
             <div style={{ gridColumn: "span 3" }}>
@@ -1735,7 +1766,6 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
             return (
               <div key={doc.id} style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 14, padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12 }}>
                 <div>
-                  {/* Preview / Miniatura */}
                   <div style={{ width: "100%", height: 130, background: "#ffffff", borderRadius: 10, border: "1px solid #f1dede", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 12, position: "relative" }}>
                     {isImage ? (
                       <img src={doc.file_data} alt={doc.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
