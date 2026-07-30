@@ -17,6 +17,10 @@ import {
   Calculator,
   ArrowUpRight,
   ArrowDownRight,
+  Search,
+  CheckCircle2,
+  Clock,
+  Lock as LockIcon,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -146,6 +150,18 @@ export default function App() {
     if (!error) setSales((prev) => prev.filter((s) => s.id !== id));
   }
 
+  async function updateSale(id, updates) {
+    const { data, error } = await supabase.from("sales").update(updates).eq("id", id).select().single();
+    if (error) {
+      alert("Erro ao atualizar venda: " + error.message);
+      return false;
+    }
+    if (data) {
+      setSales((prev) => prev.map((s) => (s.id === id ? data : s)));
+      return true;
+    }
+  }
+
   async function addExpense(expense) {
     const { data, error } = await supabase.from("expenses").insert(expense).select().single();
     if (error) {
@@ -237,8 +253,9 @@ export default function App() {
     entries.sort((a, b) => b[1] - a[1]);
     const maisVendidoInfo = entries.length > 0 ? `${entries[0][0]} — ${entries[0][1]} un.` : "—";
 
-    const totalEmpresaMes = companySales
-      .filter((s) => isSameMonth(s.date, today))
+    // Soma apenas o que está Pendente no mês atual
+    const totalEmpresaPendente = companySales
+      .filter((s) => isSameMonth(s.date, today) && s.status !== "Pago")
       .reduce((sum, s) => sum + Number(s.total), 0);
 
     return {
@@ -246,7 +263,7 @@ export default function App() {
       gastosHoje: gastosHojeVal,
       lucroMes: lucroMesAtual,
       maisVendido: maisVendidoInfo,
-      totalEmpresa: totalEmpresaMes,
+      totalEmpresa: totalEmpresaPendente,
       variacaoVendas,
       variacaoGastos,
       variacaoLucro,
@@ -309,7 +326,7 @@ export default function App() {
             {view === "produtos" && <Produtos products={products} onAdd={addProduct} onRemove={removeProduct} />}
             {view === "vendas" && <Vendas products={products} sales={sales} onAdd={addSale} onRemove={removeSale} />}
             {view === "gastos" && <Gastos expenses={expenses} onAdd={addExpense} onRemove={removeExpense} />}
-            {view === "empresa" && <VendasEmpresa sales={sales} onAdd={addSale} onRemove={removeSale} />}
+            {view === "empresa" && <VendasEmpresa sales={sales} onAdd={addSale} onRemove={removeSale} onUpdate={updateSale} />}
             {view === "precificacao" && <Precificacao ingredients={ingredients} recipes={recipes} onAddIng={addIngredient} onRemoveIng={removeIngredient} onAddRec={addRecipe} onRemoveRec={removeRecipe} />}
           </>
         )}
@@ -472,7 +489,6 @@ function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div style={{ color: "#c1707d", fontSize: 15, textTransform: "capitalize", fontWeight: 600 }}>{dataFormatada}</div>
         
-        {/* Atalhos Rápidos corrigidos (sem duplicar o sinal de +) */}
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={() => setView("vendas")} style={{ background: "#e0687a", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
             <Plus size={15} /> Nova Venda
@@ -733,25 +749,23 @@ function Gastos({ expenses, onAdd, onRemove }) {
   );
 }
 
-function VendasEmpresa({ sales, onAdd, onRemove }) {
+function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
   const [employeeName, setEmployeeName] = useState("");
   const [total, setTotal] = useState("");
   const [date, setDate] = useState(todayISO());
   const [selectedMonth, setSelectedMonth] = useState(todayISO().slice(0, 7));
+  const [searchFilter, setSearchFilter] = useState("");
 
-  async function submit() {
-    if (!employeeName.trim() || !total || !date) return;
-    await onAdd({
-      date: date,
-      product_name: employeeName.trim(),
-      qty: 1,
-      total: parseFloat(total),
-      payment: "Empresa (Fiado)",
+  // Lista de funcionários únicos para o Autocomplete
+  const existingEmployees = useMemo(() => {
+    const setNames = new Set();
+    sales.forEach((s) => {
+      if (s.payment === "Empresa (Fiado)" && s.product_name) {
+        setNames.add(s.product_name);
+      }
     });
-    setEmployeeName("");
-    setTotal("");
-    setDate(todayISO());
-  }
+    return Array.from(setNames).sort();
+  }, [sales]);
 
   const companySales = useMemo(() => {
     return sales.filter((s) => s.payment === "Empresa (Fiado)");
@@ -775,18 +789,90 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
     return companySales.filter((s) => s.date && s.date.slice(0, 7) === selectedMonth);
   }, [companySales, selectedMonth]);
 
+  // Verifica se o mês inteiro está totalmente fechado/pago
+  const isMonthClosed = useMemo(() => {
+    if (listaDetalhadaMes.length === 0) return false;
+    return listaDetalhadaMes.every((s) => s.status === "Pago");
+  }, [listaDetalhadaMes]);
+
+  async function submit() {
+    if (isMonthClosed) {
+      alert("Este mês já está fechado. Não é possível adicionar novos lançamentos.");
+      return;
+    }
+    if (!employeeName.trim() || !total || !date) return;
+    await onAdd({
+      date: date,
+      product_name: employeeName.trim(),
+      qty: 1,
+      total: parseFloat(total),
+      payment: "Empresa (Fiado)",
+      status: "Pendente",
+    });
+    setEmployeeName("");
+    setTotal("");
+    setDate(todayISO());
+  }
+
+  // Agrupa por funcionário para exibir nos cards
   const resumoMes = useMemo(() => {
     const map = {};
     listaDetalhadaMes.forEach((s) => {
       const nome = s.product_name || "Desconhecido";
-      map[nome] = (map[nome] || 0) + Number(s.total);
+      if (!map[nome]) {
+        map[nome] = { sum: 0, items: [], allPaid: true };
+      }
+      map[nome].sum += Number(s.total);
+      map[nome].items.push(s);
+      if (s.status !== "Pago") {
+        map[nome].allPaid = false;
+      }
     });
-    return Object.entries(map).map(([name, sum]) => ({ name, sum })).sort((a, b) => b.sum - a.sum);
-  }, [listaDetalhadaMes]);
+
+    let entries = Object.entries(map).map(([name, data]) => ({
+      name,
+      sum: data.sum,
+      items: data.items,
+      isPaid: data.allPaid,
+    }));
+
+    // Aplica o filtro de busca por nome
+    if (searchFilter.trim()) {
+      entries = entries.filter((e) => e.name.toLowerCase().includes(searchFilter.toLowerCase()));
+    }
+
+    return entries.sort((a, b) => b.sum - a.sum);
+  }, [listaDetalhadaMes, searchFilter]);
 
   const totalGeralMes = useMemo(() => {
     return resumoMes.reduce((acc, item) => acc + item.sum, 0);
   }, [resumoMes]);
+
+  const totalPendenteMes = useMemo(() => {
+    return resumoMes.filter((item) => !item.isPaid).reduce((acc, item) => acc + item.sum, 0);
+  }, [resumoMes]);
+
+  // Marcar todos os lançamentos de um funcionário como Pago / Pendente
+  async function toggleEmployeeStatus(employeeName, currentIsPaid) {
+    const newStatus = currentIsPaid ? "Pendente" : "Pago";
+    const itemsToUpdate = listaDetalhadaMes.filter((s) => s.product_name === employeeName);
+    for (const item of itemsToUpdate) {
+      await onUpdate(item.id, { status: newStatus });
+    }
+  }
+
+  // Botão "Fechar Mês" (marca tudo como Pago)
+  async function fecharMesGeral() {
+    if (isMonthClosed) {
+      alert("Este mês já está fechado.");
+      return;
+    }
+    for (const item of listaDetalhadaMes) {
+      if (item.status !== "Pago") {
+        await onUpdate(item.id, { status: "Pago" });
+      }
+    }
+  }
 
   function gerarPDF() {
     const doc = new jsPDF();
@@ -798,14 +884,14 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
     doc.setFont("helvetica", "normal");
     doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 28);
 
-    const dadosTabela = resumoMes.map((item) => [item.name, brl(item.sum)]);
+    const dadosTabela = resumoMes.map((item) => [item.name, brl(item.sum), item.isPaid ? "Pago" : "Pendente"]);
 
     doc.autoTable({
       startY: 36,
-      head: [["Funcionário / Cliente", "Total Devido"]],
+      head: [["Funcionário / Cliente", "Total Devido", "Status"]],
       body: dadosTabela,
       theme: "grid",
-      headStyles: { fillColor: [224, 104, 122] },
+      headStyles: { fillColor: [63, 81, 181] },
     });
 
     doc.save(`vendas-empresa-${selectedMonth}.pdf`);
@@ -813,20 +899,55 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
 
   return (
     <div>
-      <SectionTitle>Vendas Empresa</SectionTitle>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <SectionTitle>Vendas Empresa</SectionTitle>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={fecharMesGeral}
+            disabled={isMonthClosed || listaDetalhadaMes.length === 0}
+            style={{
+              background: isMonthClosed ? "#a08f8f" : "#3f51b5",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: 12,
+              padding: "10px 18px",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: isMonthClosed ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <LockIcon size={16} />
+            {isMonthClosed ? "Mês Fechado" : "Fechar Mês (Marcar Todos como Pagos)"}
+          </button>
+        </div>
+      </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20, marginBottom: 24 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 14 }}>Lançar venda para funcionário / empresa</div>
+      {/* Formulário de Lançamento */}
+      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20, marginBottom: 24, opacity: isMonthClosed ? 0.7 : 1 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span>Lançar venda para funcionário / empresa</span>
+          {isMonthClosed && <span style={{ fontSize: 13, color: "#d1445b", fontWeight: 600 }}>Mês Fechado (Lançamentos travados)</span>}
+        </div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Nome</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Nome (Autocomplete)</div>
             <input
               style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
-              placeholder="Nome da pessoa"
+              placeholder="Digite ou selecione o nome da pessoa"
               value={employeeName}
               onChange={(e) => setEmployeeName(e.target.value)}
+              list="employees-list"
+              disabled={isMonthClosed}
             />
+            <datalist id="employees-list">
+              {existingEmployees.map((name, idx) => (
+                <option key={idx} value={name} />
+              ))}
+            </datalist>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 12, alignItems: "end" }}>
@@ -839,6 +960,7 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
                 placeholder="0,00"
                 value={total}
                 onChange={(e) => setTotal(e.target.value)}
+                disabled={isMonthClosed}
               />
             </div>
 
@@ -849,20 +971,22 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
+                disabled={isMonthClosed}
               />
             </div>
 
             <button
               onClick={submit}
+              disabled={isMonthClosed}
               style={{
-                background: "#7d2a3f",
+                background: isMonthClosed ? "#ccc" : "#7d2a3f",
                 color: "#ffffff",
                 border: "none",
                 borderRadius: 12,
                 padding: "12px 24px",
                 fontSize: 14,
                 fontWeight: 700,
-                cursor: "pointer",
+                cursor: isMonthClosed ? "not-allowed" : "pointer",
                 height: 45,
               }}
             >
@@ -872,26 +996,41 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
         </div>
       </div>
 
+      {/* Caixa de Listagem */}
       <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12 }}>
-          <select
-            style={{ ...inputStyle, width: 220, background: "#ffffff", fontWeight: 600, cursor: "pointer" }}
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-          >
-            {mesesDisponiveis.map((ym) => (
-              <option key={ym} value={ym}>{formatMonthLabel(ym)}</option>
-            ))}
-          </select>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <select
+              style={{ ...inputStyle, width: 200, background: "#ffffff", fontWeight: 600, cursor: "pointer" }}
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+            >
+              {mesesDisponiveis.map((ym) => (
+                <option key={ym} value={ym}>{formatMonthLabel(ym)}</option>
+              ))}
+            </select>
+
+            {/* Campo de Busca por Nome */}
+            <div style={{ position: "relative" }}>
+              <Search size={16} color="#a08f8f" style={{ position: "absolute", left: 12, top: 14 }} />
+              <input
+                style={{ ...inputStyle, paddingLeft: 36, width: 220, boxSizing: "border-box" }}
+                placeholder="Buscar funcionário..."
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+              />
+            </div>
+          </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ background: "#fbe0e2", color: "#7d2a3f", padding: "10px 18px", borderRadius: 12, fontSize: 14, fontWeight: 700 }}>
-              Total: {brl(totalGeralMes)}
+            {/* Badge de Total Destacado (Tom Azul/Roxo) */}
+            <div style={{ background: "#e8eaf6", color: "#3f51b5", padding: "10px 18px", borderRadius: 12, fontSize: 14, fontWeight: 700, border: "1px solid #c5cae9" }}>
+              Total Pendente: {brl(totalPendenteMes)} <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.8 }}>(Geral: {brl(totalGeralMes)})</span>
             </div>
             {resumoMes.length > 0 && (
               <button
                 onClick={gerarPDF}
-                style={{ background: "#1f9d6b", color: "#ffffff", border: "none", borderRadius: 12, padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                style={{ background: "#3f51b5", color: "#ffffff", border: "none", borderRadius: 12, padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
               >
                 Exportar PDF
               </button>
@@ -901,23 +1040,58 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {resumoMes.length === 0 && (
-            <EmptyState text="Nenhuma venda registrada nesse mês ainda." />
+            <EmptyState text="Nenhuma venda registrada nesse mês ainda ou funcionário não encontrado." />
           )}
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
             {resumoMes.map((item, index) => (
               <div key={index} style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ fontWeight: 700, color: "#2b2323", fontSize: 16 }}>{item.name}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontWeight: 700, color: "#2b2323", fontSize: 16 }}>{item.name}</div>
+                    {/* Badge de Status */}
+                    <span style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: "3px 8px",
+                      borderRadius: 6,
+                      background: item.isPaid ? "#d7f5e6" : "#fbe2e5",
+                      color: item.isPaid ? "#1f9d6b" : "#d1445b",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4
+                    }}>
+                      {item.isPaid ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+                      {item.isPaid ? "Pago" : "Pendente"}
+                    </span>
+                  </div>
                   <div style={{ fontWeight: 700, color: "#7d2a3f", fontSize: 17 }}>{brl(item.sum)}</div>
                 </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <button
+                    onClick={() => toggleEmployeeStatus(item.name, item.isPaid)}
+                    style={{
+                      background: item.isPaid ? "#fff" : "#1f9d6b",
+                      color: item.isPaid ? "#1f9d6b" : "#fff",
+                      border: "1px solid #1f9d6b",
+                      borderRadius: 8,
+                      padding: "5px 10px",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {item.isPaid ? "Marcar como pendente" : "Marcar como pago"}
+                  </button>
+                </div>
+
                 <div style={{ borderTop: "1px dashed #f2dede", paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", textTransform: "uppercase" }}>Lançamentos no mês:</div>
-                  {listaDetalhadaMes
-                    .filter((s) => s.product_name === item.name)
-                    .map((s) => (
-                      <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "#6e5e5e" }}>
-                        <span>{formatDatePt(s.date)} — <b>{brl(s.total)}</b></span>
+                  {item.items.map((s) => (
+                    <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "#6e5e5e" }}>
+                      <span>{formatDatePt(s.date)} — <b>{brl(s.total)}</b></span>
+                      {!isMonthClosed ? (
                         <button
                           onClick={() => onRemove(s.id)}
                           style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 4, display: "flex", alignItems: "center" }}
@@ -925,263 +1099,17 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
                         >
                           <Trash2 size={14} />
                         </button>
-                      </div>
-                    ))}
+                      ) : (
+                        <span style={{ fontSize: 11, color: "#a08f8f" }}>Bloqueado</span>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, onRemoveRec }) {
-  const [tab, setTab] = useState("ingredientes");
-
-  const [ingName, setIngName] = useState("");
-  const [pkgPrice, setPkgPrice] = useState("");
-  const [pkgAmount, setPkgAmount] = useState("");
-  const [unit, setUnit] = useState("g");
-
-  const [recName, setRecName] = useState("");
-  const [selectedIngId, setSelectedIngId] = useState("");
-  const [usedAmount, setUsedAmount] = useState("");
-  const [currentRecipeItems, setCurrentRecipeItems] = useState([]);
-  const [yieldAmount, setYieldAmount] = useState("1");
-
-  async function submitIngredient() {
-    if (!ingName.trim() || !pkgPrice || !pkgAmount) {
-      alert("Preencha todos os campos do ingrediente.");
-      return;
-    }
-    const success = await onAddIng({
-      name: ingName.trim(),
-      package_price: parseFloat(pkgPrice),
-      package_amount: parseFloat(pkgAmount),
-      unit,
-    });
-    if (success !== false) {
-      setIngName("");
-      setPkgPrice("");
-      setPkgAmount("");
-    }
-  }
-
-  function addIngredientToRecipe() {
-    if (!selectedIngId || !usedAmount) return;
-    const ing = ingredients.find((i) => String(i.id) === String(selectedIngId));
-    if (!ing) return;
-
-    let totalAmountInPackage = Number(ing.package_amount);
-    let displayUnit = ing.unit;
-
-    if (ing.unit === "kg") {
-      totalAmountInPackage = totalAmountInPackage * 1000;
-      displayUnit = "g";
-    }
-
-    const unitCost = Number(ing.package_price) / totalAmountInPackage;
-    const cost = unitCost * Number(usedAmount);
-
-    setCurrentRecipeItems((prev) => [
-      ...prev,
-      {
-        ingredient_id: ing.id,
-        name: ing.name,
-        used_amount: Number(usedAmount),
-        unit: displayUnit,
-        cost: cost,
-      },
-    ]);
-    setSelectedIngId("");
-    setUsedAmount("");
-  }
-
-  const recipeTotalCost = useMemo(() => {
-    return currentRecipeItems.reduce((acc, item) => acc + item.cost, 0);
-  }, [currentRecipeItems]);
-
-  async function saveRecipe() {
-    if (!recName.trim() || currentRecipeItems.length === 0) return;
-    const success = await onAddRec({
-      product_name: recName.trim(),
-      ingredients_used: currentRecipeItems,
-      total_cost: recipeTotalCost,
-      yield_amount: parseFloat(yieldAmount) || 1,
-    });
-    if (success !== false) {
-      setRecName("");
-      setCurrentRecipeItems([]);
-      setYieldAmount("1");
-    }
-  }
-
-  return (
-    <div>
-      <SectionTitle>Precificação e Ficha Técnica</SectionTitle>
-
-      <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
-        <ToggleButton active={tab === "ingredientes"} onClick={() => setTab("ingredientes")}>
-          1. Meus Ingredientes (Estoque de Preços)
-        </ToggleButton>
-        <ToggleButton active={tab === "receitas"} onClick={() => setTab("receitas")}>
-          2. Ficha Técnica / Receitas (Custo de Produção)
-        </ToggleButton>
-      </div>
-
-      {tab === "ingredientes" ? (
-        <div>
-          <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20, marginBottom: 24 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 14 }}>Cadastrar Ingrediente ou Embalagem</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 120px auto", gap: 12, alignItems: "end" }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Nome</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Farinha de Trigo" value={ingName} onChange={(e) => setIngName(e.target.value)} />
-              </div>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Preço Pago (R$)</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="Ex: 10.00" value={pkgPrice} onChange={(e) => setPkgPrice(e.target.value)} />
-              </div>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Qtd Embalagem</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 1 ou 1000" value={pkgAmount} onChange={(e) => setPkgAmount(e.target.value)} />
-              </div>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Unidade do Pacote</div>
-                <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={unit} onChange={(e) => setUnit(e.target.value)}>
-                  <option value="g">Gramas (g)</option>
-                  <option value="kg">Quilos (kg)</option>
-                  <option value="ml">Mililitros (ml)</option>
-                  <option value="un">Unidade (un)</option>
-                </select>
-              </div>
-              <button onClick={submitIngredient} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", height: 45 }}>
-                Cadastrar
-              </button>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
-            {ingredients.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum ingrediente cadastrado ainda." /></div>}
-            {ingredients.map((i) => {
-              const totalAmount = i.unit === "kg" ? Number(i.package_amount) * 1000 : Number(i.package_amount);
-              const displayUnit = i.unit === "kg" ? "g" : i.unit;
-              const custoUnitario = Number(i.package_price) / totalAmount;
-              return (
-                <div key={i.id} style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323" }}>{i.name}</div>
-                    <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 4 }}>
-                      Pacote: {i.package_amount}{i.unit} por {brl(i.package_price)} · Custo: {brl(custoUnitario)} por {displayUnit}
-                    </div>
-                  </div>
-                  <button onClick={() => onRemoveIng(i.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6 }}>
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ) : (
-        <div>
-          <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20, marginBottom: 24 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 14 }}>Montar Ficha Técnica / Receita</div>
-            
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 180px", gap: 12, marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Nome do Produto / Receita</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Pão Caseiro / Massa de Brigadeiro" value={recName} onChange={(e) => setRecName(e.target.value)} />
-              </div>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Rendimento (unidades/porções)</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" min="1" value={yieldAmount} onChange={(e) => setYieldAmount(e.target.value)} />
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 12, alignItems: "end", marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Selecionar Ingrediente</div>
-                <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={selectedIngId} onChange={(e) => setSelectedIngId(e.target.value)}>
-                  <option value="">Selecione o ingrediente...</option>
-                  {ingredients.map((ing) => (
-                    <option key={ing.id} value={ing.id}>{ing.name} (Comprou {ing.package_amount}{ing.unit} por {brl(ing.package_price)})</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Quantidade a usar (g/ml)</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 100" value={usedAmount} onChange={(e) => setUsedAmount(e.target.value)} />
-              </div>
-              <button onClick={addIngredientToRecipe} style={{ background: "#e0687a", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", height: 45 }}>
-                Adicionar na Receita
-              </button>
-            </div>
-
-            {currentRecipeItems.length > 0 && (
-              <div style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 12, padding: 14, marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#7d2a3f", marginBottom: 10 }}>Ingredientes desta receita:</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {currentRecipeItems.map((item, idx) => (
-                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, borderBottom: "1px solid #f9e8e8", paddingBottom: 6 }}>
-                      <span>{item.name} — {item.used_amount}{item.unit}</span>
-                      <span style={{ fontWeight: 700, color: "#7d2a3f" }}>{brl(item.cost)}</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, paddingTop: 8, borderTop: "1px solid #f2dede", fontWeight: 700, fontSize: 15 }}>
-                  <span>Custo Total da Receita:</span>
-                  <span style={{ color: "#7d2a3f" }}>{brl(recipeTotalCost)}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 13, color: "#a08f8f" }}>
-                  <span>Custo por Unidade (Rendimento: {yieldAmount}):</span>
-                  <span style={{ fontWeight: 700, color: "#1f9d6b" }}>{brl(recipeTotalCost / Number(yieldAmount || 1))}</span>
-                </div>
-              </div>
-            )}
-
-            <button onClick={saveRecipe} disabled={currentRecipeItems.length === 0 || !recName} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 700, cursor: currentRecipeItems.length === 0 || !recName ? "not-allowed" : "pointer", opacity: currentRecipeItems.length === 0 || !recName ? 0.6 : 1, width: "100%" }}>
-              Salvar Ficha Técnica
-            </button>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {recipes.length === 0 && <EmptyState text="Nenhuma ficha técnica salva ainda." />}
-            {recipes.map((rec) => {
-              const custoPorUnidade = Number(rec.total_cost) / Number(rec.yield_amount || 1);
-              return (
-                <div key={rec.id} style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <div>
-                      <div style={{ fontSize: 17, fontWeight: 700, color: "#2b2323" }}>{rec.product_name}</div>
-                      <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 2 }}>Rendimento: {rec.yield_amount} unidades/porções</div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                      <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 12, color: "#a08f8f", fontWeight: 600 }}>Custo Unitário</div>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: "#1f9d6b" }}>{brl(custoPorUnidade)}</div>
-                      </div>
-                      <button onClick={() => onRemoveRec(rec.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6, display: "flex", alignItems: "center" }} title="Excluir receita">
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div style={{ background: "#fdf9f9", borderRadius: 10, padding: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {rec.ingredients_used?.map((ing, idx) => (
-                      <span key={idx} style={{ background: "#ffffff", border: "1px solid #f2dede", padding: "4px 10px", borderRadius: 8, fontSize: 12, color: "#7d6e6e" }}>
-                        {ing.name}: <b>{ing.used_amount}{ing.unit}</b> ({brl(ing.cost)})
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
