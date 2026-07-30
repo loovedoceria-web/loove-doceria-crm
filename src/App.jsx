@@ -167,7 +167,11 @@ export default function App() {
 
   async function removeRecipe(id) {
     const { error } = await supabase.from("recipes").delete().eq("id", id);
-    if (!error) setRecipes((prev) => prev.filter((r) => r.id !== id));
+    if (error) {
+      alert("Erro ao excluir receita: " + error.message);
+      return;
+    }
+    setRecipes((prev) => prev.filter((r) => r.id !== id));
   }
 
   const today = todayISO();
@@ -986,8 +990,8 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
                         <div style={{ fontSize: 12, color: "#a08f8f", fontWeight: 600 }}>Custo Unitário</div>
                         <div style={{ fontSize: 18, fontWeight: 700, color: "#1f9d6b" }}>{brl(custoPorUnidade)}</div>
                       </div>
-                      <button onClick={() => onRemoveRec(rec.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6 }}>
-                        <Trash2 size={16} />
+                      <button onClick={() => onRemoveRec(rec.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6, display: "flex", alignItems: "center" }} title="Excluir receita">
+                        <Trash2 size={18} />
                       </button>
                     </div>
                   </div>
