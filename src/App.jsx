@@ -28,8 +28,6 @@ import {
   FileText,
   Download,
   Eye,
-  AlertTriangle,
-  History,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -77,7 +75,6 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [toastMessage, setToastMessage] = useState(null);
 
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
@@ -87,15 +84,10 @@ export default function App() {
   const [documents, setDocuments] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
 
-  function showToast(msg) {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3500);
-  }
-
+  // Verificação rigorosa de sessão ativa do Supabase Auth
   useEffect(() => {
     let mounted = true;
+
     async function checkAuth() {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       if (mounted) {
@@ -103,6 +95,7 @@ export default function App() {
         setAuthChecked(true);
       }
     }
+
     checkAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
@@ -146,7 +139,7 @@ export default function App() {
         if (rec.data) setRecipes(rec.data);
         if (doc.data) setDocuments(doc.data);
       } catch (err) {
-        console.error("Erro ao carregar dados:", err);
+        console.error("Erro de segurança ao carregar dados autorizados:", err);
       }
       setDataLoading(false);
     })();
@@ -161,7 +154,6 @@ export default function App() {
     }
     if (data) {
       setProducts((prev) => [data, ...prev]);
-      showToast("Produto cadastrado com sucesso!");
       return true;
     }
   }
@@ -174,6 +166,10 @@ export default function App() {
 
   async function addSale(sale) {
     if (!session) return false;
+    if (Number(sale.total) < 0) {
+      alert("Valor inválido.");
+      return false;
+    }
     const { data, error } = await supabase.from("sales").insert(sale).select().single();
     if (error) {
       alert("Erro ao salvar venda: " + error.message);
@@ -181,32 +177,6 @@ export default function App() {
     }
     if (data) {
       setSales((prev) => [data, ...prev]);
-
-      // Desconto automático de estoque se o produto vendido tiver ficha técnica correspondente ou insumo vinculado
-      const prod = products.find((p) => p.name === sale.product_name);
-      const rec = recipes.find((r) => r.product_name === sale.product_name);
-
-      if (rec && rec.ingredients_used) {
-        for (const item of rec.ingredients_used) {
-          const ing = ingredients.find((i) => i.id === item.ingredient_id || i.name === item.name);
-          if (ing) {
-            const consumedQty = Number(item.used_amount) * Number(sale.qty || 1);
-            const newStock = Math.max(0, Number(ing.stock_amount || 0) - consumedQty);
-            await supabase.from("ingredients").update({ stock_amount: newStock }).eq("id", ing.id);
-            setIngredients((prev) => prev.map((i) => i.id === ing.id ? { ...i, stock_amount: newStock } : i));
-          }
-        }
-      } else if (prod && prod.linked_ingredient) {
-        const ing = ingredients.find((i) => i.name === prod.linked_ingredient);
-        if (ing) {
-          const consumedQty = 100 * Number(sale.qty || 1); // Exemplo padrão de baixa se vinculado a ingrediente
-          const newStock = Math.max(0, Number(ing.stock_amount || 0) - consumedQty);
-          await supabase.from("ingredients").update({ stock_amount: newStock }).eq("id", ing.id);
-          setIngredients((prev) => prev.map((i) => i.id === ing.id ? { ...i, stock_amount: newStock } : i));
-        }
-      }
-
-      showToast("Venda registrada e estoque atualizado!");
       return true;
     }
   }
@@ -232,6 +202,10 @@ export default function App() {
 
   async function addExpense(expense) {
     if (!session) return false;
+    if (Number(expense.value) < 0) {
+      alert("Valor de gasto inválido.");
+      return false;
+    }
     const { data, error } = await supabase.from("expenses").insert(expense).select().single();
     if (error) {
       alert("Erro ao salvar gasto: " + error.message);
@@ -239,7 +213,6 @@ export default function App() {
     }
     if (data) {
       setExpenses((prev) => [data, ...prev]);
-      showToast("Gasto cadastrado com sucesso!");
       return true;
     }
   }
@@ -250,56 +223,15 @@ export default function App() {
     if (!error) setExpenses((prev) => prev.filter((g) => g.id !== id));
   }
 
-  // Inclusão e Histórico de Preço para Ingredientes
-  async function addIngredient(ingData) {
+  async function addIngredient(ing) {
     if (!session) return false;
-    const existing = ingredients.find((i) => i.name.toLowerCase() === ingData.name.toLowerCase());
-
-    if (existing) {
-      const confirmUpdate = window.confirm(`O ingrediente "${existing.name}" já existe. Deseja atualizar o preço e somar o estoque?`);
-      if (confirmUpdate) {
-        const history = existing.price_history || [];
-        history.push({ price: existing.package_price, date: existing.updated_at ? existing.updated_at.slice(0, 10) : todayISO() });
-
-        const newStock = Number(existing.stock_amount || 0) + Number(ingData.stock_amount || 0);
-
-        const { data, error } = await supabase
-          .from("ingredients")
-          .update({
-            package_price: ingData.package_price,
-            package_amount: ingData.package_amount,
-            unit: ingData.unit,
-            stock_amount: newStock,
-            min_stock: ingData.min_stock,
-            price_history: history,
-          })
-          .eq("id", existing.id)
-          .select()
-          .single();
-
-        if (!error && data) {
-          setIngredients((prev) => prev.map((i) => i.id === existing.id ? data : i));
-          showToast("Ingrediente atualizado com sucesso!");
-          return true;
-        }
-      }
-      return false;
-    }
-
-    const initialHistory = [{ price: ingData.package_price, date: todayISO() }];
-    const { data, error } = await supabase
-      .from("ingredients")
-      .insert({ ...ingData, price_history: initialHistory })
-      .select()
-      .single();
-
+    const { data, error } = await supabase.from("ingredients").insert(ing).select().single();
     if (error) {
       alert("Erro ao salvar ingrediente: " + error.message);
       return false;
     }
     if (data) {
       setIngredients((prev) => [...prev, data]);
-      showToast("Ingrediente cadastrado com sucesso!");
       return true;
     }
   }
@@ -319,7 +251,6 @@ export default function App() {
     }
     if (data) {
       setRecipes((prev) => [data, ...prev]);
-      showToast("Ficha técnica salva com sucesso!");
       return true;
     }
   }
@@ -343,7 +274,6 @@ export default function App() {
     }
     if (data) {
       setDocuments((prev) => [data, ...prev]);
-      showToast("Documento enviado com sucesso!");
       return true;
     }
   }
@@ -432,6 +362,7 @@ export default function App() {
     return <div style={shellStyle} />;
   }
 
+  // Redirecionamento e Bloqueio automático para a tela de Login se não houver sessão ativa
   if (!session) {
     return (
       <div style={{ minHeight: "100vh", background: "#fdf6f6", display: "flex", justifyContent: "center", alignItems: "center" }}>
@@ -453,28 +384,6 @@ export default function App() {
       />
 
       <div style={mainContentStyle}>
-        {/* Notificação Toast Flutuante */}
-        {toastMessage && (
-          <div style={{
-            position: "fixed",
-            top: 20,
-            right: 20,
-            background: "#1f9d6b",
-            color: "#ffffff",
-            padding: "12px 20px",
-            borderRadius: 12,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            zIndex: 1000,
-            fontWeight: 700,
-            fontSize: 14,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}>
-            <CheckCircle2 size={18} /> {toastMessage}
-          </div>
-        )}
-
         {dataLoading ? (
           <div style={{ textAlign: "center", color: "#b3a3a3", padding: "60px 0" }}>Verificando credenciais e carregando...</div>
         ) : (
@@ -488,7 +397,7 @@ export default function App() {
                 setView={setView}
               />
             )}
-            {view === "produtos" && <Produtos products={products} ingredients={ingredients} recipes={recipes} onAdd={addProduct} onRemove={removeProduct} setView={setView} />}
+            {view === "produtos" && <Produtos products={products} ingredients={ingredients} onAdd={addProduct} onRemove={removeProduct} setView={setView} />}
             {view === "vendas" && <Vendas products={products} sales={sales} onAdd={addSale} onRemove={removeSale} setView={setView} />}
             {view === "gastos" && <Gastos expenses={expenses} onAdd={addExpense} onRemove={removeExpense} setView={setView} />}
             {view === "empresa" && <VendasEmpresa sales={sales} onAdd={addSale} onRemove={removeSale} onUpdate={updateSale} />}
@@ -854,28 +763,11 @@ function EmptyState({ text }) {
   return <div style={{ textAlign: "center", color: "#b3a3a3", fontSize: 14, padding: "40px 0", border: "1px dashed #eeddde", borderRadius: 16, background: "#ffffff" }}>{text}</div>;
 }
 
-function Produtos({ products, ingredients, recipes, onAdd, onRemove, setView }) {
+function Produtos({ products, ingredients, onAdd, onRemove, setView }) {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState(CATEGORIAS_PRODUTO[0]);
   const [linkedIngredient, setLinkedIngredient] = useState("");
-  const [profitMargin, setProfitMargin] = useState("150"); // Margem padrão de 150%
-
-  // Sugestão de preço baseada na Ficha Técnica e margem de lucro
-  const suggestedPrice = useMemo(() => {
-    if (!name.trim()) return null;
-    const recipe = recipes.find((r) => r.product_name.toLowerCase() === name.trim().toLowerCase());
-    if (!recipe) return null;
-    const unitCost = Number(recipe.total_cost) / Number(recipe.yield_amount || 1);
-    const marginMultiplier = 1 + (parseFloat(profitMargin) || 150) / 100;
-    return unitCost * marginMultiplier;
-  }, [name, recipes, profitMargin]);
-
-  function applySuggestedPrice() {
-    if (suggestedPrice) {
-      setPrice(suggestedPrice.toFixed(2));
-    }
-  }
 
   async function submit() {
     if (!name || !price) return;
@@ -905,23 +797,6 @@ function Produtos({ products, ingredients, recipes, onAdd, onRemove, setView }) 
             <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Bolo de Chocolate" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
-          {/* Sugestão de Preço Automática via Ficha Técnica */}
-          {suggestedPrice !== null && (
-            <div style={{ background: "#e8eaf6", border: "1px solid #c5cae9", borderRadius: 12, padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <div style={{ fontSize: 12, color: "#3f51b5", fontWeight: 700 }}>Sugestão de Preço (Custo + {profitMargin}%):</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#1f9d6b" }}>{brl(suggestedPrice)}</div>
-              </div>
-              <button
-                type="button"
-                onClick={applySuggestedPrice}
-                style={{ background: "#3f51b5", color: "#ffffff", border: "none", borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-              >
-                Aplicar Preço
-              </button>
-            </div>
-          )}
-
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Preço (R$)</div>
@@ -938,8 +813,13 @@ function Produtos({ products, ingredients, recipes, onAdd, onRemove, setView }) 
           </div>
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Margem de Lucro para Sugestão (%)</div>
-            <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" value={profitMargin} onChange={(e) => setProfitMargin(e.target.value)} />
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Vincular Insumo / Ingrediente Principal (Opcional)</div>
+            <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={linkedIngredient} onChange={(e) => setLinkedIngredient(e.target.value)}>
+              <option value="">Nenhum ingrediente vinculado</option>
+              {ingredients.map((ing) => (
+                <option key={ing.id} value={ing.name}>{ing.name}</option>
+              ))}
+            </select>
           </div>
 
           <button style={primaryBtnStyle} onClick={submit}>Salvar Produto</button>
@@ -954,7 +834,7 @@ function Produtos({ products, ingredients, recipes, onAdd, onRemove, setView }) 
             <ListRow
               key={p.id}
               title={p.name}
-              subtitle={`${p.category}`}
+              subtitle={`${p.category} ${p.linked_ingredient ? `· Insumo: ${p.linked_ingredient}` : ""}`}
               value={brl(p.price)}
               onDelete={() => onRemove(p.id)}
             />
@@ -1485,8 +1365,6 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
   const [pkgPrice, setPkgPrice] = useState("");
   const [pkgAmount, setPkgAmount] = useState("");
   const [unit, setUnit] = useState("g");
-  const [stockAmount, setStockAmount] = useState("");
-  const [minStock, setMinStock] = useState("");
 
   const [recName, setRecName] = useState("");
   const [selectedIngId, setSelectedIngId] = useState("");
@@ -1494,27 +1372,22 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
   const [currentRecipeItems, setCurrentRecipeItems] = useState([]);
   const [yieldAmount, setYieldAmount] = useState("1");
 
-  // Estado para modal de Histórico de Preços
-  const [historyModalIng, setHistoryModalIng] = useState(null);
-
   async function submitIngredient() {
     if (!ingName.trim() || !pkgPrice || !pkgAmount) {
-      alert("Preencha todos os campos obrigatórios do ingrediente.");
+      alert("Preencha todos os campos do ingrediente.");
       return;
     }
-    await onAddIng({
+    const success = await onAddIng({
       name: ingName.trim(),
       package_price: parseFloat(pkgPrice),
       package_amount: parseFloat(pkgAmount),
       unit,
-      stock_amount: parseFloat(stockAmount) || 0,
-      min_stock: parseFloat(minStock) || 0,
     });
-    setIngName("");
-    setPkgPrice("");
-    setPkgAmount("");
-    setStockAmount("");
-    setMinStock("");
+    if (success !== false) {
+      setIngName("");
+      setPkgPrice("");
+      setPkgAmount("");
+    }
   }
 
   function addIngredientToRecipe() {
@@ -1553,15 +1426,17 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
 
   async function saveRecipe() {
     if (!recName.trim() || currentRecipeItems.length === 0) return;
-    await onAddRec({
+    const success = await onAddRec({
       product_name: recName.trim(),
       ingredients_used: currentRecipeItems,
       total_cost: recipeTotalCost,
       yield_amount: parseFloat(yieldAmount) || 1,
     });
-    setRecName("");
-    setCurrentRecipeItems([]);
-    setYieldAmount("1");
+    if (success !== false) {
+      setRecName("");
+      setCurrentRecipeItems([]);
+      setYieldAmount("1");
+    }
   }
 
   return (
@@ -1579,78 +1454,49 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
 
       {tab === "ingredientes" ? (
         <div>
-          {/* Cadastro de Ingrediente com Estoque Real */}
           <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20, marginBottom: 24 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 14 }}>Cadastrar Ingrediente ou Embalagem</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 120px 110px 120px 120px auto", gap: 10, alignItems: "end" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 120px auto", gap: 12, alignItems: "end" }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Nome</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Farinha" value={ingName} onChange={(e) => setIngName(e.target.value)} />
+                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Farinha de Trigo" value={ingName} onChange={(e) => setIngName(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Preço (R$)</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="10.00" value={pkgPrice} onChange={(e) => setPkgPrice(e.target.value)} />
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Preço Pago (R$)</div>
+                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="Ex: 10.00" value={pkgPrice} onChange={(e) => setPkgPrice(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Qtd Pacote</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="1000" value={pkgAmount} onChange={(e) => setPkgAmount(e.target.value)} />
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Qtd Embalagem</div>
+                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 1 ou 1000" value={pkgAmount} onChange={(e) => setPkgAmount(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Unidade</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Unidade do Pacote</div>
                 <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={unit} onChange={(e) => setUnit(e.target.value)}>
-                  <option value="g">g</option>
-                  <option value="kg">kg</option>
-                  <option value="ml">ml</option>
-                  <option value="un">un</option>
+                  <option value="g">Gramas (g)</option>
+                  <option value="kg">Quilos (kg)</option>
+                  <option value="ml">Mililitros (ml)</option>
+                  <option value="un">Unidade (un)</option>
                 </select>
               </div>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Em Estoque</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="800" value={stockAmount} onChange={(e) => setStockAmount(e.target.value)} />
-              </div>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Mínimo</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="100" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
-              </div>
-              <button onClick={submitIngredient} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 16px", fontSize: 14, fontWeight: 700, cursor: "pointer", height: 45 }}>
+              <button onClick={submitIngredient} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", height: 45 }}>
                 Cadastrar
               </button>
             </div>
           </div>
 
-          {/* Listagem de Ingredientes com Alerta de Estoque e Histórico */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
             {ingredients.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum ingrediente cadastrado ainda." /></div>}
             {ingredients.map((i) => {
               const totalAmount = i.unit === "kg" ? Number(i.package_amount) * 1000 : Number(i.package_amount);
               const displayUnit = i.unit === "kg" ? "g" : i.unit;
               const custoUnitario = Number(i.package_price) / totalAmount;
-              const isLowStock = Number(i.min_stock || 0) > 0 && Number(i.stock_amount || 0) <= Number(i.min_stock);
-
               return (
                 <div key={i.id} style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323" }}>{i.name}</div>
-                      {isLowStock && (
-                        <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 6, background: "#fbe2e5", color: "#d1445b", display: "flex", alignItems: "center", gap: 3 }}>
-                          <AlertTriangle size={10} /> Estoque baixo
-                        </span>
-                      )}
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323" }}>{i.name}</div>
+                    <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 4 }}>
+                      Pacote: {i.package_amount}{i.unit} por {brl(i.package_price)} · Custo: {brl(custoUnitario)} por {displayUnit}
                     </div>
-                    <div style={{ fontSize: 13, color: "#a08f8f", lineHeight: 1.4 }}>
-                      Pacote: {i.package_amount}{i.unit} por {brl(i.package_price)} · Custo: {brl(custoUnitario)}/{displayUnit}
-                      <br />
-                      <b>Estoque:</b> {i.stock_amount || 0}{displayUnit}
-                    </div>
-                    {i.price_history && i.price_history.length > 0 && (
-                      <button
-                        onClick={() => setHistoryModalIng(i)}
-                        style={{ background: "transparent", border: "none", color: "#3f51b5", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}
-                      >
-                        <History size={12} /> Ver histórico de preços ({i.price_history.length})
-                      </button>
-                    )}
                   </div>
                   <button onClick={() => onRemoveIng(i.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6 }}>
                     <Trash2 size={16} />
@@ -1754,30 +1600,6 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
                 </div>
               );
             })}
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Histórico de Preços */}
-      {historyModalIng && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 2000 }}>
-          <div style={{ background: "#ffffff", borderRadius: 16, padding: 24, width: 400, boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div style={{ fontSize: 17, fontWeight: 700, color: "#2b2323" }}>Histórico de Preços: {historyModalIng.name}</div>
-              <button onClick={() => setHistoryModalIng(null)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#a08f8f" }}><X size={18} /></button>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 250, overflowY: "auto" }}>
-              {historyModalIng.price_history?.map((hist, idx) => (
-                <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "#fdf9f9", borderRadius: 8, fontSize: 13, border: "1px solid #f2dede" }}>
-                  <span>{formatDatePt(hist.date)}</span>
-                  <b style={{ color: "#7d2a3f" }}>{brl(hist.price)}</b>
-                </div>
-              ))}
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "#fbe0e2", borderRadius: 8, fontSize: 13, border: "1px solid #e0687a", fontWeight: 700 }}>
-                <span>Atual (recente):</span>
-                <span style={{ color: "#7d2a3f" }}>{brl(historyModalIng.package_price)}</span>
-              </div>
-            </div>
           </div>
         </div>
       )}
