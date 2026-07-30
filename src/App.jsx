@@ -203,39 +203,30 @@ export default function App() {
 
   const today = todayISO();
 
-  // Cálculos comparativos (Mês Atual vs Mês Anterior)
   const metrics = useMemo(() => {
     const now = new Date();
-    const currentMonthStr = today.slice(0, 7); // "YYYY-MM"
-    
     const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const prevMonthStr = prevDate.toISOString().slice(0, 7);
 
     const salesNormal = sales.filter((s) => s.payment !== "Empresa (Fiado)");
     const companySales = sales.filter((s) => s.payment === "Empresa (Fiado)");
 
-    // Vendas hoje
     const vendasHojeVal = salesNormal.filter((s) => s.date === today).reduce((sum, s) => sum + Number(s.total), 0);
     
-    // Vendas mês atual vs anterior
     const vendasMesAtual = salesNormal.filter((s) => isSameMonth(s.date, today)).reduce((sum, s) => sum + Number(s.total), 0);
     const vendasMesAnterior = salesNormal.filter((s) => isSameMonth(s.date, `${prevMonthStr}-01`)).reduce((sum, s) => sum + Number(s.total), 0);
     const variacaoVendas = vendasMesAnterior > 0 ? ((vendasMesAtual - vendasMesAnterior) / vendasMesAnterior) * 100 : 0;
 
-    // Gastos hoje
     const gastosHojeVal = expenses.filter((g) => g.date === today).reduce((sum, g) => sum + Number(g.value), 0);
 
-    // Gastos mês atual vs anterior
     const gastosMesAtual = expenses.filter((g) => isSameMonth(g.date, today)).reduce((sum, g) => sum + Number(g.value), 0);
     const gastosMesAnterior = expenses.filter((g) => isSameMonth(g.date, `${prevMonthStr}-01`)).reduce((sum, g) => sum + Number(g.value), 0);
     const variacaoGastos = gastosMesAnterior > 0 ? ((gastosMesAtual - gastosMesAnterior) / gastosMesAnterior) * 100 : 0;
 
-    // Lucro mês atual vs anterior
     const lucroMesAtual = vendasMesAtual - gastosMesAtual;
     const lucroMesAnterior = vendasMesAnterior - gastosMesAnterior;
     const variacaoLucro = lucroMesAnterior !== 0 ? ((lucroMesAtual - lucroMesAnterior) / Math.abs(lucroMesAnterior)) * 100 : 0;
 
-    // Mais vendido com contagem
     const counts = {};
     salesNormal.forEach((s) => {
       if (s.product_name) {
@@ -246,7 +237,6 @@ export default function App() {
     entries.sort((a, b) => b[1] - a[1]);
     const maisVendidoInfo = entries.length > 0 ? `${entries[0][0]} — ${entries[0][1]} un.` : "—";
 
-    // Total a receber empresa (mês atual)
     const totalEmpresaMes = companySales
       .filter((s) => isSameMonth(s.date, today))
       .reduce((sum, s) => sum + Number(s.total), 0);
@@ -482,16 +472,16 @@ function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div style={{ color: "#c1707d", fontSize: 15, textTransform: "capitalize", fontWeight: 600 }}>{dataFormatada}</div>
         
-        {/* Atalhos Rápidos */}
+        {/* Atalhos Rápidos corrigidos (sem duplicar o sinal de +) */}
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={() => setView("vendas")} style={{ background: "#e0687a", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-            <Plus size={15} /> + Nova Venda
+            <Plus size={15} /> Nova Venda
           </button>
           <button onClick={() => setView("gastos")} style={{ background: "#ffffff", color: "#e0687a", border: "1px solid #e0687a", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-            <Plus size={15} /> + Novo Gasto
+            <Plus size={15} /> Novo Gasto
           </button>
           <button onClick={() => setView("empresa")} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-            <Plus size={15} /> + Venda Empresa
+            <Plus size={15} /> Venda Empresa
           </button>
         </div>
       </div>
@@ -563,7 +553,6 @@ function SalesChart({ sales, expenses }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323" }}>Vendas x Gastos (últimos 7 dias)</div>
         
-        {/* Legenda de Cores */}
         <div style={{ display: "flex", gap: 16, fontSize: 13, fontWeight: 600, color: "#7d6e6e" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{ width: 12, height: 12, borderRadius: 3, background: "#e0687a" }}></div>
