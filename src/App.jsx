@@ -24,6 +24,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowLeft,
+  FolderOpen,
+  FileText,
+  Download,
+  Eye,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -47,6 +51,7 @@ const CATEGORIAS_GASTO = [
   "Equipamentos",
   "Outros",
 ];
+const CATEGORIAS_DOC = ["Nota Fiscal", "Comprovante de Gasto", "Contrato", "Outro"];
 
 const FORMAS_PAGAMENTO = ["Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito"];
 
@@ -76,6 +81,7 @@ export default function App() {
   const [expenses, setExpenses] = useState([]);
   const [ingredients, setIngredients] = useState([]);
   const [recipes, setRecipes] = useState([]);
+  const [documents, setDocuments] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
 
   useEffect(() => {
@@ -98,23 +104,26 @@ export default function App() {
       setExpenses([]);
       setIngredients([]);
       setRecipes([]);
+      setDocuments([]);
       return;
     }
     (async () => {
       setDataLoading(true);
       try {
-        const [p, s, g, ing, rec] = await Promise.all([
+        const [p, s, g, ing, rec, doc] = await Promise.all([
           supabase.from("products").select("*").order("created_at", { ascending: false }),
           supabase.from("sales").select("*").order("date", { ascending: false }),
           supabase.from("expenses").select("*").order("date", { ascending: false }),
           supabase.from("ingredients").select("*").order("name"),
           supabase.from("recipes").select("*").order("created_at", { ascending: false }),
+          supabase.from("documents").select("*").order("date", { ascending: false }),
         ]);
         if (p.data) setProducts(p.data);
         if (s.data) setSales(s.data);
         if (g.data) setExpenses(g.data);
         if (ing.data) setIngredients(ing.data);
         if (rec.data) setRecipes(rec.data);
+        if (doc.data) setDocuments(doc.data);
       } catch (err) {
         console.error("Erro ao carregar dados:", err);
       }
@@ -221,6 +230,23 @@ export default function App() {
       return;
     }
     setRecipes((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  async function addDocument(doc) {
+    const { data, error } = await supabase.from("documents").insert(doc).select().single();
+    if (error) {
+      alert("Erro ao salvar documento: " + error.message);
+      return false;
+    }
+    if (data) {
+      setDocuments((prev) => [data, ...prev]);
+      return true;
+    }
+  }
+
+  async function removeDocument(id) {
+    const { error } = await supabase.from("documents").delete().eq("id", id);
+    if (!error) setDocuments((prev) => prev.filter((d) => d.id !== id));
   }
 
   const today = todayISO();
@@ -340,6 +366,7 @@ export default function App() {
             {view === "gastos" && <Gastos expenses={expenses} onAdd={addExpense} onRemove={removeExpense} setView={setView} />}
             {view === "empresa" && <VendasEmpresa sales={sales} onAdd={addSale} onRemove={removeSale} onUpdate={updateSale} />}
             {view === "precificacao" && <Precificacao ingredients={ingredients} recipes={recipes} onAddIng={addIngredient} onRemoveIng={removeIngredient} onAddRec={addRecipe} onRemoveRec={removeRecipe} />}
+            {view === "documentos" && <Documentos documents={documents} expenses={expenses} onAdd={addDocument} onRemove={removeDocument} />}
           </>
         )}
       </div>
@@ -355,6 +382,7 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
     { key: "gastos", label: "Gastos", icon: Receipt },
     { key: "empresa", label: "Vendas Empresa", icon: Briefcase },
     { key: "precificacao", label: "Precificação", icon: Calculator },
+    { key: "documentos", label: "Documentos", icon: FolderOpen },
   ];
 
   return (
@@ -725,7 +753,6 @@ function Produtos({ products, ingredients, onAdd, onRemove, setView }) {
     <div>
       <SectionTitleWithBack title="Produtos" onBack={() => setView("dashboard")} />
 
-      {/* Formulário Centralizado e Organizado */}
       <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 4px 15px rgba(0,0,0,0.02)" }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Cadastrar Novo Produto</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -763,7 +790,6 @@ function Produtos({ products, ingredients, onAdd, onRemove, setView }) {
         </div>
       </div>
 
-      {/* Lista de Lançamentos Recentes */}
       <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Produtos Cadastrados Recentes</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
@@ -812,7 +838,6 @@ function Vendas({ products, sales, onAdd, onRemove, setView }) {
     <div>
       <SectionTitleWithBack title="Vendas" onBack={() => setView("dashboard")} />
 
-      {/* Formulário Centralizado e Organizado */}
       <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 4px 15px rgba(0,0,0,0.02)" }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Registrar Nova Venda</div>
         
@@ -860,7 +885,6 @@ function Vendas({ products, sales, onAdd, onRemove, setView }) {
         </div>
       </div>
 
-      {/* Lista de Vendas Recentes */}
       <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Vendas Recentes</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
@@ -898,7 +922,6 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
     <div>
       <SectionTitleWithBack title="Gastos" onBack={() => setView("dashboard")} />
 
-      {/* Formulário Centralizado e Organizado */}
       <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 4px 15px rgba(0,0,0,0.02)" }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Registrar Novo Gasto</div>
         
@@ -925,7 +948,6 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
         </div>
       </div>
 
-      {/* Lista de Gastos Recentes */}
       <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Gastos Recentes</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
@@ -1549,6 +1571,231 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
   );
 }
 
+function Documentos({ documents, expenses, onAdd, onRemove }) {
+  const [docName, setDocName] = useState("");
+  const [category, setCategory] = useState(CATEGORIAS_DOC[0]);
+  const [date, setDate] = useState(todayISO());
+  const [expenseLink, setExpenseLink] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState(todayISO().slice(0, 7));
+  const [filterCat, setFilterCat] = useState("Todas");
+  const [fileBase64, setFileBase64] = useState("");
+  const [fileType, setFileType] = useState("");
+
+  function handleFileChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validação de tamanho máximo (2MB = 2 * 1024 * 1024 bytes)
+    if (file.size > 2 * 1024 * 1024) {
+      alert("O arquivo é muito grande! O tamanho máximo permitido é 2MB.");
+      e.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFileBase64(reader.result);
+      setFileType(file.type);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function submit() {
+    if (!docName.trim() || !fileBase64 || !date) {
+      alert("Preencha o nome, a data e selecione um arquivo.");
+      return;
+    }
+    const success = await onAdd({
+      name: docName.trim(),
+      category,
+      date,
+      expense_link: expenseLink || null,
+      file_data: fileBase64,
+      file_type: fileType,
+    });
+    if (success !== false) {
+      setDocName("");
+      setCategory(CATEGORIAS_DOC[0]);
+      setDate(todayISO());
+      setExpenseLink("");
+      setFileBase64("");
+      setFileType("");
+      // Limpa input file
+      const fileInput = document.getElementById("file-input");
+      if (fileInput) fileInput.value = "";
+    }
+  }
+
+  const mesesDisponiveis = useMemo(() => {
+    const setMeses = new Set([todayISO().slice(0, 7)]);
+    documents.forEach((d) => {
+      if (d.date) setMeses.add(d.date.slice(0, 7));
+    });
+    return Array.from(setMeses).sort().reverse();
+  }, [documents]);
+
+  function formatMonthLabel(ym) {
+    const [y, m] = ym.split("-");
+    const dataRef = new Date(Number(y), Number(m) - 1, 1);
+    return dataRef.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  }
+
+  const filteredDocs = useMemo(() => {
+    return documents.filter((d) => {
+      const matchMonth = d.date && d.date.slice(0, 7) === selectedMonth;
+      const matchCat = filterCat === "Todas" || d.category === filterCat;
+      return matchMonth && matchCat;
+    });
+  }, [documents, selectedMonth, filterCat]);
+
+  return (
+    <div>
+      <h2 style={{ fontSize: 20, fontWeight: 700, color: "#2b2323", margin: "0 0 20px" }}>Gerenciador de Documentos</h2>
+
+      {/* Formulário de Upload */}
+      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 24, marginBottom: 28, boxShadow: "0 4px 15px rgba(0,0,0,0.02)" }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Fazer Upload de Documento</div>
+        
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Nome / Descrição</div>
+              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Nota fiscal farinha julho" value={docName} onChange={(e) => setDocName(e.target.value)} />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Categoria</div>
+              <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
+                {CATEGORIAS_DOC.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Data</div>
+              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "end" }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Vincular a um Gasto (Opcional)</div>
+              <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={expenseLink} onChange={(e) => setExpenseLink(e.target.value)}>
+                <option value="">Nenhum gasto vinculado</option>
+                {expenses.map((g) => (
+                  <option key={g.id} value={g.description}>{g.description} ({brl(g.value)} - {formatDatePt(g.date)})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Arquivo (PDF, JPG, PNG - máx 2MB)</div>
+              <input id="file-input" style={{ ...inputStyle, width: "100%", boxSizing: "border-box", padding: "9px 12px", background: "#fdf9f9" }} type="file" accept=".pdf, .jpg, .jpeg, .png" onChange={handleFileChange} />
+            </div>
+          </div>
+
+          <button style={primaryBtnStyle} onClick={submit}>Enviar Documento</button>
+        </div>
+      </div>
+
+      {/* Filtros de Mês e Categoria */}
+      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <select
+              style={{ ...inputStyle, width: 200, background: "#ffffff", fontWeight: 600, cursor: "pointer" }}
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+            >
+              {mesesDisponiveis.map((ym) => (
+                <option key={ym} value={ym}>{formatMonthLabel(ym)}</option>
+              ))}
+            </select>
+
+            <select
+              style={{ ...inputStyle, width: 200, background: "#ffffff", fontWeight: 600, cursor: "pointer" }}
+              value={filterCat}
+              onChange={(e) => setFilterCat(e.target.value)}
+            >
+              <option value="Todas">Todas as categorias</option>
+              {CATEGORIAS_DOC.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#a08f8f" }}>
+            Total de documentos: {filteredDocs.length}
+          </div>
+        </div>
+
+        {/* Grade de Documentos */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+          {filteredDocs.length === 0 && (
+            <div style={{ gridColumn: "span 3" }}>
+              <EmptyState text="Nenhum documento encontrado para este filtro." />
+            </div>
+          )}
+          {filteredDocs.map((doc) => {
+            const isImage = doc.file_type && doc.file_type.startsWith("image/");
+            return (
+              <div key={doc.id} style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 14, padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12 }}>
+                <div>
+                  {/* Preview / Miniatura */}
+                  <div style={{ width: "100%", height: 130, background: "#ffffff", borderRadius: 10, border: "1px solid #f1dede", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 12, position: "relative" }}>
+                    {isImage ? (
+                      <img src={doc.file_data} alt={doc.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "#e0687a" }}>
+                        <FileText size={36} />
+                        <span style={{ fontSize: 11, fontWeight: 700 }}>DOCUMENTO PDF</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.name}</div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: "#fbe0e2", color: "#e0687a" }}>{doc.category}</span>
+                    <span style={{ fontSize: 12, color: "#a08f8f" }}>{formatDatePt(doc.date)}</span>
+                  </div>
+                  {doc.expense_link && (
+                    <div style={{ fontSize: 12, color: "#1f9d6b", fontWeight: 600, background: "#d7f5e6", padding: "3px 8px", borderRadius: 6, display: "inline-block" }}>
+                      Gasto: {doc.expense_link}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f2dede", paddingTop: 10 }}>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <a
+                      href={doc.file_data}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ background: "#fbe0e2", color: "#e0687a", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 700, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
+                      title="Visualizar arquivo"
+                    >
+                      <Eye size={14} /> Ver
+                    </a>
+                    <a
+                      href={doc.file_data}
+                      download={doc.name}
+                      style={{ background: "#3f51b5", color: "#ffffff", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 700, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
+                      title="Baixar arquivo"
+                    >
+                      <Download size={14} /> Baixar
+                    </a>
+                  </div>
+                  <button
+                    onClick={() => onRemove(doc.id)}
+                    style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 4, display: "flex" }}
+                    title="Excluir documento"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ListRow({ title, subtitle, value, valueColor, onDelete }) {
   return (
     <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
@@ -1565,14 +1812,6 @@ function ListRow({ title, subtitle, value, valueColor, onDelete }) {
         )}
       </div>
     </div>
-  );
-}
-
-function IconButton({ onClick, active }) {
-  return (
-    <button onClick={onClick} style={{ width: 40, height: 40, borderRadius: 12, border: "none", background: active ? "#e0687a" : "#fbe0e2", color: active ? "#ffffff" : "#e0687a", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-      {active ? <X size={19} /> : <Plus size={19} />}
-    </button>
   );
 }
 
