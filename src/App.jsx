@@ -630,16 +630,19 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
     return dataRef.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   }
 
+  // Lista detalhada dos lançamentos do mês selecionado (com ID para permitir exclusão individual)
+  const listaDetalhadaMes = useMemo(() => {
+    return companySales.filter((s) => s.date && s.date.slice(0, 7) === selectedMonth);
+  }, [companySales, selectedMonth]);
+
   const resumoMes = useMemo(() => {
     const map = {};
-    companySales.forEach((s) => {
-      if (s.date && s.date.slice(0, 7) === selectedMonth) {
-        const nome = s.product_name || "Desconhecido";
-        map[nome] = (map[nome] || 0) + Number(s.total);
-      }
+    listaDetalhadaMes.forEach((s) => {
+      const nome = s.product_name || "Desconhecido";
+      map[nome] = (map[nome] || 0) + Number(s.total);
     });
     return Object.entries(map).map(([name, sum]) => ({ name, sum })).sort((a, b) => b.sum - a.sum);
-  }, [companySales, selectedMonth]);
+  }, [listaDetalhadaMes]);
 
   const totalGeralMes = useMemo(() => {
     return resumoMes.reduce((acc, item) => acc + item.sum, 0);
@@ -756,272 +759,42 @@ function VendasEmpresa({ sales, onAdd, onRemove }) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+        {/* Resumo somado por pessoa com botão de excluir cada lançamento do mês */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {resumoMes.length === 0 && (
-            <div style={{ gridColumn: "span 2" }}>
-              <EmptyState text="Nenhuma venda registrada nesse mês ainda." />
-            </div>
+            <EmptyState text="Nenhuma venda registrada nesse mês ainda." />
           )}
-          {resumoMes.map((item, index) => (
-            <div key={index} style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 600, color: "#2b2323", fontSize: 15 }}>{item.name}</div>
-              <div style={{ fontWeight: 700, color: "#7d2a3f", fontSize: 16 }}>{brl(item.sum)}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
 
-function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, onRemoveRec }) {
-  const [tab, setTab] = useState("ingredientes");
-
-  const [ingName, setIngName] = useState("");
-  const [pkgPrice, setPkgPrice] = useState("");
-  const [pkgAmount, setPkgAmount] = useState("");
-  const [unit, setUnit] = useState("g");
-
-  const [recName, setRecName] = useState("");
-  const [selectedIngId, setSelectedIngId] = useState("");
-  const [usedAmount, setUsedAmount] = useState("");
-  const [currentRecipeItems, setCurrentRecipeItems] = useState([]);
-  const [yieldAmount, setYieldAmount] = useState("1");
-
-  async function submitIngredient() {
-    if (!ingName.trim() || !pkgPrice || !pkgAmount) {
-      alert("Preencha todos os campos do ingrediente.");
-      return;
-    }
-    const success = await onAddIng({
-      name: ingName.trim(),
-      package_price: parseFloat(pkgPrice),
-      package_amount: parseFloat(pkgAmount),
-      unit,
-    });
-    if (success !== false) {
-      setIngName("");
-      setPkgPrice("");
-      setPkgAmount("");
-    }
-  }
-
-  function addIngredientToRecipe() {
-    if (!selectedIngId || !usedAmount) return;
-    const ing = ingredients.find((i) => String(i.id) === String(selectedIngId));
-    if (!ing) return;
-
-    let totalAmountInPackage = Number(ing.package_amount);
-    let displayUnit = ing.unit;
-    let multiplier = 1;
-
-    // Se o ingrediente foi cadastrado em kg, convertemos a quantidade da embalagem para gramas (1kg = 1000g)
-    if (ing.unit === "kg") {
-      totalAmountInPackage = totalAmountInPackage * 1000;
-      displayUnit = "g";
-    }
-
-    // Custo por unidade base (por grama, por ml ou por unidade)
-    const unitCost = Number(ing.package_price) / totalAmountInPackage;
-    const cost = unitCost * Number(usedAmount);
-
-    setCurrentRecipeItems((prev) => [
-      ...prev,
-      {
-        ingredient_id: ing.id,
-        name: ing.name,
-        used_amount: Number(usedAmount),
-        unit: displayUnit,
-        cost: cost,
-      },
-    ]);
-    setSelectedIngId("");
-    setUsedAmount("");
-  }
-
-  const recipeTotalCost = useMemo(() => {
-    return currentRecipeItems.reduce((acc, item) => acc + item.cost, 0);
-  }, [currentRecipeItems]);
-
-  async function saveRecipe() {
-    if (!recName.trim() || currentRecipeItems.length === 0) return;
-    const success = await onAddRec({
-      product_name: recName.trim(),
-      ingredients_used: currentRecipeItems,
-      total_cost: recipeTotalCost,
-      yield_amount: parseFloat(yieldAmount) || 1,
-    });
-    if (success !== false) {
-      setRecName("");
-      setCurrentRecipeItems([]);
-      setYieldAmount("1");
-    }
-  }
-
-  return (
-    <div>
-      <SectionTitle>Precificação e Ficha Técnica</SectionTitle>
-
-      <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
-        <ToggleButton active={tab === "ingredientes"} onClick={() => setTab("ingredientes")}>
-          1. Meus Ingredientes (Estoque de Preços)
-        </ToggleButton>
-        <ToggleButton active={tab === "receitas"} onClick={() => setTab("receitas")}>
-          2. Ficha Técnica / Receitas (Custo de Produção)
-        </ToggleButton>
-      </div>
-
-      {tab === "ingredientes" ? (
-        <div>
-          <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20, marginBottom: 24 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 14 }}>Cadastrar Ingrediente ou Embalagem</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 120px auto", gap: 12, alignItems: "end" }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Nome</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Farinha de Trigo" value={ingName} onChange={(e) => setIngName(e.target.value)} />
-              </div>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Preço Pago (R$)</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="Ex: 10.00" value={pkgPrice} onChange={(e) => setPkgPrice(e.target.value)} />
-              </div>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Qtd Embalagem</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 1 ou 1000" value={pkgAmount} onChange={(e) => setPkgAmount(e.target.value)} />
-              </div>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Unidade do Pacote</div>
-                <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={unit} onChange={(e) => setUnit(e.target.value)}>
-                  <option value="g">Gramas (g)</option>
-                  <option value="kg">Quilos (kg)</option>
-                  <option value="ml">Mililitros (ml)</option>
-                  <option value="un">Unidade (un)</option>
-                </select>
-              </div>
-              <button onClick={submitIngredient} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", height: 45 }}>
-                Cadastrar
-              </button>
-            </div>
-          </div>
-
+          {/* Exibe o total somado por pessoa e logo abaixo os lançamentos individuais para exclusão */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
-            {ingredients.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum ingrediente cadastrado ainda." /></div>}
-            {ingredients.map((i) => {
-              const totalAmount = i.unit === "kg" ? Number(i.package_amount) * 1000 : Number(i.package_amount);
-              const displayUnit = i.unit === "kg" ? "g" : i.unit;
-              const custoUnitario = Number(i.package_price) / totalAmount;
-              return (
-                <div key={i.id} style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323" }}>{i.name}</div>
-                    <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 4 }}>
-                      Pacote: {i.package_amount}{i.unit} por {brl(i.package_price)} · Custo: {brl(custoUnitario)} por {displayUnit}
-                    </div>
-                  </div>
-                  <button onClick={() => onRemoveIng(i.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6 }}>
-                    <Trash2 size={16} />
-                  </button>
+            {resumoMes.map((item, index) => (
+              <div key={index} style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div style={{ fontWeight: 700, color: "#2b2323", fontSize: 16 }}>{item.name}</div>
+                  <div style={{ fontWeight: 700, color: "#7d2a3f", fontSize: 17 }}>{brl(item.sum)}</div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      ) : (
-        <div>
-          <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20, marginBottom: 24 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 14 }}>Montar Ficha Técnica / Receita</div>
-            
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 180px", gap: 12, marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Nome do Produto / Receita</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Pão Caseiro / Massa de Brigadeiro" value={recName} onChange={(e) => setRecName(e.target.value)} />
-              </div>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Rendimento (unidades/porções)</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" min="1" value={yieldAmount} onChange={(e) => setYieldAmount(e.target.value)} />
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 12, alignItems: "end", marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Selecionar Ingrediente</div>
-                <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={selectedIngId} onChange={(e) => setSelectedIngId(e.target.value)}>
-                  <option value="">Selecione o ingrediente...</option>
-                  {ingredients.map((ing) => (
-                    <option key={ing.id} value={ing.id}>{ing.name} (Comprou {ing.package_amount}{ing.unit} por {brl(ing.package_price)})</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Quantidade a usar (g/ml)</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 100" value={usedAmount} onChange={(e) => setUsedAmount(e.target.value)} />
-              </div>
-              <button onClick={addIngredientToRecipe} style={{ background: "#e0687a", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", height: 45 }}>
-                Adicionar na Receita
-              </button>
-            </div>
-
-            {currentRecipeItems.length > 0 && (
-              <div style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 12, padding: 14, marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#7d2a3f", marginBottom: 10 }}>Ingredientes desta receita:</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {currentRecipeItems.map((item, idx) => (
-                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, borderBottom: "1px solid #f9e8e8", paddingBottom: 6 }}>
-                      <span>{item.name} — {item.used_amount}{item.unit}</span>
-                      <span style={{ fontWeight: 700, color: "#7d2a3f" }}>{brl(item.cost)}</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, paddingTop: 8, borderTop: "1px solid #f2dede", fontWeight: 700, fontSize: 15 }}>
-                  <span>Custo Total da Receita:</span>
-                  <span style={{ color: "#7d2a3f" }}>{brl(recipeTotalCost)}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 13, color: "#a08f8f" }}>
-                  <span>Custo por Unidade (Rendimento: {yieldAmount}):</span>
-                  <span style={{ fontWeight: 700, color: "#1f9d6b" }}>{brl(recipeTotalCost / Number(yieldAmount || 1))}</span>
-                </div>
-              </div>
-            )}
-
-            <button onClick={saveRecipe} disabled={currentRecipeItems.length === 0 || !recName} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 700, cursor: currentRecipeItems.length === 0 || !recName ? "not-allowed" : "pointer", opacity: currentRecipeItems.length === 0 || !recName ? 0.6 : 1, width: "100%" }}>
-              Salvar Ficha Técnica
-            </button>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {recipes.length === 0 && <EmptyState text="Nenhuma ficha técnica salva ainda." />}
-            {recipes.map((rec) => {
-              const custoPorUnidade = Number(rec.total_cost) / Number(rec.yield_amount || 1);
-              return (
-                <div key={rec.id} style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <div>
-                      <div style={{ fontSize: 17, fontWeight: 700, color: "#2b2323" }}>{rec.product_name}</div>
-                      <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 2 }}>Rendimento: {rec.yield_amount} unidades/porções</div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                      <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 12, color: "#a08f8f", fontWeight: 600 }}>Custo Unitário</div>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: "#1f9d6b" }}>{brl(custoPorUnidade)}</div>
+                <div style={{ borderTop: "1px dashed #f2dede", paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", textTransform: "uppercase" }}>Lançamentos no mês:</div>
+                  {listaDetalhadaMes
+                    .filter((s) => s.product_name === item.name)
+                    .map((s) => (
+                      <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "#6e5e5e" }}>
+                        <span>{formatDatePt(s.date)} — <b>{brl(s.total)}</b></span>
+                        <button
+                          onClick={() => onRemove(s.id)}
+                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 4, display: "flex", alignItems: "center" }}
+                          title="Excluir lançamento"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
-                      <button onClick={() => onRemoveRec(rec.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6, display: "flex", alignItems: "center" }} title="Excluir receita">
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div style={{ background: "#fdf9f9", borderRadius: 10, padding: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {rec.ingredients_used?.map((ing, idx) => (
-                      <span key={idx} style={{ background: "#ffffff", border: "1px solid #f2dede", padding: "4px 10px", borderRadius: 8, fontSize: 12, color: "#7d6e6e" }}>
-                        {ing.name}: <b>{ing.used_amount}{ing.unit}</b> ({brl(ing.cost)})
-                      </span>
                     ))}
-                  </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1059,6 +832,12 @@ function ToggleButton({ active, onClick, children }) {
       {children}
     </button>
   );
+}
+
+function formatDatePt(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
 }
 
 const inputStyle = {
