@@ -27,6 +27,8 @@ import {
   FileText,
   Download,
   Eye,
+  TrendingDown,
+  DollarSign
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -53,7 +55,6 @@ const CATEGORIAS_GASTO = [
 const CATEGORIAS_DOC = ["Nota Fiscal", "Comprovante de Gasto", "Contrato", "Outro"];
 const FORMAS_PAGAMENTO = ["Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito"];
 
-// Funções Auxiliares (Movidas para o topo)
 function brl(value) {
   return (value || 0).toLocaleString("pt-BR", {
     style: "currency",
@@ -76,25 +77,28 @@ function formatDatePt(dateStr) {
 }
 
 const inputStyle = {
-  border: "1px solid #f2dede",
+  border: "1px solid #e2e8f0",
   borderRadius: 12,
-  padding: "12px 14px",
+  padding: "12px 16px",
   fontSize: 14,
   outline: "none",
-  color: "#2b2323",
-  background: "#fdf9f9",
+  color: "#1e293b",
+  background: "#ffffff",
+  transition: "all 0.2s ease",
+  boxShadow: "0 1px 2px rgba(0, 0, 0, 0.02)",
 };
 
 const primaryBtnStyle = {
   border: "none",
   borderRadius: 12,
-  padding: "12px 0",
-  background: "#e0687a",
+  padding: "12px 20px",
+  background: "linear-gradient(135deg, #e11d48 0%, #be123c 100%)",
   color: "#ffffff",
   fontSize: 14,
-  fontWeight: 700,
+  fontWeight: 600,
   cursor: "pointer",
-  marginTop: 4,
+  boxShadow: "0 4px 12px rgba(225, 29, 72, 0.25)",
+  transition: "all 0.2s ease",
 };
 
 export default function App() {
@@ -111,7 +115,6 @@ export default function App() {
   const [documents, setDocuments] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
 
-  // Verificação de sessão ativa do Supabase Auth
   useEffect(() => {
     let mounted = true;
 
@@ -166,7 +169,7 @@ export default function App() {
         if (rec.data) setRecipes(rec.data);
         if (doc.data) setDocuments(doc.data);
       } catch (err) {
-        console.error("Erro de segurança ao carregar dados autorizados:", err);
+        console.error("Erro ao carregar dados:", err);
       }
       setDataLoading(false);
     })();
@@ -345,7 +348,7 @@ export default function App() {
     });
     const entries = Object.entries(counts);
     entries.sort((a, b) => b[1] - a[1]);
-    const maisVendidoInfo = entries.length > 0 ? `${entries[0][0]} — ${entries[0][1]} un.` : "—";
+    const maisVendidoInfo = entries.length > 0 ? `${entries[0][0]} (${entries[0][1]} un)` : "—";
 
     const totalEmpresaPendente = companySales
       .filter((s) => isSameMonth(s.date, today) && s.status !== "Pago")
@@ -371,18 +374,19 @@ export default function App() {
 
   const shellStyle = {
     minHeight: "100vh",
-    background: "#fdf6f6",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    background: "#f8fafc",
+    fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif",
     display: "flex",
+    color: "#0f172a",
   };
 
   const mainContentStyle = {
     flex: 1,
-    marginLeft: isSidebarCollapsed ? 80 : 260,
-    padding: "32px 40px",
-    maxWidth: 1200,
+    marginLeft: isSidebarCollapsed ? 88 : 280,
+    padding: "40px 48px",
+    maxWidth: 1400,
     boxSizing: "border-box",
-    transition: "margin-left 0.3s ease-in-out",
+    transition: "margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
   };
 
   if (!authChecked) {
@@ -391,7 +395,7 @@ export default function App() {
 
   if (!session) {
     return (
-      <div style={{ minHeight: "100vh", background: "#fdf6f6", display: "flex", justifyContent: "center", alignItems: "center" }}>
+      <div style={{ minHeight: "100vh", background: "#f8fafc", display: "flex", justifyContent: "center", alignItems: "center" }}>
         <div style={{ width: "100%", maxWidth: 420 }}>
           <AuthScreen />
         </div>
@@ -402,32 +406,46 @@ export default function App() {
   return (
     <div style={shellStyle}>
       <style>{`
-        button, a, .card-interactive, .sidebar-btn {
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+        * {
+          box-sizing: border-box;
+        }
+
+        button, input, select {
+          font-family: inherit;
         }
 
         .card-interactive {
-          cursor: pointer;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
 
         .card-interactive:hover {
-          transform: translateY(-4px) !important;
-          box-shadow: 0 12px 20px rgba(0, 0, 0, 0.06) !important;
-          border-color: #e2e8f0 !important;
+          transform: translateY(-3px) !important;
+          box-shadow: 0 12px 24px -8px rgba(15, 23, 42, 0.08) !important;
+          border-color: #cbd5e1 !important;
         }
 
         button:hover {
-          transform: translateY(-1px);
-          filter: brightness(0.96);
+          filter: brightness(1.03);
         }
 
         button:active {
-          transform: translateY(0);
+          transform: scale(0.98);
+        }
+
+        .sidebar-btn {
+          transition: all 0.2s ease !important;
         }
 
         .sidebar-btn:hover {
-          background-color: #fce8ec !important;
-          color: #e0687a !important;
+          background-color: #fff1f2 !important;
+          color: #e11d48 !important;
+        }
+
+        input:focus, select:focus {
+          border-color: #e11d48 !important;
+          box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.12) !important;
         }
       `}</style>
 
@@ -441,7 +459,7 @@ export default function App() {
 
       <div style={mainContentStyle}>
         {dataLoading ? (
-          <div style={{ textAlign: "center", color: "#b3a3a3", padding: "60px 0" }}>Verificando credenciais e carregando...</div>
+          <div style={{ textAlign: "center", color: "#64748b", padding: "80px 0", fontWeight: 500 }}>Carregando dados com segurança...</div>
         ) : (
           <>
             {view === "dashboard" && (
@@ -480,19 +498,20 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
   return (
     <div
       style={{
-        width: isCollapsed ? 80 : 260,
+        width: isCollapsed ? 88 : 280,
         background: "#ffffff",
-        borderRight: "1px solid #f1dede",
+        borderRight: "1px solid #f1f5f9",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        padding: isCollapsed ? "24px 12px" : "24px 20px",
+        padding: isCollapsed ? "28px 14px" : "28px 20px",
         position: "fixed",
         top: 0,
         bottom: 0,
         left: 0,
-        transition: "width 0.3s ease-in-out, padding 0.3s ease-in-out",
+        transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease",
         zIndex: 100,
+        boxShadow: "4px 0 24px rgba(15, 23, 42, 0.02)",
       }}
     >
       <div>
@@ -501,16 +520,18 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
             display: "flex",
             alignItems: "center",
             justifyContent: isCollapsed ? "center" : "space-between",
-            marginBottom: 32,
+            marginBottom: 36,
             position: "relative",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 12, overflow: "hidden" }}>
-            <img src="/logo.png" alt="Loove" style={{ width: 42, height: 42, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 14, overflow: "hidden" }}>
+            <div style={{ width: 44, height: 44, borderRadius: 14, background: "linear-gradient(135deg, #ffe4e6 0%, #fecdd3 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <img src="/logo.png" alt="Loove" style={{ width: 28, height: 28, objectFit: "contain" }} onError={(e) => { e.target.style.display = 'none'; }} />
+            </div>
             {!isCollapsed && (
               <div style={{ whiteSpace: "nowrap" }}>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "#2b2323" }}>Loove Doceria</div>
-                <div style={{ fontSize: 11, color: "#9c8b8b" }}>CRM Seguro</div>
+                <div style={{ fontWeight: 800, fontSize: 17, color: "#0f172a", letterSpacing: "-0.02em" }}>Loove Doceria</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>CRM PRO</div>
               </div>
             )}
           </div>
@@ -518,20 +539,20 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
             style={{
-              background: "#fbe0e2",
-              border: "none",
-              borderRadius: "50%",
-              width: 26,
-              height: 26,
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: 10,
+              width: 28,
+              height: 28,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               cursor: "pointer",
-              color: "#e0687a",
+              color: "#64748b",
               position: isCollapsed ? "absolute" : "static",
-              right: isCollapsed ? -24 : "auto",
+              right: isCollapsed ? -14 : "auto",
               top: isCollapsed ? 8 : "auto",
-              boxShadow: "0 2px 5px rgba(0,0,0,0.05)",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.04)",
               zIndex: 10,
             }}
             title={isCollapsed ? "Expandir menu" : "Recolher menu"}
@@ -553,20 +574,20 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: isCollapsed ? "center" : "flex-start",
-                  gap: 12,
+                  gap: 14,
                   width: "100%",
-                  padding: isCollapsed ? "12px 0" : "12px 14px",
+                  padding: isCollapsed ? "12px 0" : "12px 16px",
                   borderRadius: 12,
                   border: "none",
-                  background: isActive ? "#fbe0e2" : "transparent",
-                  color: isActive ? "#e0687a" : "#7d6e6e",
+                  background: isActive ? "#fff1f2" : "transparent",
+                  color: isActive ? "#e11d48" : "#64748b",
                   fontSize: 14,
                   fontWeight: isActive ? 700 : 600,
                   cursor: "pointer",
                   textAlign: "left",
                 }}
               >
-                <Icon size={19} style={{ flexShrink: 0 }} />
+                <Icon size={20} style={{ flexShrink: 0, color: isActive ? "#e11d48" : "#64748b" }} />
                 {!isCollapsed && <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>}
               </button>
             );
@@ -581,19 +602,19 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
           display: "flex",
           alignItems: "center",
           justifyContent: isCollapsed ? "center" : "flex-start",
-          gap: 10,
-          background: "transparent",
-          border: "1px solid #f2dede",
+          gap: 12,
+          background: "#f8fafc",
+          border: "1px solid #e2e8f0",
           borderRadius: 12,
-          padding: isCollapsed ? "11px 0" : "11px 14px",
-          color: "#a08f8f",
+          padding: isCollapsed ? "12px 0" : "12px 16px",
+          color: "#64748b",
           fontSize: 13,
           fontWeight: 600,
           cursor: "pointer",
           width: "100%",
         }}
       >
-        <LogOut size={17} style={{ flexShrink: 0 }} />
+        <LogOut size={18} style={{ flexShrink: 0 }} />
         {!isCollapsed && <span style={{ whiteSpace: "nowrap" }}>Sair da conta</span>}
       </button>
     </div>
@@ -620,23 +641,25 @@ function AuthScreen() {
   }
 
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 20, padding: 32, boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
-        <img src="/logo.png" alt="Loove Doceria" style={{ width: 64, height: 64, borderRadius: 16, objectFit: "cover", marginBottom: 12 }} />
-        <div style={{ fontWeight: 700, fontSize: 18, color: "#2b2323" }}>Loove Doceria</div>
-        <div style={{ fontSize: 12, color: "#9c8b8b" }}>Área Restrita e Protegida</div>
+    <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 24, padding: 40, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.05)" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 }}>
+        <div style={{ width: 64, height: 64, borderRadius: 20, background: "linear-gradient(135deg, #ffe4e6 0%, #fecdd3 100%)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+          <Cookie size={32} color="#e11d48" />
+        </div>
+        <div style={{ fontWeight: 800, fontSize: 22, color: "#0f172a", letterSpacing: "-0.02em" }}>Loove Doceria</div>
+        <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>Painel Administrativo Restrito</div>
       </div>
-      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ position: "relative" }}>
-          <Mail size={16} color="#c9b6b6" style={{ position: "absolute", left: 14, top: 14 }} />
-          <input style={{ ...inputStyle, paddingLeft: 40, width: "100%", boxSizing: "border-box" }} type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Mail size={18} color="#94a3b8" style={{ position: "absolute", left: 16, top: 15 }} />
+          <input style={{ ...inputStyle, paddingLeft: 46, width: "100%" }} type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div style={{ position: "relative" }}>
-          <Lock size={16} color="#c9b6b6" style={{ position: "absolute", left: 14, top: 14 }} />
-          <input style={{ ...inputStyle, paddingLeft: 40, width: "100%", boxSizing: "border-box" }} type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Lock size={18} color="#94a3b8" style={{ position: "absolute", left: 16, top: 15 }} />
+          <input style={{ ...inputStyle, paddingLeft: 46, width: "100%" }} type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
-        {error && <div style={{ color: "#d1445b", fontSize: 12.5, textAlign: "center" }}>{error}</div>}
-        <button style={{ ...primaryBtnStyle, marginTop: 4 }} type="submit" disabled={loading}>{loading ? "Validando..." : "Entrar com Segurança"}</button>
+        {error && <div style={{ color: "#e11d48", fontSize: 13, textAlign: "center", fontWeight: 500 }}>{error}</div>}
+        <button style={{ ...primaryBtnStyle, marginTop: 8 }} type="submit" disabled={loading}>{loading ? "Acessando..." : "Entrar no Sistema"}</button>
       </form>
     </div>
   );
@@ -644,16 +667,26 @@ function AuthScreen() {
 
 function Card({ label, value, icon, iconBg, valueColor, comparison }) {
   return (
-    <div className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12, minHeight: 120, boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+    <div className="card-interactive" style={{
+      background: "#ffffff",
+      border: "1px solid #f1f5f9",
+      borderRadius: 20,
+      padding: "22px 24px",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "space-between",
+      gap: 16,
+      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.02)",
+    }}>
       <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", textTransform: "uppercase" }}>{label}</span>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: iconBg, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#64748b", letterSpacing: "0.05em" }}>{label}</span>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: iconBg, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
         </div>
-        <div style={{ fontSize: 24, fontWeight: 700, color: valueColor || "#2b2323" }}>{value}</div>
+        <div style={{ fontSize: 26, fontWeight: 800, color: valueColor || "#0f172a", letterSpacing: "-0.03em" }}>{value}</div>
       </div>
       {comparison && (
-        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: comparison.color }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: comparison.color }}>
           {comparison.icon}
           <span>{comparison.text}</span>
         </div>
@@ -664,70 +697,73 @@ function Card({ label, value, icon, iconBg, valueColor, comparison }) {
 
 function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
   function getComparison(val) {
-    if (val === 0) return { text: "Sem alteração vs mês passado", color: "#7d6e6e", icon: null };
+    if (val === 0) return { text: "Sem alteração vs mês anterior", color: "#64748b", icon: null };
     const isPositive = val > 0;
     return {
-      text: `${isPositive ? "↑" : "↓"} ${Math.abs(val).toFixed(1)}% vs mês passado`,
-      color: isPositive ? "#1f9d6b" : "#d1445b",
-      icon: isPositive ? <ArrowUpRight size={14} color="#1f9d6b" /> : <ArrowDownRight size={14} color="#d1445b" />,
+      text: `${isPositive ? "+" : ""}${val.toFixed(1)}% vs mês anterior`,
+      color: isPositive ? "#10b981" : "#ef4444",
+      icon: isPositive ? <ArrowUpRight size={14} color="#10b981" /> : <ArrowDownRight size={14} color="#ef4444" />,
     };
   }
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div style={{ color: "#c1707d", fontSize: 15, textTransform: "capitalize", fontWeight: 600 }}>{dataFormatada}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.03em", margin: "0 0 4px" }}>Dashboard Visão Geral</h1>
+          <div style={{ color: "#64748b", fontSize: 14, fontWeight: 500, textTransform: "capitalize" }}>{dataFormatada}</div>
+        </div>
         
-        <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={() => setView("vendas")} style={{ background: "#e0687a", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-            <Plus size={15} /> Nova Venda
+        <div style={{ display: "flex", gap: 12 }}>
+          <button onClick={() => setView("vendas")} style={{ background: "linear-gradient(135deg, #e11d48 0%, #be123c 100%)", color: "#ffffff", border: "none", borderRadius: 12, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, boxShadow: "0 4px 12px rgba(225,29,72,0.2)" }}>
+            <Plus size={16} /> Nova Venda
           </button>
-          <button onClick={() => setView("gastos")} style={{ background: "#ffffff", color: "#e0687a", border: "1px solid #e0687a", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-            <Plus size={15} /> Novo Gasto
+          <button onClick={() => setView("gastos")} style={{ background: "#ffffff", color: "#0f172a", border: "1px solid #e2e8f0", borderRadius: 12, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+            <Plus size={16} color="#64748b" /> Novo Gasto
           </button>
-          <button onClick={() => setView("empresa")} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-            <Plus size={15} /> Venda Empresa
+          <button onClick={() => setView("empresa")} style={{ background: "#0f172a", color: "#ffffff", border: "none", borderRadius: 12, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, boxShadow: "0 4px 12px rgba(15,23,42,0.15)" }}>
+            <Plus size={16} /> Venda Empresa
           </button>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 18, marginBottom: 32 }}>
         <Card
-          label="Vendas hoje"
+          label="VENDAS HOJE"
           value={brl(metrics.vendasHoje)}
-          icon={<ShoppingCart size={17} color="#e0687a" />}
-          iconBg="#fbe0e2"
+          icon={<ShoppingCart size={20} color="#e11d48" />}
+          iconBg="#fff1f2"
           comparison={getComparison(metrics.variacaoVendas)}
         />
         <Card
-          label="Gastos hoje"
+          label="GASTOS HOJE"
           value={brl(metrics.gastosHoje)}
-          icon={<Receipt size={17} color="#d1445b" />}
-          iconBg="#fbe2e5"
-          valueColor="#d1445b"
+          icon={<Receipt size={20} color="#ef4444" />}
+          iconBg="#fef2f2"
+          valueColor="#ef4444"
           comparison={getComparison(metrics.variacaoGastos)}
         />
         <Card
-          label="Lucro do mês"
+          label="LUCRO DO MÊS"
           value={brl(metrics.lucroMes)}
-          icon={<TrendingUp size={17} color="#1f9d6b" />}
-          iconBg="#d7f5e6"
-          valueColor={metrics.lucroMes >= 0 ? "#1f9d6b" : "#d1445b"}
+          icon={<TrendingUp size={20} color="#10b981" />}
+          iconBg="#ecfdf5"
+          valueColor={metrics.lucroMes >= 0 ? "#10b981" : "#ef4444"}
           comparison={getComparison(metrics.variacaoLucro)}
         />
         <Card
-          label="Mais vendido"
+          label="MAIS VENDIDO"
           value={metrics.maisVendido}
-          icon={<Star size={17} color="#607d8b" />}
-          iconBg="#eceff1"
-          valueColor="#37474f"
+          icon={<Star size={20} color="#f59e0b" />}
+          iconBg="#fef3c7"
+          valueColor="#0f172a"
         />
         <Card
-          label="Total a receber (Empresa)"
+          label="TOTAL A RECEBER"
           value={brl(metrics.totalEmpresa)}
-          icon={<Briefcase size={17} color="#5c6bc0" />}
-          iconBg="#e8eaf6"
-          valueColor="#3f51b5"
+          icon={<Briefcase size={20} color="#6366f1" />}
+          iconBg="#e0e7ff"
+          valueColor="#4f46e5"
         />
       </div>
 
@@ -754,34 +790,37 @@ function SalesChart({ sales, expenses }) {
   const hasData = data.some((d) => d.Vendas > 0 || d.Gastos > 0);
 
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: "24px 20px 14px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323" }}>Vendas x Gastos (últimos 7 dias)</div>
+    <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: "28px 28px 20px", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.02)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Vendas x Gastos</div>
+          <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>Desempenho dos últimos 7 dias</div>
+        </div>
         
-        <div style={{ display: "flex", gap: 16, fontSize: 13, fontWeight: 600, color: "#7d6e6e" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 12, height: 12, borderRadius: 3, background: "#e0687a" }}></div>
+        <div style={{ display: "flex", gap: 20, fontSize: 13, fontWeight: 600 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748b" }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#e11d48" }}></div>
             <span>Vendas</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 12, height: 12, borderRadius: 3, background: "#d1445b" }}></div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748b" }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#ef4444" }}></div>
             <span>Gastos</span>
           </div>
         </div>
       </div>
 
       {!hasData ? (
-        <EmptyState text="Sem movimentações nos últimos 7 dias." />
+        <EmptyState text="Sem movimentações financeiras nos últimos 7 dias." />
       ) : (
-        <div style={{ width: "100%", height: 280 }}>
+        <div style={{ width: "100%", height: 320 }}>
           <ResponsiveContainer>
-            <BarChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f2dede" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#a08f8f" }} />
-              <YAxis tick={{ fontSize: 12, fill: "#a08f8f" }} />
-              <Tooltip formatter={(v) => brl(v)} />
-              <Bar dataKey="Vendas" fill="#e0687a" radius={[4, 4, 0, 0]} maxBarSize={32} />
-              <Bar dataKey="Gastos" fill="#d1445b" radius={[4, 4, 0, 0]} maxBarSize={32} />
+            <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+              <Tooltip formatter={(v) => brl(v)} contentStyle={{ background: "#0f172a", border: "none", borderRadius: 12, color: "#fff" }} />
+              <Bar dataKey="Vendas" fill="#e11d48" radius={[6, 6, 0, 0]} maxBarSize={28} />
+              <Bar dataKey="Gastos" fill="#ef4444" radius={[6, 6, 0, 0]} maxBarSize={28} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -792,32 +831,33 @@ function SalesChart({ sales, expenses }) {
 
 function SectionTitleWithBack({ title, onBack }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28 }}>
       <button
         onClick={onBack}
         style={{
-          background: "#fbe0e2",
-          border: "none",
-          borderRadius: 10,
+          background: "#ffffff",
+          border: "1px solid #e2e8f0",
+          borderRadius: 12,
           padding: "8px 14px",
-          color: "#e0687a",
+          color: "#0f172a",
           fontSize: 13,
           fontWeight: 700,
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
           gap: 6,
+          boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
         }}
       >
         <ArrowLeft size={16} /> Voltar
       </button>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: "#2b2323", margin: 0 }}>{title}</h2>
+      <h2 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: 0 }}>{title}</h2>
     </div>
   );
 }
 
 function EmptyState({ text }) {
-  return <div style={{ textAlign: "center", color: "#b3a3a3", fontSize: 14, padding: "40px 0", border: "1px dashed #eeddde", borderRadius: 16, background: "#ffffff" }}>{text}</div>;
+  return <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 14, padding: "48px 0", border: "2px dashed #e2e8f0", borderRadius: 20, background: "#ffffff" }}>{text}</div>;
 }
 
 function Produtos({ products, ingredients, onAdd, onRemove, setView }) {
@@ -846,22 +886,22 @@ function Produtos({ products, ingredients, onAdd, onRemove, setView }) {
     <div>
       <SectionTitleWithBack title="Produtos" onBack={() => setView("dashboard")} />
 
-      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 4px 15px rgba(0,0,0,0.02)" }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Cadastrar Novo Produto</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 28, maxWidth: 640, margin: "0 auto 36px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 20 }}>Cadastrar Novo Produto</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Nome do Doce / Produto</div>
-            <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Bolo de Chocolate" value={name} onChange={(e) => setName(e.target.value)} />
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>NOME DO PRODUTO</div>
+            <input style={{ ...inputStyle, width: "100%" }} placeholder="Ex: Bolo de Brigadeiro" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Preço (R$)</div>
-              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="0,00" value={price} onChange={(e) => setPrice(e.target.value)} />
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>PREÇO (R$)</div>
+              <input style={{ ...inputStyle, width: "100%" }} type="number" step="0.01" placeholder="0,00" value={price} onChange={(e) => setPrice(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Categoria</div>
-              <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>CATEGORIA</div>
+              <select style={{ ...inputStyle, width: "100%", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
                 {CATEGORIAS_PRODUTO.map((cat) => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
@@ -870,8 +910,8 @@ function Produtos({ products, ingredients, onAdd, onRemove, setView }) {
           </div>
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Vincular Insumo / Ingrediente Principal (Opcional)</div>
-            <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={linkedIngredient} onChange={(e) => setLinkedIngredient(e.target.value)}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>INSUMO VINCULADO (OPCIONAL)</div>
+            <select style={{ ...inputStyle, width: "100%", cursor: "pointer" }} value={linkedIngredient} onChange={(e) => setLinkedIngredient(e.target.value)}>
               <option value="">Nenhum ingrediente vinculado</option>
               {ingredients.map((ing) => (
                 <option key={ing.id} value={ing.name}>{ing.name}</option>
@@ -883,10 +923,10 @@ function Produtos({ products, ingredients, onAdd, onRemove, setView }) {
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Produtos Cadastrados Recentes</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
-          {products.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum produto cadastrado ainda." /></div>}
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 20 }}>Catálogo de Produtos</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+          {products.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum produto cadastrado." /></div>}
           {products.map((p) => (
             <ListRow
               key={p.id}
@@ -931,56 +971,56 @@ function Vendas({ products, sales, onAdd, onRemove, setView }) {
     <div>
       <SectionTitleWithBack title="Vendas" onBack={() => setView("dashboard")} />
 
-      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 4px 15px rgba(0,0,0,0.02)" }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Registrar Nova Venda</div>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 28, maxWidth: 640, margin: "0 auto 36px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 20 }}>Registrar Nova Venda</div>
         
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", gap: 10 }}>
             <ToggleButton active={mode === "catalogo"} onClick={() => setMode("catalogo")}>Catálogo de Produtos</ToggleButton>
-            <ToggleButton active={mode === "manual"} onClick={() => setMode("manual")}>Venda Manual / Personalizada</ToggleButton>
+            <ToggleButton active={mode === "manual"} onClick={() => setMode("manual")}>Venda Manual</ToggleButton>
           </div>
 
           {mode === "catalogo" ? (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 130px", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 140px", gap: 14 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Produto</div>
-                <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={productId} onChange={(e) => setProductId(e.target.value)}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>PRODUTO</div>
+                <select style={{ ...inputStyle, width: "100%", cursor: "pointer" }} value={productId} onChange={(e) => setProductId(e.target.value)}>
                   <option value="">Selecione o produto...</option>
                   {products.map((p) => <option key={p.id} value={p.id}>{p.name} — {brl(p.price)}</option>)}
                 </select>
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Quantidade</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} />
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>QUANTIDADE</div>
+                <input style={{ ...inputStyle, width: "100%" }} type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} />
               </div>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 130px", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 140px", gap: 14 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Descrição da Venda</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Encomenda Especial" value={manualDesc} onChange={(e) => setManualDesc(e.target.value)} />
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>DESCRIÇÃO</div>
+                <input style={{ ...inputStyle, width: "100%" }} placeholder="Ex: Kit Festa Personalizado" value={manualDesc} onChange={(e) => setManualDesc(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Valor Total (R$)</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="0,00" value={manualValue} onChange={(e) => setManualValue(e.target.value)} />
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>VALOR TOTAL</div>
+                <input style={{ ...inputStyle, width: "100%" }} type="number" step="0.01" placeholder="0,00" value={manualValue} onChange={(e) => setManualValue(e.target.value)} />
               </div>
             </div>
           )}
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Forma de Pagamento</div>
-            <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={payment} onChange={(e) => setPayment(e.target.value)}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>FORMA DE PAGAMENTO</div>
+            <select style={{ ...inputStyle, width: "100%", cursor: "pointer" }} value={payment} onChange={(e) => setPayment(e.target.value)}>
               {FORMAS_PAGAMENTO.map((f) => <option key={f} value={f}>{f}</option>)}
             </select>
           </div>
 
-          <button style={primaryBtnStyle} onClick={submit}>Registrar Venda</button>
+          <button style={primaryBtnStyle} onClick={submit}>Finalizar Venda</button>
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Vendas Recentes</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 20 }}>Histórico de Vendas</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
           {salesNormais.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhuma venda registrada." /></div>}
           {salesNormais.map((s) => (
             <ListRow
@@ -988,7 +1028,7 @@ function Vendas({ products, sales, onAdd, onRemove, setView }) {
               title={s.product_name}
               subtitle={`${formatDatePt(s.date)} · ${s.payment} ${s.qty > 1 ? `· Qtd: ${s.qty}` : ""}`}
               value={brl(s.total)}
-              valueColor="#1f9d6b"
+              valueColor="#10b981"
               onDelete={() => onRemove(s.id)}
             />
           ))}
@@ -1015,35 +1055,35 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
     <div>
       <SectionTitleWithBack title="Gastos" onBack={() => setView("dashboard")} />
 
-      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 4px 15px rgba(0,0,0,0.02)" }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Registrar Novo Gasto</div>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 28, maxWidth: 640, margin: "0 auto 36px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 20 }}>Registrar Novo Gasto</div>
         
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Descrição do Gasto</div>
-            <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Compra de Leite Condensado" value={description} onChange={(e) => setDescription(e.target.value)} />
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>DESCRIÇÃO DO GASTO</div>
+            <input style={{ ...inputStyle, width: "100%" }} placeholder="Ex: Compra de Embalagens" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Valor (R$)</div>
-              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="0,00" value={value} onChange={(e) => setValue(e.target.value)} />
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>VALOR (R$)</div>
+              <input style={{ ...inputStyle, width: "100%" }} type="number" step="0.01" placeholder="0,00" value={value} onChange={(e) => setValue(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Categoria</div>
-              <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>CATEGORIA</div>
+              <select style={{ ...inputStyle, width: "100%", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
                 {CATEGORIAS_GASTO.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
           </div>
 
-          <button style={primaryBtnStyle} onClick={submit}>Registrar Gasto</button>
+          <button style={primaryBtnStyle} onClick={submit}>Salvar Gasto</button>
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Gastos Recentes</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 20 }}>Registro de Despesas</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
           {expenses.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum gasto registrado." /></div>}
           {expenses.map((g) => (
             <ListRow
@@ -1051,7 +1091,7 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
               title={g.description}
               subtitle={`${formatDatePt(g.date)} · ${g.category}`}
               value={brl(g.value)}
-              valueColor="#d1445b"
+              valueColor="#ef4444"
               onDelete={() => onRemove(g.id)}
             />
           ))}
@@ -1107,7 +1147,7 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
 
   async function submit() {
     if (isMonthClosed) {
-      alert("Este mês já está fechado. Não é possível adicionar novos lançamentos.");
+      alert("Este mês já está fechado.");
       return;
     }
     if (!employeeName.trim() || !total || !date) return;
@@ -1169,10 +1209,7 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
   }
 
   async function fecharMesGeral() {
-    if (isMonthClosed) {
-      alert("Este mês já está fechado.");
-      return;
-    }
+    if (isMonthClosed) return;
     for (const item of listaDetalhadaMes) {
       if (item.status !== "Pago") {
         await onUpdate(item.id, { status: "Pago" });
@@ -1197,7 +1234,7 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
       head: [["Funcionário / Cliente", "Total Devido", "Status"]],
       body: dadosTabela,
       theme: "grid",
-      headStyles: { fillColor: [63, 81, 181] },
+      headStyles: { fillColor: [15, 23, 42] },
     });
 
     doc.save(`vendas-empresa-${selectedMonth}.pdf`);
@@ -1205,44 +1242,43 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: "#2b2323", margin: 0 }}>Vendas Empresa</h2>
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            onClick={fecharMesGeral}
-            disabled={isMonthClosed || listaDetalhadaMes.length === 0}
-            style={{
-              background: isMonthClosed ? "#a08f8f" : "#3f51b5",
-              color: "#ffffff",
-              border: "none",
-              borderRadius: 12,
-              padding: "10px 18px",
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: isMonthClosed ? "not-allowed" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <Lock size={16} />
-            {isMonthClosed ? "Mês Fechado" : "Fechar Mês (Marcar Todos como Pagos)"}
-          </button>
-        </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
+        <h2 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: 0 }}>Vendas Empresa</h2>
+        <button
+          onClick={fecharMesGeral}
+          disabled={isMonthClosed || listaDetalhadaMes.length === 0}
+          style={{
+            background: isMonthClosed ? "#94a3b8" : "#0f172a",
+            color: "#ffffff",
+            border: "none",
+            borderRadius: 12,
+            padding: "10px 18px",
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: isMonthClosed ? "not-allowed" : "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            boxShadow: "0 4px 12px rgba(15,23,42,0.15)",
+          }}
+        >
+          <Lock size={16} />
+          {isMonthClosed ? "Mês Fechado" : "Fechar Mês (Quitar Todos)"}
+        </button>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20, marginBottom: 24, opacity: isMonthClosed ? 0.7 : 1 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span>Lançar venda para funcionário / empresa</span>
-          {isMonthClosed && <span style={{ fontSize: 13, color: "#d1445b", fontWeight: 600 }}>Mês Fechado (Lançamentos travados)</span>}
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24, marginBottom: 28, opacity: isMonthClosed ? 0.7 : 1 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>Novo Lançamento para Funcionário</span>
+          {isMonthClosed && <span style={{ fontSize: 13, color: "#ef4444", fontWeight: 600 }}>Mês Fechado</span>}
         </div>
         
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Nome (Autocomplete)</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>NOME DO FUNCIONÁRIO</div>
             <input
-              style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
-              placeholder="Digite ou selecione o nome da pessoa"
+              style={{ ...inputStyle, width: "100%" }}
+              placeholder="Digite ou selecione um nome..."
               value={employeeName}
               onChange={(e) => setEmployeeName(e.target.value)}
               list="employees-list"
@@ -1255,11 +1291,11 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
             </datalist>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 12, alignItems: "end" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 14, alignItems: "end" }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Valor (R$)</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>VALOR (R$)</div>
               <input
-                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+                style={{ ...inputStyle, width: "100%" }}
                 type="number"
                 step="0.01"
                 placeholder="0,00"
@@ -1270,9 +1306,9 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
             </div>
 
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Data</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>DATA</div>
               <input
-                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+                style={{ ...inputStyle, width: "100%" }}
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
@@ -1284,7 +1320,7 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
               onClick={submit}
               disabled={isMonthClosed}
               style={{
-                background: isMonthClosed ? "#ccc" : "#7d2a3f",
+                background: isMonthClosed ? "#cbd5e1" : "linear-gradient(135deg, #e11d48 0%, #be123c 100%)",
                 color: "#ffffff",
                 border: "none",
                 borderRadius: 12,
@@ -1301,11 +1337,11 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, gap: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <select
-              style={{ ...inputStyle, width: 200, background: "#ffffff", fontWeight: 600, cursor: "pointer" }}
+              style={{ ...inputStyle, width: 200, fontWeight: 600, cursor: "pointer" }}
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
             >
@@ -1315,9 +1351,9 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
             </select>
 
             <div style={{ position: "relative" }}>
-              <Search size={16} color="#a08f8f" style={{ position: "absolute", left: 12, top: 14 }} />
+              <Search size={18} color="#94a3b8" style={{ position: "absolute", left: 14, top: 14 }} />
               <input
-                style={{ ...inputStyle, paddingLeft: 36, width: 220, boxSizing: "border-box" }}
+                style={{ ...inputStyle, paddingLeft: 42, width: 220 }}
                 placeholder="Buscar funcionário..."
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
@@ -1325,16 +1361,16 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ background: "#e8eaf6", color: "#3f51b5", padding: "10px 18px", borderRadius: 12, fontSize: 14, fontWeight: 700, border: "1px solid #c5cae9" }}>
-              Total Pendente: {brl(totalPendenteMes)} <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.8 }}>(Geral: {brl(totalGeralMes)})</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ background: "#f8fafc", color: "#0f172a", padding: "10px 18px", borderRadius: 12, fontSize: 14, fontWeight: 700, border: "1px solid #e2e8f0" }}>
+              Total Pendente: <span style={{ color: "#e11d48" }}>{brl(totalPendenteMes)}</span> <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>(Geral: {brl(totalGeralMes)})</span>
             </div>
             {resumoMes.length > 0 && (
               <button
                 onClick={gerarPDF}
-                style={{ background: "#3f51b5", color: "#ffffff", border: "none", borderRadius: 12, padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                style={{ background: "#ffffff", color: "#0f172a", border: "1px solid #e2e8f0", borderRadius: 12, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
               >
-                Exportar PDF
+                <Download size={16} /> Exportar PDF
               </button>
             )}
           </div>
@@ -1342,22 +1378,22 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {resumoMes.length === 0 && (
-            <EmptyState text="Nenhuma venda registrada nesse mês ainda ou funcionário não encontrado." />
+            <EmptyState text="Nenhuma venda registrada neste mês." />
           )}
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
             {resumoMes.map((item, index) => (
-              <div key={index} className="card-interactive" style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ fontWeight: 700, color: "#2b2323", fontSize: 16 }}>{item.name}</div>
+              <div key={index} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 20, boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ fontWeight: 700, color: "#0f172a", fontSize: 16 }}>{item.name}</div>
                     <span style={{
                       fontSize: 11,
                       fontWeight: 700,
-                      padding: "3px 8px",
-                      borderRadius: 6,
-                      background: item.isPaid ? "#d7f5e6" : "#fbe2e5",
-                      color: item.isPaid ? "#1f9d6b" : "#d1445b",
+                      padding: "4px 10px",
+                      borderRadius: 8,
+                      background: item.isPaid ? "#ecfdf5" : "#fef2f2",
+                      color: item.isPaid ? "#10b981" : "#ef4444",
                       display: "flex",
                       alignItems: "center",
                       gap: 4
@@ -1366,19 +1402,19 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
                       {item.isPaid ? "Pago" : "Pendente"}
                     </span>
                   </div>
-                  <div style={{ fontWeight: 700, color: "#7d2a3f", fontSize: 17 }}>{brl(item.sum)}</div>
+                  <div style={{ fontWeight: 800, color: "#0f172a", fontSize: 18 }}>{brl(item.sum)}</div>
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                   <button
                     onClick={() => toggleEmployeeStatus(item.name, item.isPaid)}
                     style={{
-                      background: item.isPaid ? "#fff" : "#1f9d6b",
-                      color: item.isPaid ? "#1f9d6b" : "#fff",
-                      border: "1px solid #1f9d6b",
-                      borderRadius: 8,
-                      padding: "5px 10px",
-                      fontSize: 11,
+                      background: item.isPaid ? "#f8fafc" : "#10b981",
+                      color: item.isPaid ? "#64748b" : "#ffffff",
+                      border: item.isPaid ? "1px solid #e2e8f0" : "none",
+                      borderRadius: 10,
+                      padding: "6px 12px",
+                      fontSize: 12,
                       fontWeight: 700,
                       cursor: "pointer",
                     }}
@@ -1387,21 +1423,18 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
                   </button>
                 </div>
 
-                <div style={{ borderTop: "1px dashed #f2dede", paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", textTransform: "uppercase" }}>Lançamentos no mês:</div>
+                <div style={{ borderTop: "1px dashed #e2e8f0", paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                   {item.items.map((s) => (
-                    <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "#6e5e5e" }}>
-                      <span>{formatDatePt(s.date)} — <b>{brl(s.total)}</b></span>
-                      {!isMonthClosed ? (
+                    <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "#64748b" }}>
+                      <span>{formatDatePt(s.date)} — <b style={{ color: "#0f172a" }}>{brl(s.total)}</b></span>
+                      {!isMonthClosed && (
                         <button
                           onClick={() => onRemove(s.id)}
-                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 4, display: "flex", alignItems: "center" }}
-                          title="Excluir lançamento"
+                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "#94a3b8", padding: 4 }}
+                          title="Excluir"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={15} />
                         </button>
-                      ) : (
-                        <span style={{ fontSize: 11, color: "#a08f8f" }}>Bloqueado</span>
                       )}
                     </div>
                   ))}
@@ -1498,65 +1531,65 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
 
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: "#2b2323", margin: "0 0 20px" }}>Precificação e Ficha Técnica</h2>
+      <h2 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: "0 0 28px" }}>Precificação e Ficha Técnica</h2>
 
-      <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+      <div style={{ display: "flex", gap: 12, marginBottom: 28 }}>
         <ToggleButton active={tab === "ingredientes"} onClick={() => setTab("ingredientes")}>
-          1. Meus Ingredientes (Estoque de Preços)
+          1. Estoque de Ingredientes
         </ToggleButton>
         <ToggleButton active={tab === "receitas"} onClick={() => setTab("receitas")}>
-          2. Ficha Técnica / Receitas (Custo de Produção)
+          2. Fichas Técnicas & Receitas
         </ToggleButton>
       </div>
 
       {tab === "ingredientes" ? (
         <div>
-          <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20, marginBottom: 24 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 14 }}>Cadastrar Ingrediente ou Embalagem</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 120px auto", gap: 12, alignItems: "end" }}>
+          <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24, marginBottom: 28 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>Cadastrar Novo Insumo</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 140px auto", gap: 14, alignItems: "end" }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Nome</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Farinha de Trigo" value={ingName} onChange={(e) => setIngName(e.target.value)} />
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>NOME</div>
+                <input style={{ ...inputStyle, width: "100%" }} placeholder="Ex: Leite Condensado" value={ingName} onChange={(e) => setIngName(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Preço Pago (R$)</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="Ex: 10.00" value={pkgPrice} onChange={(e) => setPkgPrice(e.target.value)} />
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>PREÇO PAGO (R$)</div>
+                <input style={{ ...inputStyle, width: "100%" }} type="number" step="0.01" placeholder="0,00" value={pkgPrice} onChange={(e) => setPkgPrice(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Qtd Embalagem</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 1 ou 1000" value={pkgAmount} onChange={(e) => setPkgAmount(e.target.value)} />
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>QTD PACOTE</div>
+                <input style={{ ...inputStyle, width: "100%" }} type="number" step="any" placeholder="395" value={pkgAmount} onChange={(e) => setPkgAmount(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Unidade do Pacote</div>
-                <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={unit} onChange={(e) => setUnit(e.target.value)}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>UNIDADE</div>
+                <select style={{ ...inputStyle, width: "100%" }} value={unit} onChange={(e) => setUnit(e.target.value)}>
                   <option value="g">Gramas (g)</option>
                   <option value="kg">Quilos (kg)</option>
                   <option value="ml">Mililitros (ml)</option>
                   <option value="un">Unidade (un)</option>
                 </select>
               </div>
-              <button onClick={submitIngredient} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", height: 45 }}>
+              <button onClick={submitIngredient} style={{ ...primaryBtnStyle, height: 46 }}>
                 Cadastrar
               </button>
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
-            {ingredients.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum ingrediente cadastrado ainda." /></div>}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+            {ingredients.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum ingrediente cadastrado." /></div>}
             {ingredients.map((i) => {
               const totalAmount = i.unit === "kg" ? Number(i.package_amount) * 1000 : Number(i.package_amount);
               const displayUnit = i.unit === "kg" ? "g" : i.unit;
               const custoUnitario = Number(i.package_price) / totalAmount;
               return (
-                <div key={i.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div key={i.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323" }}>{i.name}</div>
-                    <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 4 }}>
-                      Pacote: {i.package_amount}{i.unit} por {brl(i.package_price)} · Custo: {brl(custoUnitario)} por {displayUnit}
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{i.name}</div>
+                    <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                      Pacote: {i.package_amount}{i.unit} por {brl(i.package_price)} · Custo: <b style={{ color: "#0f172a" }}>{brl(custoUnitario)}/{displayUnit}</b>
                     </div>
                   </div>
-                  <button onClick={() => onRemoveIng(i.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6 }}>
-                    <Trash2 size={16} />
+                  <button onClick={() => onRemoveIng(i.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#94a3b8", padding: 6 }}>
+                    <Trash2 size={18} />
                   </button>
                 </div>
               );
@@ -1565,91 +1598,91 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
         </div>
       ) : (
         <div>
-          <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20, marginBottom: 24 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 14 }}>Montar Ficha Técnica / Receita</div>
+          <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24, marginBottom: 28 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>Montar Ficha Técnica / Receita</div>
             
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 180px", gap: 12, marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 14, marginBottom: 16 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Nome do Produto / Receita</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Pão Caseiro / Massa de Brigadeiro" value={recName} onChange={(e) => setRecName(e.target.value)} />
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>NOME DA RECEITA</div>
+                <input style={{ ...inputStyle, width: "100%" }} placeholder="Ex: Massa de Brigadeiro Gourmet" value={recName} onChange={(e) => setRecName(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Rendimento (unidades/porções)</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" min="1" value={yieldAmount} onChange={(e) => setYieldAmount(e.target.value)} />
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>RENDIMENTO (UNIDADES)</div>
+                <input style={{ ...inputStyle, width: "100%" }} type="number" min="1" value={yieldAmount} onChange={(e) => setYieldAmount(e.target.value)} />
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 12, alignItems: "end", marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 14, alignItems: "end", marginBottom: 16 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Selecionar Ingrediente</div>
-                <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={selectedIngId} onChange={(e) => setSelectedIngId(e.target.value)}>
-                  <option value="">Selecione o ingrediente...</option>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>SELECIONAR INSUMO</div>
+                <select style={{ ...inputStyle, width: "100%" }} value={selectedIngId} onChange={(e) => setSelectedIngId(e.target.value)}>
+                  <option value="">Selecione...</option>
                   {ingredients.map((ing) => (
-                    <option key={ing.id} value={ing.id}>{ing.name} (Comprou {ing.package_amount}{ing.unit} por {brl(ing.package_price)})</option>
+                    <option key={ing.id} value={ing.id}>{ing.name} ({brl(ing.package_price)})</option>
                   ))}
                 </select>
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Quantidade a usar (g/ml)</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 100" value={usedAmount} onChange={(e) => setUsedAmount(e.target.value)} />
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>QTD UTILIZADA</div>
+                <input style={{ ...inputStyle, width: "100%" }} type="number" step="any" placeholder="Ex: 395" value={usedAmount} onChange={(e) => setUsedAmount(e.target.value)} />
               </div>
-              <button onClick={addIngredientToRecipe} style={{ background: "#e0687a", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", height: 45 }}>
-                Adicionar na Receita
+              <button onClick={addIngredientToRecipe} style={{ background: "#0f172a", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", height: 46 }}>
+                Adicionar
               </button>
             </div>
 
             {currentRecipeItems.length > 0 && (
-              <div style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 12, padding: 14, marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#7d2a3f", marginBottom: 10 }}>Ingredientes desta receita:</div>
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 14, padding: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 12 }}>Ingredientes da Receita:</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {currentRecipeItems.map((item, idx) => (
-                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, borderBottom: "1px solid #f9e8e8", paddingBottom: 6 }}>
-                      <span>{item.name} — {item.used_amount}{item.unit}</span>
-                      <span style={{ fontWeight: 700, color: "#7d2a3f" }}>{brl(item.cost)}</span>
+                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, borderBottom: "1px solid #e2e8f0", paddingBottom: 6 }}>
+                      <span>{item.name} ({item.used_amount}{item.unit})</span>
+                      <span style={{ fontWeight: 700, color: "#0f172a" }}>{brl(item.cost)}</span>
                     </div>
                   ))}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, paddingTop: 8, borderTop: "1px solid #f2dede", fontWeight: 700, fontSize: 15 }}>
-                  <span>Custo Total da Receita:</span>
-                  <span style={{ color: "#7d2a3f" }}>{brl(recipeTotalCost)}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14, paddingTop: 10, borderTop: "2px solid #e2e8f0", fontWeight: 800, fontSize: 15 }}>
+                  <span>Custo Total:</span>
+                  <span style={{ color: "#e11d48" }}>{brl(recipeTotalCost)}</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 13, color: "#a08f8f" }}>
-                  <span>Custo por Unidade (Rendimento: {yieldAmount}):</span>
-                  <span style={{ fontWeight: 700, color: "#1f9d6b" }}>{brl(recipeTotalCost / Number(yieldAmount || 1))}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 13, color: "#64748b" }}>
+                  <span>Custo Unitário ({yieldAmount} un):</span>
+                  <span style={{ fontWeight: 700, color: "#10b981" }}>{brl(recipeTotalCost / Number(yieldAmount || 1))}</span>
                 </div>
               </div>
             )}
 
-            <button onClick={saveRecipe} disabled={currentRecipeItems.length === 0 || !recName} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 700, cursor: currentRecipeItems.length === 0 || !recName ? "not-allowed" : "pointer", opacity: currentRecipeItems.length === 0 || !recName ? 0.6 : 1, width: "100%" }}>
+            <button onClick={saveRecipe} disabled={currentRecipeItems.length === 0 || !recName} style={{ ...primaryBtnStyle, width: "100%", opacity: currentRecipeItems.length === 0 || !recName ? 0.5 : 1 }}>
               Salvar Ficha Técnica
             </button>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {recipes.length === 0 && <EmptyState text="Nenhuma ficha técnica salva ainda." />}
+            {recipes.length === 0 && <EmptyState text="Nenhuma ficha técnica cadastrada." />}
             {recipes.map((rec) => {
               const custoPorUnidade = Number(rec.total_cost) / Number(rec.yield_amount || 1);
               return (
-                <div key={rec.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div key={rec.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                     <div>
-                      <div style={{ fontSize: 17, fontWeight: 700, color: "#2b2323" }}>{rec.product_name}</div>
-                      <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 2 }}>Rendimento: {rec.yield_amount} unidades/porções</div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a" }}>{rec.product_name}</div>
+                      <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>Rendimento: {rec.yield_amount} porções</div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 12, color: "#a08f8f", fontWeight: 600 }}>Custo Unitário</div>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: "#1f9d6b" }}>{brl(custoPorUnidade)}</div>
+                        <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, letterSpacing: "0.05em" }}>CUSTO UNITÁRIO</div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: "#10b981" }}>{brl(custoPorUnidade)}</div>
                       </div>
-                      <button onClick={() => onRemoveRec(rec.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6, display: "flex", alignItems: "center" }} title="Excluir receita">
+                      <button onClick={() => onRemoveRec(rec.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#94a3b8", padding: 6 }}>
                         <Trash2 size={18} />
                       </button>
                     </div>
                   </div>
 
-                  <div style={{ background: "#fdf9f9", borderRadius: 10, padding: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  <div style={{ background: "#f8fafc", borderRadius: 12, padding: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
                     {rec.ingredients_used?.map((ing, idx) => (
-                      <span key={idx} style={{ background: "#ffffff", border: "1px solid #f2dede", padding: "4px 10px", borderRadius: 8, fontSize: 12, color: "#7d6e6e" }}>
+                      <span key={idx} style={{ background: "#ffffff", border: "1px solid #e2e8f0", padding: "4px 10px", borderRadius: 8, fontSize: 12, color: "#475569" }}>
                         {ing.name}: <b>{ing.used_amount}{ing.unit}</b> ({brl(ing.cost)})
                       </span>
                     ))}
@@ -1679,7 +1712,7 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      alert("O arquivo é muito grande! O tamanho máximo permitido é 2MB.");
+      alert("O arquivo é muito grande! Tamanho máximo de 2MB.");
       e.target.value = "";
       return;
     }
@@ -1741,42 +1774,42 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
 
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: "#2b2323", margin: "0 0 20px" }}>Gerenciador de Documentos</h2>
+      <h2 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: "0 0 28px" }}>Gerenciador de Documentos</h2>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 24, marginBottom: 28, boxShadow: "0 4px 15px rgba(0,0,0,0.02)" }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Fazer Upload de Documento</div>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 28, marginBottom: 32, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 20 }}>Upload de Novo Documento</div>
         
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 14 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Nome / Descrição</div>
-              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Nota fiscal farinha julho" value={docName} onChange={(e) => setDocName(e.target.value)} />
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>NOME DO DOCUMENTO</div>
+              <input style={{ ...inputStyle, width: "100%" }} placeholder="Ex: Nota Fiscal Farinha de Trigo" value={docName} onChange={(e) => setDocName(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Categoria</div>
-              <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>CATEGORIA</div>
+              <select style={{ ...inputStyle, width: "100%", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
                 {CATEGORIAS_DOC.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Data</div>
-              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>DATA</div>
+              <input style={{ ...inputStyle, width: "100%" }} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "end" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, alignItems: "end" }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Vincular a um Gasto (Opcional)</div>
-              <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={expenseLink} onChange={(e) => setExpenseLink(e.target.value)}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>VINCULAR A UM GASTO (OPCIONAL)</div>
+              <select style={{ ...inputStyle, width: "100%", cursor: "pointer" }} value={expenseLink} onChange={(e) => setExpenseLink(e.target.value)}>
                 <option value="">Nenhum gasto vinculado</option>
                 {expenses.map((g) => (
-                  <option key={g.id} value={g.description}>{g.description} ({brl(g.value)} - {formatDatePt(g.date)})</option>
+                  <option key={g.id} value={g.description}>{g.description} ({brl(g.value)})</option>
                 ))}
               </select>
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", marginBottom: 6 }}>Arquivo (PDF, JPG, PNG - máx 2MB)</div>
-              <input id="file-input" style={{ ...inputStyle, width: "100%", boxSizing: "border-box", padding: "9px 12px", background: "#fdf9f9" }} type="file" accept=".pdf, .jpg, .jpeg, .png" onChange={handleFileChange} />
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>ARQUIVO (MÁX 2MB)</div>
+              <input id="file-input" style={{ ...inputStyle, width: "100%", padding: "9px 12px" }} type="file" accept=".pdf, .jpg, .jpeg, .png" onChange={handleFileChange} />
             </div>
           </div>
 
@@ -1784,11 +1817,11 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, gap: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <select
-              style={{ ...inputStyle, width: 200, background: "#ffffff", fontWeight: 600, cursor: "pointer" }}
+              style={{ ...inputStyle, width: 200, fontWeight: 600, cursor: "pointer" }}
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
             >
@@ -1798,7 +1831,7 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
             </select>
 
             <select
-              style={{ ...inputStyle, width: 200, background: "#ffffff", fontWeight: 600, cursor: "pointer" }}
+              style={{ ...inputStyle, width: 200, fontWeight: 600, cursor: "pointer" }}
               value={filterCat}
               onChange={(e) => setFilterCat(e.target.value)}
             >
@@ -1807,69 +1840,66 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
             </select>
           </div>
 
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#a08f8f" }}>
-            Total de documentos: {filteredDocs.length}
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b" }}>
+            Total: {filteredDocs.length} documentos
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
           {filteredDocs.length === 0 && (
             <div style={{ gridColumn: "span 3" }}>
-              <EmptyState text="Nenhum documento encontrado para este filtro." />
+              <EmptyState text="Nenhum documento encontrado." />
             </div>
           )}
           {filteredDocs.map((doc) => {
             const isImage = doc.file_type && doc.file_type.startsWith("image/");
             return (
-              <div key={doc.id} className="card-interactive" style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 14, padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12 }}>
+              <div key={doc.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 20, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 14 }}>
                 <div>
-                  <div style={{ width: "100%", height: 130, background: "#ffffff", borderRadius: 10, border: "1px solid #f1dede", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 12, position: "relative" }}>
+                  <div style={{ width: "100%", height: 140, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 14 }}>
                     {isImage ? (
                       <img src={doc.file_data} alt={doc.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     ) : (
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "#e0687a" }}>
-                        <FileText size={36} />
-                        <span style={{ fontSize: 11, fontWeight: 700 }}>DOCUMENTO PDF</span>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "#e11d48" }}>
+                        <FileText size={40} />
+                        <span style={{ fontSize: 11, fontWeight: 700 }}>ARQUIVO PDF</span>
                       </div>
                     )}
                   </div>
 
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.name}</div>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: "#fbe0e2", color: "#e0687a" }}>{doc.category}</span>
-                    <span style={{ fontSize: 12, color: "#a08f8f" }}>{formatDatePt(doc.date)}</span>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.name}</div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: "#fff1f2", color: "#e11d48" }}>{doc.category}</span>
+                    <span style={{ fontSize: 12, color: "#64748b" }}>{formatDatePt(doc.date)}</span>
                   </div>
                   {doc.expense_link && (
-                    <div style={{ fontSize: 12, color: "#1f9d6b", fontWeight: 600, background: "#d7f5e6", padding: "3px 8px", borderRadius: 6, display: "inline-block" }}>
+                    <div style={{ fontSize: 12, color: "#10b981", fontWeight: 600, background: "#ecfdf5", padding: "4px 8px", borderRadius: 6, display: "inline-block" }}>
                       Gasto: {doc.expense_link}
                     </div>
                   )}
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f2dede", paddingTop: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f1f5f9", paddingTop: 12 }}>
                   <div style={{ display: "flex", gap: 8 }}>
                     <a
                       href={doc.file_data}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ background: "#fbe0e2", color: "#e0687a", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 700, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
-                      title="Visualizar arquivo"
+                      style={{ background: "#f1f5f9", color: "#0f172a", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
                     >
                       <Eye size={14} /> Ver
                     </a>
                     <a
                       href={doc.file_data}
                       download={doc.name}
-                      style={{ background: "#3f51b5", color: "#ffffff", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 700, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
-                      title="Baixar arquivo"
+                      style={{ background: "#0f172a", color: "#ffffff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
                     >
                       <Download size={14} /> Baixar
                     </a>
                   </div>
                   <button
                     onClick={() => onRemove(doc.id)}
-                    style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 4, display: "flex" }}
-                    title="Excluir documento"
+                    style={{ border: "none", background: "transparent", cursor: "pointer", color: "#94a3b8", padding: 4 }}
                   >
                     <Trash2 size={16} />
                   </button>
@@ -1885,15 +1915,15 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
 
 function ListRow({ title, subtitle, value, valueColor, onDelete }) {
   return (
-    <div className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+    <div className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
-        <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 4 }}>{subtitle}</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
+        <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>{subtitle}</div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: valueColor || "#2b2323" }}>{value}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
+        <span style={{ fontSize: 16, fontWeight: 800, color: valueColor || "#0f172a" }}>{value}</span>
         {onDelete && (
-          <button onClick={onDelete} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#c9b6b6", display: "flex" }}>
+          <button onClick={onDelete} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#94a3b8" }}>
             <Trash2 size={16} />
           </button>
         )}
@@ -1904,7 +1934,7 @@ function ListRow({ title, subtitle, value, valueColor, onDelete }) {
 
 function ToggleButton({ active, onClick, children }) {
   return (
-    <button onClick={onClick} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: active ? "1px solid #e0687a" : "1px solid #f2dede", background: active ? "#fbe0e2" : "#ffffff", color: active ? "#c14a5c" : "#a08f8f", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+    <button onClick={onClick} style={{ flex: 1, padding: "12px 0", borderRadius: 12, border: active ? "none" : "1px solid #e2e8f0", background: active ? "#0f172a" : "#ffffff", color: active ? "#ffffff" : "#64748b", fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all 0.2s ease" }}>
       {children}
     </button>
   );
