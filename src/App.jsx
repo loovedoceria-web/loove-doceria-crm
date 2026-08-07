@@ -20,7 +20,6 @@ import {
   Search,
   CheckCircle2,
   Clock,
-  Lock as LockIcon,
   ChevronLeft,
   ChevronRight,
   ArrowLeft,
@@ -52,9 +51,9 @@ const CATEGORIAS_GASTO = [
   "Outros",
 ];
 const CATEGORIAS_DOC = ["Nota Fiscal", "Comprovante de Gasto", "Contrato", "Outro"];
-
 const FORMAS_PAGAMENTO = ["Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito"];
 
+// Funções Auxiliares (Movidas para o topo)
 function brl(value) {
   return (value || 0).toLocaleString("pt-BR", {
     style: "currency",
@@ -70,6 +69,34 @@ function isSameMonth(dateStr, ref) {
   return dateStr.slice(0, 7) === ref.slice(0, 7);
 }
 
+function formatDatePt(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+const inputStyle = {
+  border: "1px solid #f2dede",
+  borderRadius: 12,
+  padding: "12px 14px",
+  fontSize: 14,
+  outline: "none",
+  color: "#2b2323",
+  background: "#fdf9f9",
+};
+
+const primaryBtnStyle = {
+  border: "none",
+  borderRadius: 12,
+  padding: "12px 0",
+  background: "#e0687a",
+  color: "#ffffff",
+  fontSize: 14,
+  fontWeight: 700,
+  cursor: "pointer",
+  marginTop: 4,
+};
+
 export default function App() {
   const [view, setView] = useState("dashboard");
   const [session, setSession] = useState(null);
@@ -84,7 +111,7 @@ export default function App() {
   const [documents, setDocuments] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
 
-  // Verificação rigorosa de sessão ativa do Supabase Auth
+  // Verificação de sessão ativa do Supabase Auth
   useEffect(() => {
     let mounted = true;
 
@@ -362,7 +389,6 @@ export default function App() {
     return <div style={shellStyle} />;
   }
 
-  // Redirecionamento e Bloqueio automático para a tela de Login se não houver sessão ativa
   if (!session) {
     return (
       <div style={{ minHeight: "100vh", background: "#fdf6f6", display: "flex", justifyContent: "center", alignItems: "center" }}>
@@ -375,7 +401,6 @@ export default function App() {
 
   return (
     <div style={shellStyle}>
-      {/* Estilos Globais de Microinterações e Polimento Visual */}
       <style>{`
         button, a, .card-interactive, .sidebar-btn {
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
@@ -460,7 +485,7 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
         borderRight: "1px solid #f1dede",
         display: "flex",
         flexDirection: "column",
-        justify: "space-between",
+        justifyContent: "space-between",
         padding: isCollapsed ? "24px 12px" : "24px 20px",
         position: "fixed",
         top: 0,
@@ -1200,7 +1225,7 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
               gap: 6,
             }}
           >
-            <LockIcon size={16} />
+            <Lock size={16} />
             {isMonthClosed ? "Mês Fechado" : "Fechar Mês (Marcar Todos como Pagos)"}
           </button>
         </div>
@@ -1884,31 +1909,3 @@ function ToggleButton({ active, onClick, children }) {
     </button>
   );
 }
-
-function formatDatePt(dateStr) {
-  if (!dateStr) return "";
-  const [y, m, d] = dateStr.split("-");
-  return `${d}/${m}/${y}`;
-}
-
-const inputStyle = {
-  border: "1px solid #f2dede",
-  borderRadius: 12,
-  padding: "12px 14px",
-  fontSize: 14,
-  outline: "none",
-  color: "#2b2323",
-  background: "#fdf9f9",
-};
-
-const primaryBtnStyle = {
-  border: "none",
-  borderRadius: 12,
-  padding: "12px 0",
-  background: "#e0687a",
-  color: "#ffffff",
-  fontSize: 14,
-  fontWeight: 700,
-  cursor: "pointer",
-  marginTop: 4,
-};
