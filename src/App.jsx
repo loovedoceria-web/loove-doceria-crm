@@ -375,6 +375,37 @@ export default function App() {
 
   return (
     <div style={shellStyle}>
+      {/* Estilos Globais de Microinterações e Polimento Visual */}
+      <style>{`
+        button, a, .card-interactive, .sidebar-btn {
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+
+        .card-interactive {
+          cursor: pointer;
+        }
+
+        .card-interactive:hover {
+          transform: translateY(-4px) !important;
+          box-shadow: 0 12px 20px rgba(0, 0, 0, 0.06) !important;
+          border-color: #e2e8f0 !important;
+        }
+
+        button:hover {
+          transform: translateY(-1px);
+          filter: brightness(0.96);
+        }
+
+        button:active {
+          transform: translateY(0);
+        }
+
+        .sidebar-btn:hover {
+          background-color: #fce8ec !important;
+          color: #e0687a !important;
+        }
+      `}</style>
+
       <Sidebar
         view={view}
         setView={setView}
@@ -429,7 +460,7 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
         borderRight: "1px solid #f1dede",
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
+        justify: "space-between",
         padding: isCollapsed ? "24px 12px" : "24px 20px",
         position: "fixed",
         top: 0,
@@ -491,6 +522,7 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
               <button
                 key={key}
                 onClick={() => setView(key)}
+                className="sidebar-btn"
                 title={isCollapsed ? label : ""}
                 style={{
                   display: "flex",
@@ -587,7 +619,7 @@ function AuthScreen() {
 
 function Card({ label, value, icon, iconBg, valueColor, comparison }) {
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12, minHeight: 120 }}>
+    <div className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12, minHeight: 120, boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
           <span style={{ fontSize: 12, fontWeight: 600, color: "#a08f8f", textTransform: "uppercase" }}>{label}</span>
@@ -697,7 +729,7 @@ function SalesChart({ sales, expenses }) {
   const hasData = data.some((d) => d.Vendas > 0 || d.Gastos > 0);
 
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: "24px 20px 14px" }}>
+    <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: "24px 20px 14px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323" }}>Vendas x Gastos (últimos 7 dias)</div>
         
@@ -1290,7 +1322,7 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
             {resumoMes.map((item, index) => (
-              <div key={index} style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px" }}>
+              <div key={index} className="card-interactive" style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{ fontWeight: 700, color: "#2b2323", fontSize: 16 }}>{item.name}</div>
@@ -1491,7 +1523,7 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
               const displayUnit = i.unit === "kg" ? "g" : i.unit;
               const custoUnitario = Number(i.package_price) / totalAmount;
               return (
-                <div key={i.id} style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div key={i.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323" }}>{i.name}</div>
                     <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 4 }}>
@@ -1573,7 +1605,7 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
             {recipes.map((rec) => {
               const custoPorUnidade = Number(rec.total_cost) / Number(rec.yield_amount || 1);
               return (
-                <div key={rec.id} style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
+                <div key={rec.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 16, padding: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                     <div>
                       <div style={{ fontSize: 17, fontWeight: 700, color: "#2b2323" }}>{rec.product_name}</div>
@@ -1764,7 +1796,7 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
           {filteredDocs.map((doc) => {
             const isImage = doc.file_type && doc.file_type.startsWith("image/");
             return (
-              <div key={doc.id} style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 14, padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12 }}>
+              <div key={doc.id} className="card-interactive" style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 14, padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12 }}>
                 <div>
                   <div style={{ width: "100%", height: 130, background: "#ffffff", borderRadius: 10, border: "1px solid #f1dede", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 12, position: "relative" }}>
                     {isImage ? (
@@ -1828,7 +1860,7 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
 
 function ListRow({ title, subtitle, value, valueColor, onDelete }) {
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+    <div className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f2dede", borderRadius: 14, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
         <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 4 }}>{subtitle}</div>
