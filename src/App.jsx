@@ -12,7 +12,6 @@ import {
   Lock,
   Mail,
   LogOut,
-  BarChart3,
   Briefcase,
   Calculator,
   ArrowUpRight,
@@ -27,8 +26,7 @@ import {
   FileText,
   Download,
   Eye,
-  TrendingDown,
-  DollarSign
+  Pencil
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -474,7 +472,7 @@ export default function App() {
             {view === "produtos" && <Produtos products={products} ingredients={ingredients} onAdd={addProduct} onRemove={removeProduct} setView={setView} />}
             {view === "vendas" && <Vendas products={products} sales={sales} onAdd={addSale} onRemove={removeSale} setView={setView} />}
             {view === "gastos" && <Gastos expenses={expenses} onAdd={addExpense} onRemove={removeExpense} setView={setView} />}
-            {view === "empresa" && <VendasEmpresa sales={sales} onAdd={addSale} onRemove={removeSale} onUpdate={updateSale} />}
+            {view === "empresa" && <VendasEmpresa sales={sales} products={products} onAdd={addSale} onRemove={removeSale} onUpdate={updateSale} />}
             {view === "precificacao" && <Precificacao ingredients={ingredients} recipes={recipes} onAddIng={addIngredient} onRemoveIng={removeIngredient} onAddRec={addRecipe} onRemoveRec={removeRecipe} />}
             {view === "documentos" && <Documentos documents={documents} expenses={expenses} onAdd={addDocument} onRemove={removeDocument} />}
           </>
@@ -1101,18 +1099,28 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
   );
 }
 
-function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
+function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
   const [employeeName, setEmployeeName] = useState("");
+  const [itemType, setItemType] = useState("catalogo");
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [customItem, setCustomItem] = useState("");
   const [total, setTotal] = useState("");
   const [date, setDate] = useState(todayISO());
   const [selectedMonth, setSelectedMonth] = useState(todayISO().slice(0, 7));
   const [searchFilter, setSearchFilter] = useState("");
+  const [editingSale, setEditingSale] = useState(null);
 
   const existingEmployees = useMemo(() => {
     const setNames = new Set();
     sales.forEach((s) => {
       if (s.payment === "Empresa (Fiado)" && s.product_name) {
-        setNames.add(s.product_name);
+        // Extrai o nome do funcionário formatado no formato "Nome — Item"
+        const parts = s.product_name.split(" — ");
+        if (parts.length > 1) {
+          setNames.add(parts[0].trim());
+        } else {
+          setNames.add(s.product_name.trim());
+        }
       }
     });
     return Array.from(setNames).sort();
@@ -1145,21 +1153,47 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
     return listaDetalhadaMes.every((s) => s.status === "Pago");
   }, [listaDetalhadaMes]);
 
+  function handleProductSelect(id) {
+    setSelectedProductId(id);
+    const p = products.find((x) => String(x.id) === String(id));
+    if (p) {
+      setTotal(p.price);
+    }
+  }
+
   async function submit() {
     if (isMonthClosed) {
       alert("Este mês já está fechado.");
       return;
     }
-    if (!employeeName.trim() || !total || !date) return;
+    if (!employeeName.trim() || !total || !date) {
+      alert("Preencha o nome do funcionário, o valor e a data.");
+      return;
+    }
+
+    let itemDesc = "Venda Consumo";
+    if (itemType === "catalogo") {
+      const p = products.find((x) => String(x.id) === String(selectedProductId));
+      if (p) itemDesc = p.name;
+    } else if (customItem.trim()) {
+      itemDesc = customItem.trim();
+    }
+
+    // Salva a descrição combinada "NomeDoFuncionario — NomeDoProduto" para compatibilidade universal no banco
+    const combinedDesc = `${employeeName.trim()} — ${itemDesc}`;
+
     await onAdd({
       date: date,
-      product_name: employeeName.trim(),
+      product_name: combinedDesc,
       qty: 1,
       total: parseFloat(total),
       payment: "Empresa (Fiado)",
       status: "Pendente",
     });
+
     setEmployeeName("");
+    setSelectedProductId("");
+    setCustomItem("");
     setTotal("");
     setDate(todayISO());
   }
@@ -1167,14 +1201,24 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
   const resumoMes = useMemo(() => {
     const map = {};
     listaDetalhadaMes.forEach((s) => {
-      const nome = s.product_name || "Desconhecido";
-      if (!map[nome]) {
-        map[nome] = { sum: 0, items: [], allPaid: true };
+      let nomeEmp = "Desconhecido";
+      let itemComprado = s.product_name || "Item";
+
+      if (s.product_name && s.product_name.includes(" — ")) {
+        const parts = s.product_name.split(" — ");
+        nomeEmp = parts[0].trim();
+        itemComprado = parts.slice(1).join(" — ").trim();
+      } else if (s.product_name) {
+        nomeEmp = s.product_name;
       }
-      map[nome].sum += Number(s.total);
-      map[nome].items.push(s);
+
+      if (!map[nomeEmp]) {
+        map[nomeEmp] = { sum: 0, items: [], allPaid: true };
+      }
+      map[nomeEmp].sum += Number(s.total);
+      map[nomeEmp].items.push({ ...s, itemDisplayName: itemComprado, empDisplayName: nomeEmp });
       if (s.status !== "Pago") {
-        map[nome].allPaid = false;
+        map[nomeEmp].allPaid = false;
       }
     });
 
@@ -1200,9 +1244,14 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
     return resumoMes.filter((item) => !item.isPaid).reduce((acc, item) => acc + item.sum, 0);
   }, [resumoMes]);
 
-  async function toggleEmployeeStatus(employeeName, currentIsPaid) {
+  async function toggleEmployeeStatus(empName, currentIsPaid) {
     const newStatus = currentIsPaid ? "Pendente" : "Pago";
-    const itemsToUpdate = listaDetalhadaMes.filter((s) => s.product_name === employeeName);
+    const itemsToUpdate = listaDetalhadaMes.filter((s) => {
+      const parts = s.product_name ? s.product_name.split(" — ") : [];
+      const currentEmp = parts.length > 1 ? parts[0].trim() : s.product_name;
+      return currentEmp === empName;
+    });
+
     for (const item of itemsToUpdate) {
       await onUpdate(item.id, { status: newStatus });
     }
@@ -1215,6 +1264,17 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
         await onUpdate(item.id, { status: "Pago" });
       }
     }
+  }
+
+  async function handleSaveEdit() {
+    if (!editingSale) return;
+    const combinedDesc = `${editingSale.employeeName.trim()} — ${editingSale.itemDesc.trim()}`;
+    await onUpdate(editingSale.id, {
+      product_name: combinedDesc,
+      total: parseFloat(editingSale.total),
+      date: editingSale.date
+    });
+    setEditingSale(null);
   }
 
   function gerarPDF() {
@@ -1267,31 +1327,101 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
         </button>
       </div>
 
+      {/* Formulário de Novo Lançamento */}
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24, marginBottom: 28, opacity: isMonthClosed ? 0.7 : 1 }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>Novo Lançamento para Funcionário</span>
           {isMonthClosed && <span style={{ fontSize: 13, color: "#ef4444", fontWeight: 600 }}>Mês Fechado</span>}
         </div>
         
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>NOME DO FUNCIONÁRIO</div>
-            <input
-              style={{ ...inputStyle, width: "100%" }}
-              placeholder="Digite ou selecione um nome..."
-              value={employeeName}
-              onChange={(e) => setEmployeeName(e.target.value)}
-              list="employees-list"
-              disabled={isMonthClosed}
-            />
-            <datalist id="employees-list">
-              {existingEmployees.map((name, idx) => (
-                <option key={idx} value={name} />
-              ))}
-            </datalist>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>NOME DO FUNCIONÁRIO</div>
+              <input
+                style={{ ...inputStyle, width: "100%" }}
+                placeholder="Digite ou selecione um nome..."
+                value={employeeName}
+                onChange={(e) => setEmployeeName(e.target.value)}
+                list="employees-list"
+                disabled={isMonthClosed}
+              />
+              <datalist id="employees-list">
+                {existingEmployees.map((name, idx) => (
+                  <option key={idx} value={name} />
+                ))}
+              </datalist>
+            </div>
+
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>TIPO DE ITEM</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setItemType("catalogo")}
+                  style={{
+                    flex: 1,
+                    padding: "10px",
+                    borderRadius: 10,
+                    border: itemType === "catalogo" ? "none" : "1px solid #e2e8f0",
+                    background: itemType === "catalogo" ? "#0f172a" : "#ffffff",
+                    color: itemType === "catalogo" ? "#ffffff" : "#64748b",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: "pointer"
+                  }}
+                >
+                  Catálogo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setItemType("manual")}
+                  style={{
+                    flex: 1,
+                    padding: "10px",
+                    borderRadius: 10,
+                    border: itemType === "manual" ? "none" : "1px solid #e2e8f0",
+                    background: itemType === "manual" ? "#0f172a" : "#ffffff",
+                    color: itemType === "manual" ? "#ffffff" : "#64748b",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: "pointer"
+                  }}
+                >
+                  Outro Item
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 14, alignItems: "end" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 180px 180px auto", gap: 14, alignItems: "end" }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>
+                {itemType === "catalogo" ? "SELECIONAR PRODUTO" : "DESCRIÇÃO DO ITEM"}
+              </div>
+              {itemType === "catalogo" ? (
+                <select
+                  style={{ ...inputStyle, width: "100%", cursor: "pointer" }}
+                  value={selectedProductId}
+                  onChange={(e) => handleProductSelect(e.target.value)}
+                  disabled={isMonthClosed}
+                >
+                  <option value="">Selecione um produto...</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} — {brl(p.price)}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  style={{ ...inputStyle, width: "100%" }}
+                  placeholder="Ex: Coxinha / Cafezinho"
+                  value={customItem}
+                  onChange={(e) => setCustomItem(e.target.value)}
+                  disabled={isMonthClosed}
+                />
+              )}
+            </div>
+
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>VALOR (R$)</div>
               <input
@@ -1337,6 +1467,7 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
         </div>
       </div>
 
+      {/* Lista e Filtros */}
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, gap: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -1423,19 +1554,41 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
                   </button>
                 </div>
 
+                {/* Itens comprados */}
                 <div style={{ borderTop: "1px dashed #e2e8f0", paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                   {item.items.map((s) => (
                     <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "#64748b" }}>
-                      <span>{formatDatePt(s.date)} — <b style={{ color: "#0f172a" }}>{brl(s.total)}</b></span>
-                      {!isMonthClosed && (
-                        <button
-                          onClick={() => onRemove(s.id)}
-                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "#94a3b8", padding: 4 }}
-                          title="Excluir"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      )}
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <span style={{ fontWeight: 600, color: "#0f172a" }}>{s.itemDisplayName}</span>
+                        <span style={{ fontSize: 11, color: "#94a3b8" }}>{formatDatePt(s.date)}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <b style={{ color: "#0f172a" }}>{brl(s.total)}</b>
+                        {!isMonthClosed && (
+                          <>
+                            <button
+                              onClick={() => setEditingSale({
+                                id: s.id,
+                                employeeName: s.empDisplayName,
+                                itemDesc: s.itemDisplayName,
+                                total: s.total,
+                                date: s.date
+                              })}
+                              style={{ border: "none", background: "transparent", cursor: "pointer", color: "#64748b", padding: 4 }}
+                              title="Editar Lançamento"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              onClick={() => onRemove(s.id)}
+                              style={{ border: "none", background: "transparent", cursor: "pointer", color: "#94a3b8", padding: 4 }}
+                              title="Excluir Lançamento"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1444,6 +1597,72 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
           </div>
         </div>
       </div>
+
+      {/* Modal para Editar Lançamento */}
+      {editingSale && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(15, 23, 42, 0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 200 }}>
+          <div style={{ background: "#ffffff", borderRadius: 20, padding: 28, width: "100%", maxWidth: 480, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <div style={{ fontWeight: 800, fontSize: 18, color: "#0f172a" }}>Editar Lançamento</div>
+              <button onClick={() => setEditingSale(null)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#64748b" }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>NOME DO FUNCIONÁRIO</div>
+                <input
+                  style={{ ...inputStyle, width: "100%" }}
+                  value={editingSale.employeeName}
+                  onChange={(e) => setEditingSale({ ...editingSale, employeeName: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>ITEM / PRODUTO</div>
+                <input
+                  style={{ ...inputStyle, width: "100%" }}
+                  value={editingSale.itemDesc}
+                  onChange={(e) => setEditingSale({ ...editingSale, itemDesc: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>VALOR (R$)</div>
+                  <input
+                    style={{ ...inputStyle, width: "100%" }}
+                    type="number"
+                    step="0.01"
+                    value={editingSale.total}
+                    onChange={(e) => setEditingSale({ ...editingSale, total: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>DATA</div>
+                  <input
+                    style={{ ...inputStyle, width: "100%" }}
+                    type="date"
+                    value={editingSale.date}
+                    onChange={(e) => setEditingSale({ ...editingSale, date: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                <button onClick={() => setEditingSale(null)} style={{ flex: 1, padding: "12px", border: "1px solid #e2e8f0", background: "#fff", borderRadius: 12, fontWeight: 700, color: "#64748b", cursor: "pointer" }}>
+                  Cancelar
+                </button>
+                <button onClick={handleSaveEdit} style={{ ...primaryBtnStyle, flex: 1 }}>
+                  Salvar Alterações
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
