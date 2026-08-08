@@ -74,7 +74,7 @@ function isSameMonth(dateStr, ref) {
 function formatDatePt(dateStr) {
   if (!dateStr) return "";
   const [y, m, d] = dateStr.split("-");
- return `${d}/${m}/${y}`;
+  return `${d}/${m}/${y}`;
 }
 
 const inputStyle = {
