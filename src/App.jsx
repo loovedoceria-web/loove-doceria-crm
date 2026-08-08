@@ -1,3 +1,4 @@
+```jsx
 import { useState, useEffect, useMemo } from "react";
 import {
   LayoutGrid,
@@ -21,6 +22,8 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   ArrowLeft,
   FolderOpen,
   FileText,
@@ -1110,6 +1113,11 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
   const [selectedMonth, setSelectedMonth] = useState(todayISO().slice(0, 7));
   const [searchFilter, setSearchFilter] = useState("");
   const [editingSale, setEditingSale] = useState(null);
+  const [expandedNames, setExpandedNames] = useState({});
+
+  function toggleExpanded(name) {
+    setExpandedNames((prev) => ({ ...prev, [name]: !prev[name] }));
+  }
 
   const existingEmployees = useMemo(() => {
     const setNames = new Set();
@@ -1533,87 +1541,99 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
           )}
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
-            {resumoMes.map((item, index) => (
-              <div key={index} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 14, padding: 20, boxShadow: "0 1px 2px rgba(15,23,42,0.03)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{item.name}</div>
-                    <span style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      padding: "4px 10px",
-                      borderRadius: 8,
-                      background: item.isPaid ? "#ecfdf5" : "#fef2f2",
-                      color: item.isPaid ? "#10b981" : "#ef4444",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4
-                    }}>
-                      {item.isPaid ? <CheckCircle2 size={12} /> : <Clock size={12} />}
-                      {item.isPaid ? "Pago" : "Pendente"}
-                    </span>
-                  </div>
-                  <div style={{ fontWeight: 700, color: "#0f172a", fontSize: 16 }}>{brl(item.sum)}</div>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <button
-                    onClick={() => toggleEmployeeStatus(item.name, item.isPaid)}
-                    style={{
-                      background: item.isPaid ? "#f8fafc" : "#10b981",
-                      color: item.isPaid ? "#64748b" : "#ffffff",
-                      border: item.isPaid ? "1px solid #e2e8f0" : "none",
-                      borderRadius: 10,
-                      padding: "6px 12px",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                    }}
+            {resumoMes.map((item, index) => {
+              const isExpanded = !!expandedNames[item.name];
+              return (
+                <div key={index} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 14, padding: 20, boxShadow: "0 1px 2px rgba(15,23,42,0.03)" }}>
+                  <div
+                    onClick={() => toggleExpanded(item.name)}
+                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
                   >
-                    {item.isPaid ? "Marcar como pendente" : "Marcar como pago"}
-                  </button>
-                </div>
-
-                {/* Itens comprados */}
-                <div style={{ borderTop: "1px dashed #e2e8f0", paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-                  {item.items.map((s) => (
-                    <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "#64748b" }}>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ fontWeight: 600, color: "#0f172a" }}>{s.itemDisplayName}</span>
-                        <span style={{ fontSize: 11, color: "#94a3b8" }}>{formatDatePt(s.date)}</span>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <b style={{ color: "#0f172a" }}>{brl(s.total)}</b>
-                        {!isMonthClosed && (
-                          <>
-                            <button
-                              onClick={() => setEditingSale({
-                                id: s.id,
-                                employeeName: s.empDisplayName,
-                                itemDesc: s.itemDisplayName,
-                                total: s.total,
-                                date: s.date
-                              })}
-                              style={{ border: "none", background: "transparent", cursor: "pointer", color: "#64748b", padding: 4 }}
-                              title="Editar Lançamento"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              onClick={() => onRemove(s.id)}
-                              style={{ border: "none", background: "transparent", cursor: "pointer", color: "#94a3b8", padding: 4 }}
-                              title="Excluir Lançamento"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </>
-                        )}
-                      </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                      {isExpanded ? <ChevronUp size={16} color="#94a3b8" style={{ flexShrink: 0 }} /> : <ChevronDown size={16} color="#94a3b8" style={{ flexShrink: 0 }} />}
+                      <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{item.name}</div>
+                      <span style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: "4px 10px",
+                        borderRadius: 8,
+                        background: item.isPaid ? "#ecfdf5" : "#fef2f2",
+                        color: item.isPaid ? "#10b981" : "#ef4444",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        flexShrink: 0
+                      }}>
+                        {item.isPaid ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+                        {item.isPaid ? "Pago" : "Pendente"}
+                      </span>
                     </div>
-                  ))}
+                    <div style={{ fontWeight: 700, color: "#0f172a", fontSize: 16, flexShrink: 0 }}>{brl(item.sum)}</div>
+                  </div>
+
+                  {isExpanded && (
+                    <>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, marginBottom: 12 }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleEmployeeStatus(item.name, item.isPaid); }}
+                          style={{
+                            background: item.isPaid ? "#f8fafc" : "#10b981",
+                            color: item.isPaid ? "#64748b" : "#ffffff",
+                            border: item.isPaid ? "1px solid #e2e8f0" : "none",
+                            borderRadius: 10,
+                            padding: "6px 12px",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {item.isPaid ? "Marcar como pendente" : "Marcar como pago"}
+                        </button>
+                      </div>
+
+                      {/* Itens comprados */}
+                      <div style={{ borderTop: "1px dashed #e2e8f0", paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                        {item.items.map((s) => (
+                          <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "#64748b" }}>
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              <span style={{ fontWeight: 600, color: "#0f172a" }}>{s.itemDisplayName}</span>
+                              <span style={{ fontSize: 11, color: "#94a3b8" }}>{formatDatePt(s.date)}</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <b style={{ color: "#0f172a" }}>{brl(s.total)}</b>
+                              {!isMonthClosed && (
+                                <>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setEditingSale({
+                                      id: s.id,
+                                      employeeName: s.empDisplayName,
+                                      itemDesc: s.itemDisplayName,
+                                      total: s.total,
+                                      date: s.date
+                                    }); }}
+                                    style={{ border: "none", background: "transparent", cursor: "pointer", color: "#64748b", padding: 4 }}
+                                    title="Editar Lançamento"
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); onRemove(s.id); }}
+                                    style={{ border: "none", background: "transparent", cursor: "pointer", color: "#94a3b8", padding: 4 }}
+                                    title="Excluir Lançamento"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -2178,3 +2198,4 @@ function ToggleButton({ active, onClick, children }) {
     </button>
   );
 }
+```
