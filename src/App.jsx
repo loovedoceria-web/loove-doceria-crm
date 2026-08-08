@@ -1104,6 +1104,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
   const [itemType, setItemType] = useState("catalogo");
   const [selectedProductId, setSelectedProductId] = useState("");
   const [customItem, setCustomItem] = useState("");
+  const [quantity, setQuantity] = useState(1);
   const [total, setTotal] = useState("");
   const [date, setDate] = useState(todayISO());
   const [selectedMonth, setSelectedMonth] = useState(todayISO().slice(0, 7));
@@ -1114,7 +1115,6 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
     const setNames = new Set();
     sales.forEach((s) => {
       if (s.payment === "Empresa (Fiado)" && s.product_name) {
-        // Extrai o nome do funcionário formatado no formato "Nome — Item"
         const parts = s.product_name.split(" — ");
         if (parts.length > 1) {
           setNames.add(parts[0].trim());
@@ -1153,11 +1153,19 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
     return listaDetalhadaMes.every((s) => s.status === "Pago");
   }, [listaDetalhadaMes]);
 
-  function handleProductSelect(id) {
+  function handleProductSelect(id, qty = quantity) {
     setSelectedProductId(id);
     const p = products.find((x) => String(x.id) === String(id));
     if (p) {
-      setTotal(p.price);
+      setTotal((p.price * Number(qty)).toFixed(2));
+    }
+  }
+
+  function handleQuantityChange(qty) {
+    const validQty = Math.max(1, Number(qty) || 1);
+    setQuantity(validQty);
+    if (itemType === "catalogo" && selectedProductId) {
+      handleProductSelect(selectedProductId, validQty);
     }
   }
 
@@ -1174,18 +1182,17 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
     let itemDesc = "Venda Consumo";
     if (itemType === "catalogo") {
       const p = products.find((x) => String(x.id) === String(selectedProductId));
-      if (p) itemDesc = p.name;
+      if (p) itemDesc = `${quantity}x ${p.name}`;
     } else if (customItem.trim()) {
-      itemDesc = customItem.trim();
+      itemDesc = quantity > 1 ? `${quantity}x ${customItem.trim()}` : customItem.trim();
     }
 
-    // Salva a descrição combinada "NomeDoFuncionario — NomeDoProduto" para compatibilidade universal no banco
     const combinedDesc = `${employeeName.trim()} — ${itemDesc}`;
 
     await onAdd({
       date: date,
       product_name: combinedDesc,
-      qty: 1,
+      qty: Number(quantity),
       total: parseFloat(total),
       payment: "Empresa (Fiado)",
       status: "Pendente",
@@ -1194,6 +1201,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
     setEmployeeName("");
     setSelectedProductId("");
     setCustomItem("");
+    setQuantity(1);
     setTotal("");
     setDate(todayISO());
   }
@@ -1394,7 +1402,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 180px 180px auto", gap: 14, alignItems: "end" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 100px 140px 160px auto", gap: 14, alignItems: "end" }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>
                 {itemType === "catalogo" ? "SELECIONAR PRODUTO" : "DESCRIÇÃO DO ITEM"}
@@ -1420,6 +1428,18 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
                   disabled={isMonthClosed}
                 />
               )}
+            </div>
+
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>QTD</div>
+              <input
+                style={{ ...inputStyle, width: "100%" }}
+                type="number"
+                min="1"
+                value={quantity}
+                onChange={(e) => handleQuantityChange(e.target.value)}
+                disabled={isMonthClosed}
+              />
             </div>
 
             <div>
