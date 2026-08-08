@@ -578,14 +578,14 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
                   borderRadius: 12,
                   border: "none",
                   background: isActive ? "#fff1f2" : "transparent",
-                  color: isActive ? "#e11d48" : "#64748b",
+                  color: isActive ? "#9f1239" : "#64748b",
                   fontSize: 14,
                   fontWeight: isActive ? 700 : 600,
                   cursor: "pointer",
                   textAlign: "left",
                 }}
               >
-                <Icon size={20} style={{ flexShrink: 0, color: isActive ? "#e11d48" : "#64748b" }} />
+                <Icon size={20} style={{ flexShrink: 0, color: isActive ? "#9f1239" : "#64748b" }} />
                 {!isCollapsed && <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>}
               </button>
             );
@@ -667,21 +667,21 @@ function Card({ label, value, icon, iconBg, valueColor, comparison }) {
   return (
     <div className="card-interactive" style={{
       background: "#ffffff",
-      border: "1px solid #f1f5f9",
-      borderRadius: 20,
-      padding: "22px 24px",
+      border: "1px solid #eef0f2",
+      borderRadius: 18,
+      padding: "18px 20px",
       display: "flex",
       flexDirection: "column",
       justifyContent: "space-between",
-      gap: 16,
-      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.02)",
+      gap: 14,
+      boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
     }}>
       <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#64748b", letterSpacing: "0.05em" }}>{label}</span>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: iconBg, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: "#64748b", letterSpacing: "0.04em" }}>{label}</span>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: iconBg, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
         </div>
-        <div style={{ fontSize: 26, fontWeight: 800, color: valueColor || "#0f172a", letterSpacing: "-0.03em" }}>{value}</div>
+        <div style={{ fontSize: 21, fontWeight: 700, color: valueColor || "#0f172a", letterSpacing: "-0.02em" }}>{value}</div>
       </div>
       {comparison && (
         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: comparison.color }}>
@@ -706,10 +706,10 @@ function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.03em", margin: "0 0 4px" }}>Dashboard Visão Geral</h1>
-          <div style={{ color: "#64748b", fontSize: 14, fontWeight: 500, textTransform: "capitalize" }}>{dataFormatada}</div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "#0f172a", letterSpacing: "-0.02em", margin: "0 0 4px" }}>Dashboard Visão Geral</h1>
+          <div style={{ color: "#64748b", fontSize: 13, fontWeight: 500, textTransform: "capitalize" }}>{dataFormatada}</div>
         </div>
         
         <div style={{ display: "flex", gap: 12 }}>
@@ -725,43 +725,43 @@ function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 18, marginBottom: 32 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16, marginBottom: 28 }}>
         <Card
           label="VENDAS HOJE"
           value={brl(metrics.vendasHoje)}
-          icon={<ShoppingCart size={20} color="#e11d48" />}
-          iconBg="#fff1f2"
+          icon={<ShoppingCart size={18} color="#e0687a" />}
+          iconBg="rgba(224, 104, 122, 0.1)"
           comparison={getComparison(metrics.variacaoVendas)}
         />
         <Card
           label="GASTOS HOJE"
           value={brl(metrics.gastosHoje)}
-          icon={<Receipt size={20} color="#ef4444" />}
-          iconBg="#fef2f2"
-          valueColor="#ef4444"
+          icon={<Receipt size={18} color="#64748b" />}
+          iconBg="#f8fafc"
+          valueColor="#0f172a"
           comparison={getComparison(metrics.variacaoGastos)}
         />
         <Card
           label="LUCRO DO MÊS"
           value={brl(metrics.lucroMes)}
-          icon={<TrendingUp size={20} color="#10b981" />}
-          iconBg="#ecfdf5"
+          icon={<TrendingUp size={18} color={metrics.lucroMes >= 0 ? "#10b981" : "#ef4444"} />}
+          iconBg={metrics.lucroMes >= 0 ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)"}
           valueColor={metrics.lucroMes >= 0 ? "#10b981" : "#ef4444"}
           comparison={getComparison(metrics.variacaoLucro)}
         />
         <Card
           label="MAIS VENDIDO"
           value={metrics.maisVendido}
-          icon={<Star size={20} color="#f59e0b" />}
-          iconBg="#fef3c7"
+          icon={<Star size={18} color="#64748b" />}
+          iconBg="#f8fafc"
           valueColor="#0f172a"
         />
         <Card
           label="TOTAL A RECEBER"
           value={brl(metrics.totalEmpresa)}
-          icon={<Briefcase size={20} color="#6366f1" />}
-          iconBg="#e0e7ff"
-          valueColor="#4f46e5"
+          icon={<Briefcase size={18} color="#e0687a" />}
+          iconBg="rgba(224, 104, 122, 0.1)"
+          valueColor="#0f172a"
         />
       </div>
 
@@ -788,14 +788,14 @@ function SalesChart({ sales, expenses }) {
   const hasData = data.some((d) => d.Vendas > 0 || d.Gastos > 0);
 
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: "28px 28px 20px", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.02)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+    <div style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 18, padding: "24px 24px 18px", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Vendas x Gastos</div>
-          <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>Desempenho dos últimos 7 dias</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a" }}>Vendas x Gastos</div>
+          <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>Desempenho dos últimos 7 dias</div>
         </div>
         
-        <div style={{ display: "flex", gap: 20, fontSize: 13, fontWeight: 600 }}>
+        <div style={{ display: "flex", gap: 20, fontSize: 12, fontWeight: 600 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748b" }}>
             <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#e11d48" }}></div>
             <span>Vendas</span>
@@ -829,7 +829,7 @@ function SalesChart({ sales, expenses }) {
 
 function SectionTitleWithBack({ title, onBack }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
       <button
         onClick={onBack}
         style={{
@@ -839,7 +839,7 @@ function SectionTitleWithBack({ title, onBack }) {
           padding: "8px 14px",
           color: "#0f172a",
           fontSize: 13,
-          fontWeight: 700,
+          fontWeight: 600,
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
@@ -849,13 +849,13 @@ function SectionTitleWithBack({ title, onBack }) {
       >
         <ArrowLeft size={16} /> Voltar
       </button>
-      <h2 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: 0 }}>{title}</h2>
+      <h2 style={{ fontSize: 19, fontWeight: 700, color: "#0f172a", letterSpacing: "-0.01em", margin: 0 }}>{title}</h2>
     </div>
   );
 }
 
 function EmptyState({ text }) {
-  return <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 14, padding: "48px 0", border: "2px dashed #e2e8f0", borderRadius: 20, background: "#ffffff" }}>{text}</div>;
+  return <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "48px 0", border: "2px dashed #e2e8f0", borderRadius: 18, background: "#ffffff" }}>{text}</div>;
 }
 
 function Produtos({ products, ingredients, onAdd, onRemove, setView }) {
@@ -884,21 +884,21 @@ function Produtos({ products, ingredients, onAdd, onRemove, setView }) {
     <div>
       <SectionTitleWithBack title="Produtos" onBack={() => setView("dashboard")} />
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 28, maxWidth: 640, margin: "0 auto 36px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 20 }}>Cadastrar Novo Produto</div>
+      <div style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 18, padding: 24, maxWidth: 640, margin: "0 auto 32px", boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", marginBottom: 18 }}>Cadastrar Novo Produto</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>NOME DO PRODUTO</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>NOME DO PRODUTO</div>
             <input style={{ ...inputStyle, width: "100%" }} placeholder="Ex: Bolo de Brigadeiro" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>PREÇO (R$)</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>PREÇO (R$)</div>
               <input style={{ ...inputStyle, width: "100%" }} type="number" step="0.01" placeholder="0,00" value={price} onChange={(e) => setPrice(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>CATEGORIA</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>CATEGORIA</div>
               <select style={{ ...inputStyle, width: "100%", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
                 {CATEGORIAS_PRODUTO.map((cat) => (
                   <option key={cat} value={cat}>{cat}</option>
@@ -908,7 +908,7 @@ function Produtos({ products, ingredients, onAdd, onRemove, setView }) {
           </div>
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>INSUMO VINCULADO (OPCIONAL)</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>INSUMO VINCULADO (OPCIONAL)</div>
             <select style={{ ...inputStyle, width: "100%", cursor: "pointer" }} value={linkedIngredient} onChange={(e) => setLinkedIngredient(e.target.value)}>
               <option value="">Nenhum ingrediente vinculado</option>
               {ingredients.map((ing) => (
@@ -921,8 +921,8 @@ function Produtos({ products, ingredients, onAdd, onRemove, setView }) {
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 20 }}>Catálogo de Produtos</div>
+      <div style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 18, padding: 24 }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", marginBottom: 18 }}>Catálogo de Produtos</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
           {products.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum produto cadastrado." /></div>}
           {products.map((p) => (
@@ -969,8 +969,8 @@ function Vendas({ products, sales, onAdd, onRemove, setView }) {
     <div>
       <SectionTitleWithBack title="Vendas" onBack={() => setView("dashboard")} />
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 28, maxWidth: 640, margin: "0 auto 36px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 20 }}>Registrar Nova Venda</div>
+      <div style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 18, padding: 24, maxWidth: 640, margin: "0 auto 32px", boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", marginBottom: 18 }}>Registrar Nova Venda</div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", gap: 10 }}>
@@ -981,32 +981,32 @@ function Vendas({ products, sales, onAdd, onRemove, setView }) {
           {mode === "catalogo" ? (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 140px", gap: 14 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>PRODUTO</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>PRODUTO</div>
                 <select style={{ ...inputStyle, width: "100%", cursor: "pointer" }} value={productId} onChange={(e) => setProductId(e.target.value)}>
                   <option value="">Selecione o produto...</option>
                   {products.map((p) => <option key={p.id} value={p.id}>{p.name} — {brl(p.price)}</option>)}
                 </select>
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>QUANTIDADE</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>QUANTIDADE</div>
                 <input style={{ ...inputStyle, width: "100%" }} type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} />
               </div>
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 140px", gap: 14 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>DESCRIÇÃO</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>DESCRIÇÃO</div>
                 <input style={{ ...inputStyle, width: "100%" }} placeholder="Ex: Kit Festa Personalizado" value={manualDesc} onChange={(e) => setManualDesc(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>VALOR TOTAL</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>VALOR TOTAL</div>
                 <input style={{ ...inputStyle, width: "100%" }} type="number" step="0.01" placeholder="0,00" value={manualValue} onChange={(e) => setManualValue(e.target.value)} />
               </div>
             </div>
           )}
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>FORMA DE PAGAMENTO</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>FORMA DE PAGAMENTO</div>
             <select style={{ ...inputStyle, width: "100%", cursor: "pointer" }} value={payment} onChange={(e) => setPayment(e.target.value)}>
               {FORMAS_PAGAMENTO.map((f) => <option key={f} value={f}>{f}</option>)}
             </select>
@@ -1016,8 +1016,8 @@ function Vendas({ products, sales, onAdd, onRemove, setView }) {
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 20 }}>Histórico de Vendas</div>
+      <div style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 18, padding: 24 }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", marginBottom: 18 }}>Histórico de Vendas</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
           {salesNormais.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhuma venda registrada." /></div>}
           {salesNormais.map((s) => (
@@ -1053,22 +1053,22 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
     <div>
       <SectionTitleWithBack title="Gastos" onBack={() => setView("dashboard")} />
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 28, maxWidth: 640, margin: "0 auto 36px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 20 }}>Registrar Novo Gasto</div>
+      <div style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 18, padding: 24, maxWidth: 640, margin: "0 auto 32px", boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", marginBottom: 18 }}>Registrar Novo Gasto</div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>DESCRIÇÃO DO GASTO</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>DESCRIÇÃO DO GASTO</div>
             <input style={{ ...inputStyle, width: "100%" }} placeholder="Ex: Compra de Embalagens" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>VALOR (R$)</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>VALOR (R$)</div>
               <input style={{ ...inputStyle, width: "100%" }} type="number" step="0.01" placeholder="0,00" value={value} onChange={(e) => setValue(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>CATEGORIA</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>CATEGORIA</div>
               <select style={{ ...inputStyle, width: "100%", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
                 {CATEGORIAS_GASTO.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -1079,8 +1079,8 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 20 }}>Registro de Despesas</div>
+      <div style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 18, padding: 24 }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", marginBottom: 18 }}>Registro de Despesas</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
           {expenses.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum gasto registrado." /></div>}
           {expenses.map((g) => (
@@ -1310,8 +1310,8 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
-        <h2 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: 0 }}>Vendas Empresa</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <h2 style={{ fontSize: 19, fontWeight: 700, color: "#0f172a", letterSpacing: "-0.01em", margin: 0 }}>Vendas Empresa</h2>
         <button
           onClick={fecharMesGeral}
           disabled={isMonthClosed || listaDetalhadaMes.length === 0}
@@ -1336,8 +1336,8 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
       </div>
 
       {/* Formulário de Novo Lançamento */}
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24, marginBottom: 28, opacity: isMonthClosed ? 0.7 : 1 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 18, padding: 24, marginBottom: 24, opacity: isMonthClosed ? 0.7 : 1 }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>Novo Lançamento para Funcionário</span>
           {isMonthClosed && <span style={{ fontSize: 13, color: "#ef4444", fontWeight: 600 }}>Mês Fechado</span>}
         </div>
@@ -1345,7 +1345,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>NOME DO FUNCIONÁRIO</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>NOME DO FUNCIONÁRIO</div>
               <input
                 style={{ ...inputStyle, width: "100%" }}
                 placeholder="Digite ou selecione um nome..."
@@ -1362,7 +1362,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
             </div>
 
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>TIPO DE ITEM</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>TIPO DE ITEM</div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   type="button"
@@ -1404,7 +1404,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
 
           <div style={{ display: "grid", gridTemplateColumns: "2fr 100px 140px 160px auto", gap: 14, alignItems: "end" }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>
                 {itemType === "catalogo" ? "SELECIONAR PRODUTO" : "DESCRIÇÃO DO ITEM"}
               </div>
               {itemType === "catalogo" ? (
@@ -1431,7 +1431,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
             </div>
 
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>QTD</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>QTD</div>
               <input
                 style={{ ...inputStyle, width: "100%" }}
                 type="number"
@@ -1443,7 +1443,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
             </div>
 
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>VALOR (R$)</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>VALOR (R$)</div>
               <input
                 style={{ ...inputStyle, width: "100%" }}
                 type="number"
@@ -1456,7 +1456,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
             </div>
 
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>DATA</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>DATA</div>
               <input
                 style={{ ...inputStyle, width: "100%" }}
                 type="date"
@@ -1488,8 +1488,8 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
       </div>
 
       {/* Lista e Filtros */}
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, gap: 16, flexWrap: "wrap" }}>
+      <div style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 18, padding: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22, gap: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <select
               style={{ ...inputStyle, width: 200, fontWeight: 600, cursor: "pointer" }}
@@ -1513,7 +1513,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ background: "#f8fafc", color: "#0f172a", padding: "10px 18px", borderRadius: 12, fontSize: 14, fontWeight: 700, border: "1px solid #e2e8f0" }}>
+            <div style={{ background: "#f8fafc", color: "#0f172a", padding: "10px 18px", borderRadius: 12, fontSize: 13, fontWeight: 600, border: "1px solid #e2e8f0" }}>
               Total Pendente: <span style={{ color: "#e11d48" }}>{brl(totalPendenteMes)}</span> <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>(Geral: {brl(totalGeralMes)})</span>
             </div>
             {resumoMes.length > 0 && (
@@ -1534,10 +1534,10 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
             {resumoMes.map((item, index) => (
-              <div key={index} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 20, boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+              <div key={index} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 14, padding: 20, boxShadow: "0 1px 2px rgba(15,23,42,0.03)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ fontWeight: 700, color: "#0f172a", fontSize: 16 }}>{item.name}</div>
+                    <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>{item.name}</div>
                     <span style={{
                       fontSize: 11,
                       fontWeight: 700,
@@ -1553,7 +1553,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
                       {item.isPaid ? "Pago" : "Pendente"}
                     </span>
                   </div>
-                  <div style={{ fontWeight: 800, color: "#0f172a", fontSize: 18 }}>{brl(item.sum)}</div>
+                  <div style={{ fontWeight: 700, color: "#0f172a", fontSize: 16 }}>{brl(item.sum)}</div>
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -1621,9 +1621,9 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
       {/* Modal para Editar Lançamento */}
       {editingSale && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(15, 23, 42, 0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 200 }}>
-          <div style={{ background: "#ffffff", borderRadius: 20, padding: 28, width: "100%", maxWidth: 480, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)" }}>
+          <div style={{ background: "#ffffff", borderRadius: 18, padding: 28, width: "100%", maxWidth: 480, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div style={{ fontWeight: 800, fontSize: 18, color: "#0f172a" }}>Editar Lançamento</div>
+              <div style={{ fontWeight: 700, fontSize: 17, color: "#0f172a" }}>Editar Lançamento</div>
               <button onClick={() => setEditingSale(null)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#64748b" }}>
                 <X size={20} />
               </button>
@@ -1631,7 +1631,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
 
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>NOME DO FUNCIONÁRIO</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>NOME DO FUNCIONÁRIO</div>
                 <input
                   style={{ ...inputStyle, width: "100%" }}
                   value={editingSale.employeeName}
@@ -1640,7 +1640,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
               </div>
 
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>ITEM / PRODUTO</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>ITEM / PRODUTO</div>
                 <input
                   style={{ ...inputStyle, width: "100%" }}
                   value={editingSale.itemDesc}
@@ -1650,7 +1650,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>VALOR (R$)</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>VALOR (R$)</div>
                   <input
                     style={{ ...inputStyle, width: "100%" }}
                     type="number"
@@ -1661,7 +1661,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
                 </div>
 
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>DATA</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>DATA</div>
                   <input
                     style={{ ...inputStyle, width: "100%" }}
                     type="date"
@@ -1770,9 +1770,9 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
 
   return (
     <div>
-      <h2 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: "0 0 28px" }}>Precificação e Ficha Técnica</h2>
+      <h2 style={{ fontSize: 19, fontWeight: 700, color: "#0f172a", letterSpacing: "-0.01em", margin: "0 0 24px" }}>Precificação e Ficha Técnica</h2>
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 28 }}>
+      <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
         <ToggleButton active={tab === "ingredientes"} onClick={() => setTab("ingredientes")}>
           1. Estoque de Ingredientes
         </ToggleButton>
@@ -1783,23 +1783,23 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
 
       {tab === "ingredientes" ? (
         <div>
-          <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24, marginBottom: 28 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>Cadastrar Novo Insumo</div>
+          <div style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 18, padding: 24, marginBottom: 24 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", marginBottom: 16 }}>Cadastrar Novo Insumo</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 140px auto", gap: 14, alignItems: "end" }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>NOME</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>NOME</div>
                 <input style={{ ...inputStyle, width: "100%" }} placeholder="Ex: Leite Condensado" value={ingName} onChange={(e) => setIngName(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>PREÇO PAGO (R$)</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>PREÇO PAGO (R$)</div>
                 <input style={{ ...inputStyle, width: "100%" }} type="number" step="0.01" placeholder="0,00" value={pkgPrice} onChange={(e) => setPkgPrice(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>QTD PACOTE</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>QTD PACOTE</div>
                 <input style={{ ...inputStyle, width: "100%" }} type="number" step="any" placeholder="395" value={pkgAmount} onChange={(e) => setPkgAmount(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>UNIDADE</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>UNIDADE</div>
                 <select style={{ ...inputStyle, width: "100%" }} value={unit} onChange={(e) => setUnit(e.target.value)}>
                   <option value="g">Gramas (g)</option>
                   <option value="kg">Quilos (kg)</option>
@@ -1820,10 +1820,10 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
               const displayUnit = i.unit === "kg" ? "g" : i.unit;
               const custoUnitario = Number(i.package_price) / totalAmount;
               return (
-                <div key={i.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div key={i.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 14, padding: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{i.name}</div>
-                    <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>{i.name}</div>
+                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
                       Pacote: {i.package_amount}{i.unit} por {brl(i.package_price)} · Custo: <b style={{ color: "#0f172a" }}>{brl(custoUnitario)}/{displayUnit}</b>
                     </div>
                   </div>
@@ -1837,23 +1837,23 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
         </div>
       ) : (
         <div>
-          <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24, marginBottom: 28 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>Montar Ficha Técnica / Receita</div>
+          <div style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 18, padding: 24, marginBottom: 24 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", marginBottom: 16 }}>Montar Ficha Técnica / Receita</div>
             
             <div style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 14, marginBottom: 16 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>NOME DA RECEITA</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>NOME DA RECEITA</div>
                 <input style={{ ...inputStyle, width: "100%" }} placeholder="Ex: Massa de Brigadeiro Gourmet" value={recName} onChange={(e) => setRecName(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>RENDIMENTO (UNIDADES)</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>RENDIMENTO (UNIDADES)</div>
                 <input style={{ ...inputStyle, width: "100%" }} type="number" min="1" value={yieldAmount} onChange={(e) => setYieldAmount(e.target.value)} />
               </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 14, alignItems: "end", marginBottom: 16 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>SELECIONAR INSUMO</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>SELECIONAR INSUMO</div>
                 <select style={{ ...inputStyle, width: "100%" }} value={selectedIngId} onChange={(e) => setSelectedIngId(e.target.value)}>
                   <option value="">Selecione...</option>
                   {ingredients.map((ing) => (
@@ -1862,7 +1862,7 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
                 </select>
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>QTD UTILIZADA</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>QTD UTILIZADA</div>
                 <input style={{ ...inputStyle, width: "100%" }} type="number" step="any" placeholder="Ex: 395" value={usedAmount} onChange={(e) => setUsedAmount(e.target.value)} />
               </div>
               <button onClick={addIngredientToRecipe} style={{ background: "#0f172a", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", height: 46 }}>
@@ -1872,22 +1872,22 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
 
             {currentRecipeItems.length > 0 && (
               <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 14, padding: 16, marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 12 }}>Ingredientes da Receita:</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#0f172a", marginBottom: 12 }}>Ingredientes da Receita:</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {currentRecipeItems.map((item, idx) => (
-                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, borderBottom: "1px solid #e2e8f0", paddingBottom: 6 }}>
+                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, borderBottom: "1px solid #e2e8f0", paddingBottom: 6 }}>
                       <span>{item.name} ({item.used_amount}{item.unit})</span>
-                      <span style={{ fontWeight: 700, color: "#0f172a" }}>{brl(item.cost)}</span>
+                      <span style={{ fontWeight: 600, color: "#0f172a" }}>{brl(item.cost)}</span>
                     </div>
                   ))}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14, paddingTop: 10, borderTop: "2px solid #e2e8f0", fontWeight: 800, fontSize: 15 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14, paddingTop: 10, borderTop: "2px solid #e2e8f0", fontWeight: 700, fontSize: 14 }}>
                   <span>Custo Total:</span>
                   <span style={{ color: "#e11d48" }}>{brl(recipeTotalCost)}</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 13, color: "#64748b" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 12, color: "#64748b" }}>
                   <span>Custo Unitário ({yieldAmount} un):</span>
-                  <span style={{ fontWeight: 700, color: "#10b981" }}>{brl(recipeTotalCost / Number(yieldAmount || 1))}</span>
+                  <span style={{ fontWeight: 600, color: "#10b981" }}>{brl(recipeTotalCost / Number(yieldAmount || 1))}</span>
                 </div>
               </div>
             )}
@@ -1902,16 +1902,16 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
             {recipes.map((rec) => {
               const custoPorUnidade = Number(rec.total_cost) / Number(rec.yield_amount || 1);
               return (
-                <div key={rec.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24 }}>
+                <div key={rec.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 18, padding: 24 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                     <div>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a" }}>{rec.product_name}</div>
-                      <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>Rendimento: {rec.yield_amount} porções</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{rec.product_name}</div>
+                      <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>Rendimento: {rec.yield_amount} porções</div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, letterSpacing: "0.05em" }}>CUSTO UNITÁRIO</div>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: "#10b981" }}>{brl(custoPorUnidade)}</div>
+                        <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600, letterSpacing: "0.04em" }}>CUSTO UNITÁRIO</div>
+                        <div style={{ fontSize: 17, fontWeight: 700, color: "#10b981" }}>{brl(custoPorUnidade)}</div>
                       </div>
                       <button onClick={() => onRemoveRec(rec.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#94a3b8", padding: 6 }}>
                         <Trash2 size={18} />
@@ -2013,32 +2013,32 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
 
   return (
     <div>
-      <h2 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: "0 0 28px" }}>Gerenciador de Documentos</h2>
+      <h2 style={{ fontSize: 19, fontWeight: 700, color: "#0f172a", letterSpacing: "-0.01em", margin: "0 0 24px" }}>Gerenciador de Documentos</h2>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 28, marginBottom: 32, boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 20 }}>Upload de Novo Documento</div>
+      <div style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 18, padding: 24, marginBottom: 28, boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", marginBottom: 18 }}>Upload de Novo Documento</div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 14 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>NOME DO DOCUMENTO</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>NOME DO DOCUMENTO</div>
               <input style={{ ...inputStyle, width: "100%" }} placeholder="Ex: Nota Fiscal Farinha de Trigo" value={docName} onChange={(e) => setDocName(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>CATEGORIA</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>CATEGORIA</div>
               <select style={{ ...inputStyle, width: "100%", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
                 {CATEGORIAS_DOC.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>DATA</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>DATA</div>
               <input style={{ ...inputStyle, width: "100%" }} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, alignItems: "end" }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>VINCULAR A UM GASTO (OPCIONAL)</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>VINCULAR A UM GASTO (OPCIONAL)</div>
               <select style={{ ...inputStyle, width: "100%", cursor: "pointer" }} value={expenseLink} onChange={(e) => setExpenseLink(e.target.value)}>
                 <option value="">Nenhum gasto vinculado</option>
                 {expenses.map((g) => (
@@ -2047,7 +2047,7 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
               </select>
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>ARQUIVO (MÁX 2MB)</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#64748b", marginBottom: 6 }}>ARQUIVO (MÁX 2MB)</div>
               <input id="file-input" style={{ ...inputStyle, width: "100%", padding: "9px 12px" }} type="file" accept=".pdf, .jpg, .jpeg, .png" onChange={handleFileChange} />
             </div>
           </div>
@@ -2056,8 +2056,8 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, gap: 16, flexWrap: "wrap" }}>
+      <div style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 18, padding: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22, gap: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <select
               style={{ ...inputStyle, width: 200, fontWeight: 600, cursor: "pointer" }}
@@ -2079,7 +2079,7 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
             </select>
           </div>
 
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b" }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>
             Total: {filteredDocs.length} documentos
           </div>
         </div>
@@ -2093,7 +2093,7 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
           {filteredDocs.map((doc) => {
             const isImage = doc.file_type && doc.file_type.startsWith("image/");
             return (
-              <div key={doc.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 20, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 14 }}>
+              <div key={doc.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 14, padding: 20, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 14 }}>
                 <div>
                   <div style={{ width: "100%", height: 140, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 14 }}>
                     {isImage ? (
@@ -2106,7 +2106,7 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
                     )}
                   </div>
 
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.name}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", marginBottom: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.name}</div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
                     <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: "#fff1f2", color: "#e11d48" }}>{doc.category}</span>
                     <span style={{ fontSize: 12, color: "#64748b" }}>{formatDatePt(doc.date)}</span>
@@ -2154,13 +2154,13 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
 
 function ListRow({ title, subtitle, value, valueColor, onDelete }) {
   return (
-    <div className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+    <div className="card-interactive" style={{ background: "#ffffff", border: "1px solid #eef0f2", borderRadius: 14, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, boxShadow: "0 1px 2px rgba(15,23,42,0.03)" }}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
-        <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>{subtitle}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
+        <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{subtitle}</div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
-        <span style={{ fontSize: 16, fontWeight: 800, color: valueColor || "#0f172a" }}>{value}</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: valueColor || "#0f172a" }}>{value}</span>
         {onDelete && (
           <button onClick={onDelete} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#94a3b8" }}>
             <Trash2 size={16} />
@@ -2173,7 +2173,7 @@ function ListRow({ title, subtitle, value, valueColor, onDelete }) {
 
 function ToggleButton({ active, onClick, children }) {
   return (
-    <button onClick={onClick} style={{ flex: 1, padding: "12px 0", borderRadius: 12, border: active ? "none" : "1px solid #e2e8f0", background: active ? "#0f172a" : "#ffffff", color: active ? "#ffffff" : "#64748b", fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all 0.2s ease" }}>
+    <button onClick={onClick} style={{ flex: 1, padding: "11px 0", borderRadius: 12, border: active ? "none" : "1px solid #e2e8f0", background: active ? "#0f172a" : "#ffffff", color: active ? "#ffffff" : "#64748b", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease" }}>
       {children}
     </button>
   );
