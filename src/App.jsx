@@ -28,6 +28,7 @@ import {
   FileText,
   Download,
   Eye,
+  Pencil,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -235,6 +236,19 @@ export default function App() {
     }
   }
 
+  async function updateIngredient(id, ing) {
+    if (!session) return false;
+    const { data, error } = await supabase.from("ingredients").update(ing).eq("id", id).select().single();
+    if (error) {
+      alert("Erro ao atualizar ingrediente: " + error.message);
+      return false;
+    }
+    if (data) {
+      setIngredients((prev) => prev.map((i) => (i.id === id ? data : i)));
+      return true;
+    }
+  }
+
   async function removeIngredient(id) {
     if (!session) return;
     const { error } = await supabase.from("ingredients").delete().eq("id", id);
@@ -250,6 +264,19 @@ export default function App() {
     }
     if (data) {
       setRecipes((prev) => [data, ...prev]);
+      return true;
+    }
+  }
+
+  async function updateRecipe(id, rec) {
+    if (!session) return false;
+    const { data, error } = await supabase.from("recipes").update(rec).eq("id", id).select().single();
+    if (error) {
+      alert("Erro ao atualizar receita: " + error.message);
+      return false;
+    }
+    if (data) {
+      setRecipes((prev) => prev.map((r) => (r.id === id ? data : r)));
       return true;
     }
   }
@@ -427,7 +454,18 @@ export default function App() {
             {view === "vendas" && <Vendas products={products} sales={sales} onAdd={addSale} onRemove={removeSale} setView={setView} />}
             {view === "gastos" && <Gastos expenses={expenses} onAdd={addExpense} onRemove={removeExpense} setView={setView} />}
             {view === "empresa" && <VendasEmpresa sales={sales} onAdd={addSale} onRemove={removeSale} onUpdate={updateSale} />}
-            {view === "precificacao" && <Precificacao ingredients={ingredients} recipes={recipes} onAddIng={addIngredient} onRemoveIng={removeIngredient} onAddRec={addRecipe} onRemoveRec={removeRecipe} />}
+            {view === "precificacao" && (
+              <Precificacao
+                ingredients={ingredients}
+                recipes={recipes}
+                onAddIng={addIngredient}
+                onRemoveIng={removeIngredient}
+                onUpdateIng={updateIngredient}
+                onAddRec={addRecipe}
+                onRemoveRec={removeRecipe}
+                onUpdateRec={updateRecipe}
+              />
+            )}
             {view === "documentos" && <Documentos documents={documents} expenses={expenses} onAdd={addDocument} onRemove={removeDocument} />}
           </>
         )}
@@ -1013,7 +1051,7 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
       <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 20 }}>
         <div style={{ fontSize: 16, fontWeight: 600, color: "#2b2323", marginBottom: 16 }}>Gastos Recentes</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
-          {expenses.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum gasto registrado." /></div>}
+          {expenses.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenum gasto registrado." /></div>}
           {expenses.map((g) => (
             <ListRow
               key={g.id}
@@ -1417,36 +1455,101 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
   );
 }
 
-function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, onRemoveRec }) {
+function Precificacao({
+  ingredients,
+  recipes,
+  onAddIng,
+  onRemoveIng,
+  onUpdateIng,
+  onAddRec,
+  onRemoveRec,
+  onUpdateRec,
+}) {
   const [tab, setTab] = useState("ingredientes");
+  const [toastMessage, setToastMessage] = useState("");
 
+  // Estados - Aba Ingredientes
+  const [editingIngId, setEditingIngId] = useState(null);
   const [ingName, setIngName] = useState("");
   const [pkgPrice, setPkgPrice] = useState("");
   const [pkgAmount, setPkgAmount] = useState("");
   const [unit, setUnit] = useState("g");
 
+  // Estados - Aba Receitas
+  const [editingRecId, setEditingRecId] = useState(null);
   const [recName, setRecName] = useState("");
   const [selectedIngId, setSelectedIngId] = useState("");
   const [usedAmount, setUsedAmount] = useState("");
   const [currentRecipeItems, setCurrentRecipeItems] = useState([]);
   const [yieldAmount, setYieldAmount] = useState("1");
 
+  function showToast(msg) {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage("");
+    }, 3000);
+  }
+
+  // --- ABA 1: INGREDIENTES ---
+  function startEditIngredient(ing) {
+    setEditingIngId(ing.id);
+    setIngName(ing.name);
+    setPkgPrice(ing.package_price);
+    setPkgAmount(ing.package_amount);
+    setUnit(ing.unit);
+  }
+
+  function cancelEditIngredient() {
+    setEditingIngId(null);
+    setIngName("");
+    setPkgPrice("");
+    setPkgAmount("");
+    setUnit("g");
+  }
+
   async function submitIngredient() {
     if (!ingName.trim() || !pkgPrice || !pkgAmount) {
       alert("Preencha todos os campos do ingrediente.");
       return;
     }
-    const success = await onAddIng({
+
+    const payload = {
       name: ingName.trim(),
       package_price: parseFloat(pkgPrice),
       package_amount: parseFloat(pkgAmount),
       unit,
-    });
-    if (success !== false) {
-      setIngName("");
-      setPkgPrice("");
-      setPkgAmount("");
+    };
+
+    if (editingIngId) {
+      const success = await onUpdateIng(editingIngId, payload);
+      if (success !== false) {
+        cancelEditIngredient();
+        showToast("Alterações salvas com sucesso!");
+      }
+    } else {
+      const success = await onAddIng(payload);
+      if (success !== false) {
+        cancelEditIngredient();
+        showToast("Ingrediente cadastrado com sucesso!");
+      }
     }
+  }
+
+  // --- ABA 2: RECEITAS ---
+  function startEditRecipe(rec) {
+    setEditingRecId(rec.id);
+    setRecName(rec.product_name);
+    setYieldAmount(rec.yield_amount || "1");
+    setCurrentRecipeItems(rec.ingredients_used || []);
+  }
+
+  function cancelEditRecipe() {
+    setEditingRecId(null);
+    setRecName("");
+    setSelectedIngId("");
+    setUsedAmount("");
+    setCurrentRecipeItems([]);
+    setYieldAmount("1");
   }
 
   function addIngredientToRecipe() {
@@ -1479,28 +1582,68 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
     setUsedAmount("");
   }
 
+  function removeItemFromRecipe(indexToRemove) {
+    setCurrentRecipeItems((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  }
+
   const recipeTotalCost = useMemo(() => {
     return currentRecipeItems.reduce((acc, item) => acc + item.cost, 0);
   }, [currentRecipeItems]);
 
   async function saveRecipe() {
     if (!recName.trim() || currentRecipeItems.length === 0) return;
-    const success = await onAddRec({
+
+    const payload = {
       product_name: recName.trim(),
       ingredients_used: currentRecipeItems,
       total_cost: recipeTotalCost,
       yield_amount: parseFloat(yieldAmount) || 1,
-    });
-    if (success !== false) {
-      setRecName("");
-      setCurrentRecipeItems([]);
-      setYieldAmount("1");
+    };
+
+    if (editingRecId) {
+      const success = await onUpdateRec(editingRecId, payload);
+      if (success !== false) {
+        cancelEditRecipe();
+        showToast("Alterações salvas com sucesso!");
+      }
+    } else {
+      const success = await onAddRec(payload);
+      if (success !== false) {
+        cancelEditRecipe();
+        showToast("Ficha técnica criada com sucesso!");
+      }
     }
   }
 
   return (
-    <div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: "#2b2323", margin: "0 0 20px" }}>Precificação e Ficha Técnica</h2>
+    <div style={{ position: "relative" }}>
+      {toastMessage && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            background: "#1f9d6b",
+            color: "#ffffff",
+            padding: "12px 20px",
+            borderRadius: 12,
+            fontWeight: 600,
+            fontSize: 14,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <CheckCircle2 size={18} />
+          {toastMessage}
+        </div>
+      )}
+
+      <h2 style={{ fontSize: 20, fontWeight: 700, color: "#2b2323", margin: "0 0 20px" }}>
+        Precificação e Ficha Técnica
+      </h2>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
         <ToggleButton active={tab === "ingredientes"} onClick={() => setTab("ingredientes")}>
@@ -1514,7 +1657,17 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
       {tab === "ingredientes" ? (
         <div>
           <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 20, marginBottom: 24 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", marginBottom: 14 }}>Cadastrar Ingrediente ou Embalagem</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>{editingIngId ? "Editar Ingrediente" : "Cadastrar Ingrediente ou Embalagem"}</span>
+              {editingIngId && (
+                <button
+                  onClick={cancelEditIngredient}
+                  style={{ background: "transparent", border: "1px solid #c9b6b6", color: "#7d6e6e", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                >
+                  Cancelar Edição
+                </button>
+              )}
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 120px auto", gap: 12, alignItems: "end" }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Nome</div>
@@ -1537,8 +1690,8 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
                   <option value="un">Unidade (un)</option>
                 </select>
               </div>
-              <button onClick={submitIngredient} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", height: 45 }}>
-                Cadastrar
+              <button onClick={submitIngredient} style={{ background: editingIngId ? "#e0687a" : "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", height: 45 }}>
+                {editingIngId ? "Salvar Alterações" : "Cadastrar"}
               </button>
             </div>
           </div>
@@ -1557,9 +1710,14 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
                       Pacote: {i.package_amount}{i.unit} por {brl(i.package_price)} · Custo: {brl(custoUnitario)} por {displayUnit}
                     </div>
                   </div>
-                  <button onClick={() => onRemoveIng(i.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6 }}>
-                    <Trash2 size={16} />
-                  </button>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => startEditIngredient(i)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#e0687a", padding: 6 }} title="Editar ingrediente">
+                      <Pencil size={16} />
+                    </button>
+                    <button onClick={() => onRemoveIng(i.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6 }} title="Excluir ingrediente">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -1568,7 +1726,17 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
       ) : (
         <div>
           <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 20, marginBottom: 24 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", marginBottom: 14 }}>Montar Ficha Técnica / Receita</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>{editingRecId ? "Editar Ficha Técnica / Receita" : "Montar Ficha Técnica / Receita"}</span>
+              {editingRecId && (
+                <button
+                  onClick={cancelEditRecipe}
+                  style={{ background: "transparent", border: "1px solid #c9b6b6", color: "#7d6e6e", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                >
+                  Cancelar Edição
+                </button>
+              )}
+            </div>
             
             <div style={{ display: "grid", gridTemplateColumns: "1fr 180px", gap: 12, marginBottom: 16 }}>
               <div>
@@ -1607,7 +1775,12 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
                   {currentRecipeItems.map((item, idx) => (
                     <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, borderBottom: "1px solid #f9e8e8", paddingBottom: 6 }}>
                       <span>{item.name} — {item.used_amount}{item.unit}</span>
-                      <span style={{ fontWeight: 600, color: "#7d2a3f" }}>{brl(item.cost)}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontWeight: 600, color: "#7d2a3f" }}>{brl(item.cost)}</span>
+                        <button onClick={() => removeItemFromRecipe(idx)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 2 }} title="Remover item">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1623,7 +1796,7 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
             )}
 
             <button onClick={saveRecipe} disabled={currentRecipeItems.length === 0 || !recName} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 600, cursor: currentRecipeItems.length === 0 || !recName ? "not-allowed" : "pointer", opacity: currentRecipeItems.length === 0 || !recName ? 0.6 : 1, width: "100%" }}>
-              Salvar Ficha Técnica
+              {editingRecId ? "Salvar Alterações" : "Salvar Ficha Técnica"}
             </button>
           </div>
 
@@ -1643,9 +1816,14 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
                         <div style={{ fontSize: 12, color: "#a08f8f", fontWeight: 500 }}>Custo Unitário</div>
                         <div style={{ fontSize: 18, fontWeight: 600, color: "#1f9d6b" }}>{brl(custoPorUnidade)}</div>
                       </div>
-                      <button onClick={() => onRemoveRec(rec.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6, display: "flex", alignItems: "center" }} title="Excluir receita">
-                        <Trash2 size={18} />
-                      </button>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => startEditRecipe(rec)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#e0687a", padding: 6 }} title="Editar receita">
+                          <Pencil size={18} />
+                        </button>
+                        <button onClick={() => onRemoveRec(rec.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6 }} title="Excluir receita">
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
