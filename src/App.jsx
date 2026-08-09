@@ -28,7 +28,9 @@ import {
   FileText,
   Download,
   Eye,
+  EyeOff,
   Pencil,
+  Loader2,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -406,7 +408,7 @@ export default function App() {
 
   if (!session) {
     return (
-      <div style={{ minHeight: "100vh", background: "#fdf6f6", display: "flex", justifyContent: "center", alignItems: "center" }}>
+      <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #fdf6f6 0%, #fce8ec 100%)", display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
         <div style={{ width: "100%", maxWidth: 420 }}>
           <AuthScreen />
         </div>
@@ -441,6 +443,14 @@ export default function App() {
         .sidebar-btn:hover {
           background-color: #fbe0e2 !important;
           color: #c14a5c !important;
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .spin {
+          animation: spin 1s linear infinite;
         }
       `}</style>
 
@@ -634,43 +644,238 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
 }
 
 function AuthScreen() {
+  const [mode, setMode] = useState("login"); // "login" | "reset"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function submit(e) {
+  const [lockoutTime, setLockoutTime] = useState(0);
+
+  // Sistema de Bloqueio por Tentativas Incorretas (5 tentativas = 5 min)
+  useEffect(() => {
+    const key = `login_attempts_${email.toLowerCase().trim()}`;
+    const attemptsData = JSON.parse(localStorage.getItem(key) || "{}");
+    if (attemptsData.lockedUntil && attemptsData.lockedUntil > Date.now()) {
+      const remaining = Math.ceil((attemptsData.lockedUntil - Date.now()) / 1000);
+      setLockoutTime(remaining);
+    }
+  }, [email]);
+
+  useEffect(() => {
+    if (lockoutTime <= 0) return;
+    const timer = setInterval(() => {
+      setLockoutTime((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lockoutTime]);
+
+  function recordFailedAttempt(userEmail) {
+    if (!userEmail) return;
+    const key = `login_attempts_${userEmail.toLowerCase().trim()}`;
+    const attemptsData = JSON.parse(localStorage.getItem(key) || "{\"count\": 0}");
+    const newCount = (attemptsData.count || 0) + 1;
+
+    if (newCount >= 5) {
+      const lockUntil = Date.now() + 5 * 60 * 1000; // 5 minutos
+      localStorage.setItem(key, JSON.stringify({ count: newCount, lockedUntil: lockUntil }));
+      setLockoutTime(300);
+    } else {
+      localStorage.setItem(key, JSON.stringify({ count: newCount }));
+    }
+  }
+
+  function clearFailedAttempts(userEmail) {
+    if (!userEmail) return;
+    const key = `login_attempts_${userEmail.toLowerCase().trim()}`;
+    localStorage.removeItem(key);
+  }
+
+  async function submitLogin(e) {
     e.preventDefault();
     setError("");
+    setInfo("");
+
+    if (lockoutTime > 0) {
+      setError(`Muitas tentativas. Tente novamente em ${Math.floor(lockoutTime / 60)}m ${lockoutTime % 60}s.`);
+      return;
+    }
+
     if (!email || !password) {
       setError("Preencha e-mail e senha.");
       return;
     }
+
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (!rememberMe) {
+      supabase.auth.onAuthStateChange(() => {});
+    }
+
+    const { error: authErr } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) setError(error.message);
+
+    if (authErr) {
+      recordFailedAttempt(email);
+      if (authErr.message.includes("Invalid login credentials")) {
+        setError("E-mail ou senha inválidos. Tente novamente.");
+      } else {
+        setError(authErr.message);
+      }
+    } else {
+      clearFailedAttempts(email);
+    }
+  }
+
+  async function submitReset(e) {
+    e.preventDefault();
+    setError("");
+    setInfo("");
+
+    if (!email) {
+      setError("Informe seu e-mail cadastrado.");
+      return;
+    }
+
+    setLoading(true);
+    const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+    setLoading(false);
+
+    if (resetErr) {
+      setError("Erro ao solicitar redefinição: " + resetErr.message);
+    } else {
+      setInfo("Enviamos um link de redefinição para o seu e-mail.");
+    }
   }
 
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 20, padding: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+    <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 24, padding: 32, boxShadow: "0 8px 30px rgba(224, 104, 122, 0.08)" }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
-        <img src="/logo.png" alt="Loove Doceria" style={{ width: 64, height: 64, borderRadius: 16, objectFit: "cover", marginBottom: 12 }} />
-        <div style={{ fontWeight: 700, fontSize: 18, color: "#2b2323" }}>Loove Doceria</div>
-        <div style={{ fontSize: 12, color: "#9c8b8b" }}>Área Restrita e Protegida</div>
+        <img src="/logo.png" alt="Loove Doceria" style={{ width: 68, height: 64, borderRadius: 16, objectFit: "cover", marginBottom: 12 }} />
+        <div style={{ fontWeight: 700, fontSize: 20, color: "#2b2323" }}>Loove Doceria</div>
+        <div style={{ fontSize: 12, color: "#9c8b8b", marginTop: 2 }}>Área Restrita e Protegida</div>
       </div>
-      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ position: "relative" }}>
-          <Mail size={16} color="#c9b6b6" style={{ position: "absolute", left: 14, top: 14 }} />
-          <input style={{ ...inputStyle, paddingLeft: 40, width: "100%", boxSizing: "border-box" }} type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} />
-        </div>
-        <div style={{ position: "relative" }}>
-          <Lock size={16} color="#c9b6b6" style={{ position: "absolute", left: 14, top: 14 }} />
-          <input style={{ ...inputStyle, paddingLeft: 40, width: "100%", boxSizing: "border-box" }} type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} />
-        </div>
-        {error && <div style={{ color: "#d1445b", fontSize: 12.5, textAlign: "center" }}>{error}</div>}
-        <button style={{ ...primaryBtnStyle, marginTop: 4 }} type="submit" disabled={loading}>{loading ? "Validando..." : "Entrar com Segurança"}</button>
-      </form>
+
+      {mode === "login" ? (
+        <form onSubmit={submitLogin} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ position: "relative" }}>
+            <Mail size={16} color="#c9b6b6" style={{ position: "absolute", left: 14, top: 14 }} />
+            <input
+              style={{ ...inputStyle, paddingLeft: 40, width: "100%", boxSizing: "border-box" }}
+              type="email"
+              placeholder="E-mail"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading || lockoutTime > 0}
+            />
+          </div>
+
+          <div style={{ position: "relative" }}>
+            <Lock size={16} color="#c9b6b6" style={{ position: "absolute", left: 14, top: 14 }} />
+            <input
+              style={{ ...inputStyle, paddingLeft: 40, paddingRight: 40, width: "100%", boxSizing: "border-box" }}
+              type={showPassword ? "text" : "password"}
+              placeholder="Senha"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading || lockoutTime > 0}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              style={{ position: "absolute", right: 12, top: 12, background: "none", border: "none", cursor: "pointer", color: "#a08f8f", padding: 2 }}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, color: "#7d6e6e", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                style={{ accentColor: "#e0687a" }}
+              />
+              Manter conectado
+            </label>
+
+            <button
+              type="button"
+              onClick={() => { setError(""); setInfo(""); setMode("reset"); }}
+              style={{ background: "none", border: "none", color: "#e0687a", fontWeight: 600, cursor: "pointer", fontSize: 12 }}
+            >
+              Esqueci minha senha
+            </button>
+          </div>
+
+          {error && <div style={{ color: "#d1445b", fontSize: 12.5, textAlign: "center", background: "#fbe2e5", padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
+          {lockoutTime > 0 && (
+            <div style={{ color: "#d1445b", fontSize: 12, textAlign: "center" }}>
+              Muitas tentativas. Tente novamente em {Math.floor(lockoutTime / 60)}m {lockoutTime % 60}s.
+            </div>
+          )}
+
+          <button
+            style={{ ...primaryBtnStyle, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+            type="submit"
+            disabled={loading || lockoutTime > 0}
+          >
+            {loading ? <Loader2 size={18} className="spin" /> : null}
+            {loading ? "Entrando..." : "Entrar com Segurança"}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={submitReset} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ fontSize: 13, color: "#7d6e6e", textAlign: "center", marginBottom: 4 }}>
+            Digite seu e-mail cadastrado para receber o link de redefinição.
+          </div>
+
+          <div style={{ position: "relative" }}>
+            <Mail size={16} color="#c9b6b6" style={{ position: "absolute", left: 14, top: 14 }} />
+            <input
+              style={{ ...inputStyle, paddingLeft: 40, width: "100%", boxSizing: "border-box" }}
+              type="email"
+              placeholder="Seu e-mail cadastrado"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+
+          {error && <div style={{ color: "#d1445b", fontSize: 12.5, textAlign: "center", background: "#fbe2e5", padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
+          {info && <div style={{ color: "#1f9d6b", fontSize: 12.5, textAlign: "center", background: "#d7f5e6", padding: "8px 12px", borderRadius: 8 }}>{info}</div>}
+
+          <button
+            style={{ ...primaryBtnStyle, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+            type="submit"
+            disabled={loading}
+          >
+            {loading ? <Loader2 size={18} className="spin" /> : null}
+            {loading ? "Enviando..." : "Enviar Link de Redefinição"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setError(""); setInfo(""); setMode("login"); }}
+            style={{ background: "none", border: "none", color: "#a08f8f", fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "center" }}
+          >
+            Voltar para o Login
+          </button>
+        </form>
+      )}
     </div>
   );
 }
