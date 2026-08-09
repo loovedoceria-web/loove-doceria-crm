@@ -344,7 +344,9 @@ export default function App() {
     });
     const entries = Object.entries(counts);
     entries.sort((a, b) => b[1] - a[1]);
-    const maisVendidoInfo = entries.length > 0 ? `${entries[0][0]} — ${entries[0][1]} un.` : "—";
+    
+    const topProductName = entries.length > 0 ? entries[0][0] : "—";
+    const topProductQty = entries.length > 0 ? `${entries[0][1]} un.` : "";
 
     const totalEmpresaPendente = companySales
       .filter((s) => isSameMonth(s.date, today) && s.status !== "Pago")
@@ -354,7 +356,8 @@ export default function App() {
       vendasHoje: vendasHojeVal,
       gastosHoje: gastosHojeVal,
       lucroMes: lucroMesAtual,
-      maisVendido: maisVendidoInfo,
+      maisVendidoNome: topProductName,
+      maisVendidoQtd: topProductQty,
       totalEmpresa: totalEmpresaPendente,
       variacaoVendas,
       variacaoGastos,
@@ -650,15 +653,37 @@ function AuthScreen() {
   );
 }
 
-function Card({ label, value, icon, iconBg, valueColor, comparison }) {
+function Card({ label, value, subValue, tooltip, icon, iconBg, valueColor, comparison }) {
   return (
-    <div className="card-interactive" style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: "18px 20px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 10, minHeight: 110, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+    <div 
+      className="card-interactive" 
+      title={tooltip || ""}
+      style={{ 
+        background: "#ffffff", 
+        border: "1px solid #e5e5e5", 
+        borderRadius: 16, 
+        padding: "18px 20px", 
+        display: "flex", 
+        flexDirection: "column", 
+        justifyContent: "space-between", 
+        gap: 10, 
+        minHeight: 110, 
+        boxShadow: "0 1px 3px rgba(0,0,0,0.06)" 
+      }}
+    >
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
           <span style={{ fontSize: 11, fontWeight: 500, color: "#a08f8f", textTransform: "uppercase", letterSpacing: "0.5px" }}>{label}</span>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: iconBg || "rgba(224, 104, 122, 0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: iconBg || "rgba(224, 104, 122, 0.08)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
         </div>
-        <div style={{ fontSize: 22, fontWeight: 600, color: valueColor || "#2b2323" }}>{value}</div>
+        <div style={{ fontSize: 20, fontWeight: 600, color: valueColor || "#2b2323", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {value}
+        </div>
+        {subValue && (
+          <div style={{ fontSize: 12, fontWeight: 500, color: "#7d6e6e", marginTop: 2 }}>
+            {subValue}
+          </div>
+        )}
       </div>
       {comparison && (
         <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 500, color: comparison.color }}>
@@ -680,6 +705,8 @@ function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
       icon: isPositive ? <ArrowUpRight size={14} color="#1f9d6b" /> : <ArrowDownRight size={14} color="#d1445b" />,
     };
   }
+
+  const maisVendidoFull = metrics.maisVendidoQtd ? `${metrics.maisVendidoNome} (${metrics.maisVendidoQtd})` : metrics.maisVendidoNome;
 
   return (
     <div>
@@ -726,15 +753,18 @@ function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
         />
         <Card
           label="Mais vendido"
-          value={metrics.maisVendido}
+          value={metrics.maisVendidoNome}
+          subValue={metrics.maisVendidoQtd}
+          tooltip={maisVendidoFull}
           icon={<Star size={17} color="#e0687a" />}
           valueColor="#2b2323"
         />
         <Card
           label="Total a receber (Empresa)"
           value={brl(metrics.totalEmpresa)}
-          icon={<Briefcase size={17} color="#e0687a" />}
-          valueColor="#2b2323"
+          icon={<Briefcase size={17} color="#3f51b5" />}
+          iconBg="#e8eaf6"
+          valueColor="#3f51b5"
         />
       </div>
 
@@ -1051,7 +1081,7 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
       <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 20 }}>
         <div style={{ fontSize: 16, fontWeight: 600, color: "#2b2323", marginBottom: 16 }}>Gastos Recentes</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
-          {expenses.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenum gasto registrado." /></div>}
+          {expenses.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum gasto registrado." /></div>}
           {expenses.map((g) => (
             <ListRow
               key={g.id}
@@ -1468,14 +1498,12 @@ function Precificacao({
   const [tab, setTab] = useState("ingredientes");
   const [toastMessage, setToastMessage] = useState("");
 
-  // Estados - Aba Ingredientes
   const [editingIngId, setEditingIngId] = useState(null);
   const [ingName, setIngName] = useState("");
   const [pkgPrice, setPkgPrice] = useState("");
   const [pkgAmount, setPkgAmount] = useState("");
   const [unit, setUnit] = useState("g");
 
-  // Estados - Aba Receitas
   const [editingRecId, setEditingRecId] = useState(null);
   const [recName, setRecName] = useState("");
   const [selectedIngId, setSelectedIngId] = useState("");
@@ -1490,7 +1518,6 @@ function Precificacao({
     }, 3000);
   }
 
-  // --- ABA 1: INGREDIENTES ---
   function startEditIngredient(ing) {
     setEditingIngId(ing.id);
     setIngName(ing.name);
@@ -1535,7 +1562,6 @@ function Precificacao({
     }
   }
 
-  // --- ABA 2: RECEITAS ---
   function startEditRecipe(rec) {
     setEditingRecId(rec.id);
     setRecName(rec.product_name);
