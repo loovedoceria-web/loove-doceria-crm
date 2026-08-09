@@ -158,6 +158,19 @@ export default function App() {
     }
   }
 
+  async function updateProduct(id, product) {
+    if (!session) return false;
+    const { data, error } = await supabase.from("products").update(product).eq("id", id).select().single();
+    if (error) {
+      alert("Erro ao atualizar produto: " + error.message);
+      return false;
+    }
+    if (data) {
+      setProducts((prev) => prev.map((p) => (p.id === id ? data : p)));
+      return true;
+    }
+  }
+
   async function removeProduct(id) {
     if (!session) return;
     const { error } = await supabase.from("products").delete().eq("id", id);
@@ -453,7 +466,16 @@ export default function App() {
                 setView={setView}
               />
             )}
-            {view === "produtos" && <Produtos products={products} ingredients={ingredients} onAdd={addProduct} onRemove={removeProduct} setView={setView} />}
+            {view === "produtos" && (
+              <Produtos 
+                products={products} 
+                ingredients={ingredients} 
+                onAdd={addProduct} 
+                onUpdate={updateProduct} 
+                onRemove={removeProduct} 
+                setView={setView} 
+              />
+            )}
             {view === "vendas" && <Vendas products={products} sales={sales} onAdd={addSale} onRemove={removeSale} setView={setView} />}
             {view === "gastos" && <Gastos expenses={expenses} onAdd={addExpense} onRemove={removeExpense} setView={setView} />}
             {view === "empresa" && <VendasEmpresa sales={sales} onAdd={addSale} onRemove={removeSale} onUpdate={updateSale} />}
@@ -857,34 +879,103 @@ function EmptyState({ text }) {
   return <div style={{ textAlign: "center", color: "#b3a3a3", fontSize: 14, padding: "40px 0", border: "1px dashed #eeddde", borderRadius: 16, background: "#ffffff" }}>{text}</div>;
 }
 
-function Produtos({ products, ingredients, onAdd, onRemove, setView }) {
+function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, setView }) {
+  const [editingProductId, setEditingProductId] = useState(null);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState(CATEGORIAS_PRODUTO[0]);
   const [linkedIngredient, setLinkedIngredient] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
+
+  function showToast(msg) {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage("");
+    }, 3000);
+  }
+
+  function startEditProduct(product) {
+    setEditingProductId(product.id);
+    setName(product.name);
+    setPrice(product.price);
+    setCategory(product.category);
+    setLinkedIngredient(product.linked_ingredient || "");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEditProduct() {
+    setEditingProductId(null);
+    setName("");
+    setPrice("");
+    setCategory(CATEGORIAS_PRODUTO[0]);
+    setLinkedIngredient("");
+  }
 
   async function submit() {
     if (!name || !price) return;
-    const success = await onAdd({
+
+    const payload = {
       name: name.trim(),
       price: parseFloat(price),
       category,
       linked_ingredient: linkedIngredient || null,
-    });
-    if (success !== false) {
-      setName("");
-      setPrice("");
-      setCategory(CATEGORIAS_PRODUTO[0]);
-      setLinkedIngredient("");
+    };
+
+    if (editingProductId) {
+      const success = await onUpdate(editingProductId, payload);
+      if (success !== false) {
+        cancelEditProduct();
+        showToast("Produto atualizado com sucesso!");
+      }
+    } else {
+      const success = await onAdd(payload);
+      if (success !== false) {
+        cancelEditProduct();
+        showToast("Produto cadastrado com sucesso!");
+      }
     }
   }
 
   return (
-    <div>
+    <div style={{ position: "relative" }}>
+      {toastMessage && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            background: "#1f9d6b",
+            color: "#ffffff",
+            padding: "12px 20px",
+            borderRadius: 12,
+            fontWeight: 600,
+            fontSize: 14,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <CheckCircle2 size={18} />
+          {toastMessage}
+        </div>
+      )}
+
       <SectionTitleWithBack title="Produtos" onBack={() => setView("dashboard")} />
 
       <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", marginBottom: 16 }}>Cadastrar Novo Produto</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>{editingProductId ? "Editar Produto" : "Cadastrar Novo Produto"}</span>
+          {editingProductId && (
+            <button
+              onClick={cancelEditProduct}
+              style={{ background: "transparent", border: "1px solid #c9b6b6", color: "#7d6e6e", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+            >
+              Cancelar Edição
+            </button>
+          )}
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Nome do Doce / Produto</div>
@@ -916,7 +1007,9 @@ function Produtos({ products, ingredients, onAdd, onRemove, setView }) {
             </select>
           </div>
 
-          <button style={primaryBtnStyle} onClick={submit}>Salvar Produto</button>
+          <button style={{ ...primaryBtnStyle, background: editingProductId ? "#e0687a" : "#e0687a" }} onClick={submit}>
+            {editingProductId ? "Salvar Alterações" : "Salvar Produto"}
+          </button>
         </div>
       </div>
 
@@ -930,6 +1023,7 @@ function Produtos({ products, ingredients, onAdd, onRemove, setView }) {
               title={p.name}
               subtitle={`${p.category} ${p.linked_ingredient ? `· Insumo: ${p.linked_ingredient}` : ""}`}
               value={brl(p.price)}
+              onEdit={() => startEditProduct(p)}
               onDelete={() => onRemove(p.id)}
             />
           ))}
@@ -2089,20 +2183,27 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
   );
 }
 
-function ListRow({ title, subtitle, value, valueColor, onDelete }) {
+function ListRow({ title, subtitle, value, valueColor, onEdit, onDelete }) {
   return (
     <div className="card-interactive" style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 14, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
         <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 4 }}>{subtitle}</div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
         <span style={{ fontSize: 15, fontWeight: 600, color: valueColor || "#2b2323" }}>{value}</span>
-        {onDelete && (
-          <button onClick={onDelete} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#c9b6b6", display: "flex" }}>
-            <Trash2 size={16} />
-          </button>
-        )}
+        <div style={{ display: "flex", gap: 4 }}>
+          {onEdit && (
+            <button onClick={onEdit} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#e0687a", display: "flex" }} title="Editar produto">
+              <Pencil size={16} />
+            </button>
+          )}
+          {onDelete && (
+            <button onClick={onDelete} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#c9b6b6", display: "flex" }} title="Excluir produto">
+              <Trash2 size={16} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
