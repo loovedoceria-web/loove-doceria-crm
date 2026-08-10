@@ -1986,64 +1986,68 @@ function Precificacao({
   }
 
   function exportRecipePDF(rec) {
-    const doc = new jsPDF();
-    const custoUnitario = Number(rec.total_cost) / Number(rec.yield_amount || 1);
+    try {
+      const doc = new jsPDF();
+      const custoCalcUnitario = Number(rec.total_cost) / Number(rec.yield_amount || 1);
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.setTextColor(224, 104, 122);
-    doc.text("Loove Doceria", 14, 20);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(20);
+      doc.setTextColor(224, 104, 122);
+      doc.text("Loove Doceria", 14, 20);
 
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(120, 120, 120);
-    doc.text("Ficha Técnica e Modo de Preparo", 14, 26);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(120, 120, 120);
+      doc.text("Ficha Técnica e Modo de Preparo", 14, 26);
 
-    doc.setDrawColor(241, 222, 222);
-    doc.line(14, 30, 196, 30);
+      doc.setDrawColor(241, 222, 222);
+      doc.line(14, 30, 196, 30);
 
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(43, 35, 35);
-    doc.text(rec.product_name, 14, 40);
-
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(80, 80, 80);
-    doc.text(`Rendimento: ${rec.yield_amount || 1} unidades/porções`, 14, 47);
-    doc.text(`Custo Total: ${brl(rec.total_cost)}  |  Custo Unitário: ${brl(custoPorUnidade)}`, 14, 53);
-
-    const tableBody = (rec.ingredients_used || []).map((ing) => [
-      ing.name,
-      `${ing.used_amount} ${ing.unit}`,
-      brl(ing.cost),
-    ]);
-
-    doc.autoTable({
-      startY: 58,
-      head: [["Ingrediente / Insumo", "Quantidade Utilizada", "Custo (R$)"]],
-      body: tableBody,
-      theme: "grid",
-      headStyles: { fillColor: [224, 104, 122] },
-    });
-
-    let currentY = doc.lastAutoTable.finalY + 12;
-
-    if (rec.preparation_method) {
-      doc.setFontSize(14);
+      doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(43, 35, 35);
-      doc.text("Modo de Preparo:", 14, currentY);
+      doc.text(rec.product_name, 14, 40);
 
-      doc.setFontSize(10);
+      doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(60, 60, 60);
+      doc.setTextColor(80, 80, 80);
+      doc.text(`Rendimento: ${rec.yield_amount || 1} unidades/porções`, 14, 47);
+      doc.text(`Custo Total: ${brl(rec.total_cost)}  |  Custo Unitário: ${brl(custoCalcUnitario)}`, 14, 53);
 
-      const splitText = doc.splitTextToSize(rec.preparation_method, 180);
-      doc.text(splitText, 14, currentY + 7);
+      const tableBody = (rec.ingredients_used || []).map((ing) => [
+        ing.name,
+        `${ing.used_amount} ${ing.unit}`,
+        brl(ing.cost),
+      ]);
+
+      doc.autoTable({
+        startY: 58,
+        head: [["Ingrediente / Insumo", "Quantidade Utilizada", "Custo (R$)"]],
+        body: tableBody,
+        theme: "grid",
+        headStyles: { fillColor: [224, 104, 122] },
+      });
+
+      let currentY = doc.lastAutoTable.finalY + 12;
+
+      if (rec.preparation_method) {
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(43, 35, 35);
+        doc.text("Modo de Preparo:", 14, currentY);
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(60, 60, 60);
+
+        const splitText = doc.splitTextToSize(rec.preparation_method, 180);
+        doc.text(splitText, 14, currentY + 7);
+      }
+
+      doc.save(`ficha-tecnica-${rec.product_name.toLowerCase().replace(/\s+/g, "-")}.pdf`);
+    } catch (err) {
+      alert("Erro ao gerar PDF: " + err.message);
     }
-
-    doc.save(`ficha-tecnica-${rec.product_name.toLowerCase().replace(/\s+/g, "-")}.pdf`);
   }
 
   return (
@@ -2471,7 +2475,7 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
           {filteredDocs.length === 0 && (
             <div style={{ gridColumn: "span 3" }}>
-              <EmptyState text="Nenum documento encontrado para este filtro." />
+              <EmptyState text="Nenhum documento encontrado para este filtro." />
             </div>
           )}
           {filteredDocs.map((doc) => {
