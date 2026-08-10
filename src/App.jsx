@@ -31,6 +31,7 @@ import {
   EyeOff,
   Pencil,
   Loader2,
+  BookOpen,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -644,7 +645,7 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
 }
 
 function AuthScreen() {
-  const [mode, setMode] = useState("login"); // "login" | "reset"
+  const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -656,7 +657,6 @@ function AuthScreen() {
 
   const [lockoutTime, setLockoutTime] = useState(0);
 
-  // Sistema de Bloqueio por Tentativas Incorretas (5 tentativas = 5 min)
   useEffect(() => {
     const key = `login_attempts_${email.toLowerCase().trim()}`;
     const attemptsData = JSON.parse(localStorage.getItem(key) || "{}");
@@ -687,7 +687,7 @@ function AuthScreen() {
     const newCount = (attemptsData.count || 0) + 1;
 
     if (newCount >= 5) {
-      const lockUntil = Date.now() + 5 * 60 * 1000; // 5 minutos
+      const lockUntil = Date.now() + 5 * 60 * 1000;
       localStorage.setItem(key, JSON.stringify({ count: newCount, lockedUntil: lockUntil }));
       setLockoutTime(300);
     } else {
@@ -995,12 +995,14 @@ function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
         />
       </div>
 
-      <SalesChart sales={sales} expenses={expenses} />
+      <SalesChart sales={sales} />
     </div>
   );
 }
 
-function SalesChart({ sales, expenses }) {
+function SalesChart({ sales }) {
+  const [chartMode, setChartMode] = useState("vendas");
+
   const data = useMemo(() => {
     const days = [];
     for (let i = 6; i >= 0; i--) {
@@ -1008,34 +1010,68 @@ function SalesChart({ sales, expenses }) {
       d.setDate(d.getDate() - i);
       const iso = d.toISOString().slice(0, 10);
       const label = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-      const vendas = sales.filter((s) => s.date === iso && s.payment !== "Empresa (Fiado)").reduce((sum, s) => sum + Number(s.total), 0);
-      const gastos = expenses.filter((g) => g.date === iso).reduce((sum, g) => sum + Number(g.value), 0);
-      days.push({ iso, label, Vendas: vendas, Gastos: gastos });
+
+      const totalVendas = sales
+        .filter((s) => s.date === iso && s.payment !== "Empresa (Fiado)")
+        .reduce((sum, s) => sum + Number(s.total), 0);
+
+      const totalVendasEmpresa = sales
+        .filter((s) => s.date === iso && s.payment === "Empresa (Fiado)")
+        .reduce((sum, s) => sum + Number(s.total), 0);
+
+      days.push({
+        iso,
+        label,
+        Valor: chartMode === "vendas" ? totalVendas : totalVendasEmpresa,
+      });
     }
     return days;
-  }, [sales, expenses]);
+  }, [sales, chartMode]);
 
-  const hasData = data.some((d) => d.Vendas > 0 || d.Gastos > 0);
+  const hasData = data.some((d) => d.Valor > 0);
+  const chartTitle = chartMode === "vendas" ? "Vendas (últimos 7 dias)" : "Vendas Empresa (últimos 7 dias)";
 
   return (
     <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: "24px 20px 14px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323" }}>Vendas x Gastos (últimos 7 dias)</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323" }}>{chartTitle}</div>
         
-        <div style={{ display: "flex", gap: 16, fontSize: 13, fontWeight: 500, color: "#7d6e6e" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 12, height: 12, borderRadius: 3, background: "#e0687a" }}></div>
-            <span>Vendas</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 12, height: 12, borderRadius: 3, background: "#d1445b" }}></div>
-            <span>Gastos</span>
-          </div>
+        <div style={{ display: "flex", background: "#fdf9f9", padding: 3, borderRadius: 10, border: "1px solid #f2dede" }}>
+          <button
+            onClick={() => setChartMode("vendas")}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 8,
+              border: "none",
+              background: chartMode === "vendas" ? "#fbe0e2" : "transparent",
+              color: chartMode === "vendas" ? "#c14a5c" : "#a08f8f",
+              fontSize: 12,
+              fontWeight: chartMode === "vendas" ? 600 : 500,
+              cursor: "pointer",
+            }}
+          >
+            Vendas
+          </button>
+          <button
+            onClick={() => setChartMode("empresa")}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 8,
+              border: "none",
+              background: chartMode === "empresa" ? "#fbe0e2" : "transparent",
+              color: chartMode === "empresa" ? "#c14a5c" : "#a08f8f",
+              fontSize: 12,
+              fontWeight: chartMode === "empresa" ? 600 : 500,
+              cursor: "pointer",
+            }}
+          >
+            Vendas Empresa
+          </button>
         </div>
       </div>
 
       {!hasData ? (
-        <EmptyState text="Sem movimentações nos últimos 7 dias." />
+        <EmptyState text="Sem movimentações registradas nos últimos 7 dias." />
       ) : (
         <div style={{ width: "100%", height: 280 }}>
           <ResponsiveContainer>
@@ -1044,8 +1080,7 @@ function SalesChart({ sales, expenses }) {
               <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#a08f8f" }} />
               <YAxis tick={{ fontSize: 12, fill: "#a08f8f" }} />
               <Tooltip formatter={(v) => brl(v)} />
-              <Bar dataKey="Vendas" fill="#e0687a" radius={[4, 4, 0, 0]} maxBarSize={32} />
-              <Bar dataKey="Gastos" fill="#d1445b" radius={[4, 4, 0, 0]} maxBarSize={32} />
+              <Bar dataKey="Valor" fill="#e0687a" radius={[4, 4, 0, 0]} maxBarSize={32} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -1809,12 +1844,19 @@ function Precificacao({
   const [usedAmount, setUsedAmount] = useState("");
   const [currentRecipeItems, setCurrentRecipeItems] = useState([]);
   const [yieldAmount, setYieldAmount] = useState("1");
+  const [preparationMethod, setPreparationMethod] = useState("");
+
+  const [expandedPrep, setExpandedPrep] = useState({});
 
   function showToast(msg) {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage("");
     }, 3000);
+  }
+
+  function togglePrep(recId) {
+    setExpandedPrep((prev) => ({ ...prev, [recId]: !prev[recId] }));
   }
 
   function startEditIngredient(ing) {
@@ -1866,6 +1908,7 @@ function Precificacao({
     setRecName(rec.product_name);
     setYieldAmount(rec.yield_amount || "1");
     setCurrentRecipeItems(rec.ingredients_used || []);
+    setPreparationMethod(rec.preparation_method || "");
   }
 
   function cancelEditRecipe() {
@@ -1875,6 +1918,7 @@ function Precificacao({
     setUsedAmount("");
     setCurrentRecipeItems([]);
     setYieldAmount("1");
+    setPreparationMethod("");
   }
 
   function addIngredientToRecipe() {
@@ -1923,6 +1967,7 @@ function Precificacao({
       ingredients_used: currentRecipeItems,
       total_cost: recipeTotalCost,
       yield_amount: parseFloat(yieldAmount) || 1,
+      preparation_method: preparationMethod.trim() || null,
     };
 
     if (editingRecId) {
@@ -1938,6 +1983,67 @@ function Precificacao({
         showToast("Ficha técnica criada com sucesso!");
       }
     }
+  }
+
+  function exportRecipePDF(rec) {
+    const doc = new jsPDF();
+    const custoUnitario = Number(rec.total_cost) / Number(rec.yield_amount || 1);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.setTextColor(224, 104, 122);
+    doc.text("Loove Doceria", 14, 20);
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120, 120, 120);
+    doc.text("Ficha Técnica e Modo de Preparo", 14, 26);
+
+    doc.setDrawColor(241, 222, 222);
+    doc.line(14, 30, 196, 30);
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(43, 35, 35);
+    doc.text(rec.product_name, 14, 40);
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Rendimento: ${rec.yield_amount || 1} unidades/porções`, 14, 47);
+    doc.text(`Custo Total: ${brl(rec.total_cost)}  |  Custo Unitário: ${brl(custoPorUnidade)}`, 14, 53);
+
+    const tableBody = (rec.ingredients_used || []).map((ing) => [
+      ing.name,
+      `${ing.used_amount} ${ing.unit}`,
+      brl(ing.cost),
+    ]);
+
+    doc.autoTable({
+      startY: 58,
+      head: [["Ingrediente / Insumo", "Quantidade Utilizada", "Custo (R$)"]],
+      body: tableBody,
+      theme: "grid",
+      headStyles: { fillColor: [224, 104, 122] },
+    });
+
+    let currentY = doc.lastAutoTable.finalY + 12;
+
+    if (rec.preparation_method) {
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(43, 35, 35);
+      doc.text("Modo de Preparo:", 14, currentY);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(60, 60, 60);
+
+      const splitText = doc.splitTextToSize(rec.preparation_method, 180);
+      doc.text(splitText, 14, currentY + 7);
+    }
+
+    doc.save(`ficha-tecnica-${rec.product_name.toLowerCase().replace(/\s+/g, "-")}.pdf`);
   }
 
   return (
@@ -2120,6 +2226,16 @@ function Precificacao({
               </div>
             )}
 
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Modo de Preparo (Passo a Passo)</div>
+              <textarea
+                style={{ ...inputStyle, width: "100%", boxSizing: "border-box", minHeight: 90, resize: "vertical", fontFamily: "inherit" }}
+                placeholder="Descreva o modo de preparo ex: 1. Misture os ingredientes secos... 2. Leve ao forno por 30 minutos..."
+                value={preparationMethod}
+                onChange={(e) => setPreparationMethod(e.target.value)}
+              />
+            </div>
+
             <button onClick={saveRecipe} disabled={currentRecipeItems.length === 0 || !recName} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 600, cursor: currentRecipeItems.length === 0 || !recName ? "not-allowed" : "pointer", opacity: currentRecipeItems.length === 0 || !recName ? 0.6 : 1, width: "100%" }}>
               {editingRecId ? "Salvar Alterações" : "Salvar Ficha Técnica"}
             </button>
@@ -2129,6 +2245,8 @@ function Precificacao({
             {recipes.length === 0 && <EmptyState text="Nenhuma ficha técnica salva ainda." />}
             {recipes.map((rec) => {
               const custoPorUnidade = Number(rec.total_cost) / Number(rec.yield_amount || 1);
+              const isPrepShown = !!expandedPrep[rec.id];
+
               return (
                 <div key={rec.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -2142,6 +2260,9 @@ function Precificacao({
                         <div style={{ fontSize: 18, fontWeight: 600, color: "#1f9d6b" }}>{brl(custoPorUnidade)}</div>
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => exportRecipePDF(rec)} style={{ border: "none", background: "#fbe0e2", color: "#e0687a", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }} title="Exportar em PDF">
+                          <FileText size={15} /> PDF
+                        </button>
                         <button onClick={() => startEditRecipe(rec)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#e0687a", padding: 6 }} title="Editar receita">
                           <Pencil size={18} />
                         </button>
@@ -2152,13 +2273,43 @@ function Precificacao({
                     </div>
                   </div>
 
-                  <div style={{ background: "#fdf9f9", borderRadius: 10, padding: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  <div style={{ background: "#fdf9f9", borderRadius: 10, padding: 10, display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
                     {rec.ingredients_used?.map((ing, idx) => (
                       <span key={idx} style={{ background: "#ffffff", border: "1px solid #f2dede", padding: "4px 10px", borderRadius: 8, fontSize: 12, color: "#7d6e6e" }}>
                         {ing.name}: <b>{ing.used_amount}{ing.unit}</b> ({brl(ing.cost)})
                       </span>
                     ))}
                   </div>
+
+                  {rec.preparation_method && (
+                    <div>
+                      <button
+                        onClick={() => togglePrep(rec.id)}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: "#7d2a3f",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "4px 0",
+                        }}
+                      >
+                        <BookOpen size={15} />
+                        {isPrepShown ? "Ocultar Modo de Preparo ▲" : "Ver Modo de Preparo ▼"}
+                      </button>
+
+                      {isPrepShown && (
+                        <div style={{ background: "#fdf6f6", border: "1px solid #f2dede", borderRadius: 10, padding: 12, marginTop: 8, fontSize: 13, color: "#524343", whiteSpace: "pre-line", lineHeight: 1.5 }}>
+                          <div style={{ fontWeight: 600, color: "#7d2a3f", marginBottom: 6 }}>Passo a Passo:</div>
+                          {rec.preparation_method}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -2320,7 +2471,7 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
           {filteredDocs.length === 0 && (
             <div style={{ gridColumn: "span 3" }}>
-              <EmptyState text="Nenhum documento encontrado para este filtro." />
+              <EmptyState text="Nenum documento encontrado para este filtro." />
             </div>
           )}
           {filteredDocs.map((doc) => {
