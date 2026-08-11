@@ -1433,14 +1433,23 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
 }
 
 function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
+  const [editingSaleId, setEditingSaleId] = useState(null);
   const [personName, setPersonName] = useState("");
   const [productName, setProductName] = useState("");
   const [total, setTotal] = useState("");
   const [date, setDate] = useState(todayISO());
   const [selectedMonth, setSelectedMonth] = useState(todayISO().slice(0, 7));
   const [searchFilter, setSearchFilter] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
   
   const [expandedCards, setExpandedCards] = useState({});
+
+  function showToast(msg) {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage("");
+    }, 3000);
+  }
 
   const toggleExpand = (name) => {
     setExpandedCards((prev) => ({
@@ -1449,7 +1458,6 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
     }));
   };
 
-  // Função para separar o nome da pessoa do nome do produto no campo product_name antigo ("Nome — Produto")
   function parseSaleTarget(fullString) {
     if (!fullString) return { person: "Desconhecido", product: "Item Geral" };
     const parts = fullString.split("—").map((p) => p.trim());
@@ -1497,9 +1505,27 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
     return listaDetalhadaMes.every((s) => s.status === "Pago");
   }, [listaDetalhadaMes]);
 
+  function startEditSale(s) {
+    const { person, product } = parseSaleTarget(s.product_name);
+    setEditingSaleId(s.id);
+    setPersonName(person);
+    setProductName(product === "Venda Empresa" || product === "Item Geral" ? "" : product);
+    setTotal(s.total);
+    setDate(s.date || todayISO());
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEditSale() {
+    setEditingSaleId(null);
+    setPersonName("");
+    setProductName("");
+    setTotal("");
+    setDate(todayISO());
+  }
+
   async function submit() {
     if (isMonthClosed) {
-      alert("Este mês já está fechado. Não é possível adicionar novos lançamentos.");
+      alert("Este mês já está fechado. Não é possível adicionar ou alterar lançamentos.");
       return;
     }
     if (!personName.trim() || !total || !date) return;
@@ -1508,18 +1534,27 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
       ? `${personName.trim()} — ${productName.trim()}`
       : personName.trim();
 
-    await onAdd({
-      date: date,
-      product_name: storedProductName,
-      qty: 1,
-      total: parseFloat(total),
-      payment: "Empresa (Fiado)",
-      status: "Pendente",
-    });
-    setPersonName("");
-    setProductName("");
-    setTotal("");
-    setDate(todayISO());
+    if (editingSaleId) {
+      const success = await onUpdate(editingSaleId, {
+        date: date,
+        product_name: storedProductName,
+        total: parseFloat(total),
+      });
+      if (success !== false) {
+        cancelEditSale();
+        showToast("Lançamento atualizado com sucesso!");
+      }
+    } else {
+      await onAdd({
+        date: date,
+        product_name: storedProductName,
+        qty: 1,
+        total: parseFloat(total),
+        payment: "Empresa (Fiado)",
+        status: "Pendente",
+      });
+      cancelEditSale();
+    }
   }
 
   const resumoMes = useMemo(() => {
@@ -1602,7 +1637,31 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
   }
 
   return (
-    <div>
+    <div style={{ position: "relative" }}>
+      {toastMessage && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            background: "#1f9d6b",
+            color: "#ffffff",
+            padding: "12px 20px",
+            borderRadius: 12,
+            fontWeight: 600,
+            fontSize: 14,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <CheckCircle2 size={18} />
+          {toastMessage}
+        </div>
+      )}
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: "#2b2323", margin: 0 }}>Vendas Empresa</h2>
         <div style={{ display: "flex", gap: 10 }}>
@@ -1631,8 +1690,16 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
 
       <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 20, marginBottom: 24, opacity: isMonthClosed ? 0.7 : 1 }}>
         <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span>Lançar venda para funcionário / empresa</span>
-          {isMonthClosed && <span style={{ fontSize: 13, color: "#d1445b", fontWeight: 600 }}>Mês Fechado (Lançamentos travados)</span>}
+          <span>{editingSaleId ? "Editar Lançamento" : "Lançar venda para funcionário / empresa"}</span>
+          {editingSaleId && (
+            <button
+              onClick={cancelEditSale}
+              style={{ background: "transparent", border: "1px solid #c9b6b6", color: "#7d6e6e", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+            >
+              Cancelar Edição
+            </button>
+          )}
+          {isMonthClosed && !editingSaleId && <span style={{ fontSize: 13, color: "#d1445b", fontWeight: 600 }}>Mês Fechado (Lançamentos travados)</span>}
         </div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -1695,7 +1762,7 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
               onClick={submit}
               disabled={isMonthClosed}
               style={{
-                background: isMonthClosed ? "#ccc" : "#7d2a3f",
+                background: isMonthClosed ? "#ccc" : editingSaleId ? "#e0687a" : "#7d2a3f",
                 color: "#ffffff",
                 border: "none",
                 borderRadius: 12,
@@ -1706,7 +1773,7 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
                 height: 45,
               }}
             >
-              Adicionar
+              {editingSaleId ? "Salvar Alterações" : "Adicionar"}
             </button>
           </div>
         </div>
@@ -1828,13 +1895,22 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
                             {formatDatePt(s.date)} — <span style={{ color: "#2b2323", fontWeight: 500 }}>{s.parsedProduct}</span> — <b>{brl(s.total)}</b>
                           </span>
                           {!isMonthClosed ? (
-                            <button
-                              onClick={() => onRemove(s.id)}
-                              style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 4, display: "flex", alignItems: "center" }}
-                              title="Excluir lançamento"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                              <button
+                                onClick={() => startEditSale(s)}
+                                style={{ border: "none", background: "transparent", cursor: "pointer", color: "#e0687a", padding: 4, display: "flex", alignItems: "center" }}
+                                title="Editar lançamento"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                onClick={() => onRemove(s.id)}
+                                style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 4, display: "flex", alignItems: "center" }}
+                                title="Excluir lançamento"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
                           ) : (
                             <span style={{ fontSize: 11, color: "#a08f8f" }}>Bloqueado</span>
                           )}
