@@ -489,7 +489,7 @@ export default function App() {
             )}
             {view === "vendas" && <Vendas products={products} sales={sales} onAdd={addSale} onRemove={removeSale} setView={setView} />}
             {view === "gastos" && <Gastos expenses={expenses} onAdd={addExpense} onRemove={removeExpense} setView={setView} />}
-            {view === "empresa" && <VendasEmpresa sales={sales} onAdd={addSale} onRemove={removeSale} onUpdate={updateSale} />}
+            {view === "empresa" && <VendasEmpresa sales={sales} products={products} onAdd={addSale} onRemove={removeSale} onUpdate={updateSale} />}
             {view === "precificacao" && (
               <Precificacao
                 ingredients={ingredients}
@@ -1432,10 +1432,11 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
   );
 }
 
-function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
+function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
   const [editingSaleId, setEditingSaleId] = useState(null);
   const [personName, setPersonName] = useState("");
   const [productName, setProductName] = useState("");
+  const [qty, setQty] = useState("1");
   const [total, setTotal] = useState("");
   const [date, setDate] = useState(todayISO());
   const [selectedMonth, setSelectedMonth] = useState(todayISO().slice(0, 7));
@@ -1465,6 +1466,35 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
       return { person: parts[0], product: parts.slice(1).join(" — ") };
     }
     return { person: parts[0], product: "Venda Empresa" };
+  }
+
+  // Recalcula automaticamente o valor total sugerido quando seleciona um produto cadastrado e muda a quantidade
+  function handleProductChange(newProdName) {
+    setProductName(newProdName);
+    if (!newProdName) return;
+
+    const matchedProduct = products.find(
+      (p) => p.name.toLowerCase().trim() === newProdName.toLowerCase().trim()
+    );
+
+    if (matchedProduct && matchedProduct.price) {
+      const q = Math.max(1, parseInt(qty) || 1);
+      setTotal((matchedProduct.price * q).toFixed(2));
+    }
+  }
+
+  function handleQtyChange(newQty) {
+    setQty(newQty);
+    if (!productName) return;
+
+    const matchedProduct = products.find(
+      (p) => p.name.toLowerCase().trim() === productName.toLowerCase().trim()
+    );
+
+    if (matchedProduct && matchedProduct.price) {
+      const q = Math.max(1, parseInt(newQty) || 1);
+      setTotal((matchedProduct.price * q).toFixed(2));
+    }
   }
 
   const existingPeople = useMemo(() => {
@@ -1510,6 +1540,7 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
     setEditingSaleId(s.id);
     setPersonName(person);
     setProductName(product === "Venda Empresa" || product === "Item Geral" ? "" : product);
+    setQty(s.qty || 1);
     setTotal(s.total);
     setDate(s.date || todayISO());
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1519,6 +1550,7 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
     setEditingSaleId(null);
     setPersonName("");
     setProductName("");
+    setQty("1");
     setTotal("");
     setDate(todayISO());
   }
@@ -1534,10 +1566,13 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
       ? `${personName.trim()} — ${productName.trim()}`
       : personName.trim();
 
+    const finalQty = Math.max(1, parseInt(qty) || 1);
+
     if (editingSaleId) {
       const success = await onUpdate(editingSaleId, {
         date: date,
         product_name: storedProductName,
+        qty: finalQty,
         total: parseFloat(total),
       });
       if (success !== false) {
@@ -1548,7 +1583,7 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
       await onAdd({
         date: date,
         product_name: storedProductName,
-        qty: 1,
+        qty: finalQty,
         total: parseFloat(total),
         payment: "Empresa (Fiado)",
         status: "Pendente",
@@ -1727,15 +1762,34 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
                 placeholder="Ex: Pão Recheado, Cookie, Bolo"
                 value={productName}
-                onChange={(e) => setProductName(e.target.value)}
+                onChange={(e) => handleProductChange(e.target.value)}
+                list="products-list"
                 disabled={isMonthClosed}
               />
+              <datalist id="products-list">
+                {products.map((p) => (
+                  <option key={p.id} value={p.name} />
+                ))}
+              </datalist>
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 12, alignItems: "end" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 180px auto", gap: 12, alignItems: "end" }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Valor (R$)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Quantidade</div>
+              <input
+                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+                type="number"
+                min="1"
+                step="1"
+                value={qty}
+                onChange={(e) => handleQtyChange(e.target.value)}
+                disabled={isMonthClosed}
+              />
+            </div>
+
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Valor Total (R$)</div>
               <input
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
                 type="number"
@@ -1889,33 +1943,38 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
                   {isExpanded && (
                     <div style={{ borderTop: "1px dashed #f2dede", marginTop: 12, paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", textTransform: "uppercase" }}>Lançamentos no mês:</div>
-                      {item.items.map((s) => (
-                        <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "#6e5e5e" }}>
-                          <span>
-                            {formatDatePt(s.date)} — <span style={{ color: "#2b2323", fontWeight: 500 }}>{s.parsedProduct}</span> — <b>{brl(s.total)}</b>
-                          </span>
-                          {!isMonthClosed ? (
-                            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                              <button
-                                onClick={() => startEditSale(s)}
-                                style={{ border: "none", background: "transparent", cursor: "pointer", color: "#e0687a", padding: 4, display: "flex", alignItems: "center" }}
-                                title="Editar lançamento"
-                              >
-                                <Pencil size={14} />
-                              </button>
-                              <button
-                                onClick={() => onRemove(s.id)}
-                                style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 4, display: "flex", alignItems: "center" }}
-                                title="Excluir lançamento"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          ) : (
-                            <span style={{ fontSize: 11, color: "#a08f8f" }}>Bloqueado</span>
-                          )}
-                        </div>
-                      ))}
+                      {item.items.map((s) => {
+                        const itemQty = s.qty || 1;
+                        const productLabel = itemQty > 1 ? `${itemQty}x ${s.parsedProduct}` : s.parsedProduct;
+
+                        return (
+                          <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "#6e5e5e" }}>
+                            <span>
+                              {formatDatePt(s.date)} — <span style={{ color: "#2b2323", fontWeight: 500 }}>{productLabel}</span> — <b>{brl(s.total)}</b>
+                            </span>
+                            {!isMonthClosed ? (
+                              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                <button
+                                  onClick={() => startEditSale(s)}
+                                  style={{ border: "none", background: "transparent", cursor: "pointer", color: "#e0687a", padding: 4, display: "flex", alignItems: "center" }}
+                                  title="Editar lançamento"
+                                >
+                                  <Pencil size={14} />
+                                </button>
+                                <button
+                                  onClick={() => onRemove(s.id)}
+                                  style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 4, display: "flex", alignItems: "center" }}
+                                  title="Excluir lançamento"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: 11, color: "#a08f8f" }}>Bloqueado</span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
