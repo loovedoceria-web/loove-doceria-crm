@@ -1433,7 +1433,8 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
 }
 
 function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
-  const [employeeName, setEmployeeName] = useState("");
+  const [personName, setPersonName] = useState("");
+  const [productName, setProductName] = useState("");
   const [total, setTotal] = useState("");
   const [date, setDate] = useState(todayISO());
   const [selectedMonth, setSelectedMonth] = useState(todayISO().slice(0, 7));
@@ -1448,11 +1449,22 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
     }));
   };
 
-  const existingEmployees = useMemo(() => {
+  // Função para separar o nome da pessoa do nome do produto no campo product_name antigo ("Nome — Produto")
+  function parseSaleTarget(fullString) {
+    if (!fullString) return { person: "Desconhecido", product: "Item Geral" };
+    const parts = fullString.split("—").map((p) => p.trim());
+    if (parts.length >= 2) {
+      return { person: parts[0], product: parts.slice(1).join(" — ") };
+    }
+    return { person: parts[0], product: "Venda Empresa" };
+  }
+
+  const existingPeople = useMemo(() => {
     const setNames = new Set();
     sales.forEach((s) => {
       if (s.payment === "Empresa (Fiado)" && s.product_name) {
-        setNames.add(s.product_name);
+        const { person } = parseSaleTarget(s.product_name);
+        setNames.add(person);
       }
     });
     return Array.from(setNames).sort();
@@ -1490,16 +1502,22 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
       alert("Este mês já está fechado. Não é possível adicionar novos lançamentos.");
       return;
     }
-    if (!employeeName.trim() || !total || !date) return;
+    if (!personName.trim() || !total || !date) return;
+
+    const storedProductName = productName.trim()
+      ? `${personName.trim()} — ${productName.trim()}`
+      : personName.trim();
+
     await onAdd({
       date: date,
-      product_name: employeeName.trim(),
+      product_name: storedProductName,
       qty: 1,
       total: parseFloat(total),
       payment: "Empresa (Fiado)",
       status: "Pendente",
     });
-    setEmployeeName("");
+    setPersonName("");
+    setProductName("");
     setTotal("");
     setDate(todayISO());
   }
@@ -1507,14 +1525,14 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
   const resumoMes = useMemo(() => {
     const map = {};
     listaDetalhadaMes.forEach((s) => {
-      const nome = s.product_name || "Desconhecido";
-      if (!map[nome]) {
-        map[nome] = { sum: 0, items: [], allPaid: true };
+      const { person, product } = parseSaleTarget(s.product_name);
+      if (!map[person]) {
+        map[person] = { sum: 0, items: [], allPaid: true };
       }
-      map[nome].sum += Number(s.total);
-      map[nome].items.push(s);
+      map[person].sum += Number(s.total);
+      map[person].items.push({ ...s, parsedProduct: product });
       if (s.status !== "Pago") {
-        map[nome].allPaid = false;
+        map[person].allPaid = false;
       }
     });
 
@@ -1540,9 +1558,9 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
     return resumoMes.filter((item) => !item.isPaid).reduce((acc, item) => acc + item.sum, 0);
   }, [resumoMes]);
 
-  async function toggleEmployeeStatus(employeeName, currentIsPaid) {
+  async function toggleEmployeeStatus(person, currentIsPaid) {
     const newStatus = currentIsPaid ? "Pendente" : "Pago";
-    const itemsToUpdate = listaDetalhadaMes.filter((s) => s.product_name === employeeName);
+    const itemsToUpdate = listaDetalhadaMes.filter((s) => parseSaleTarget(s.product_name).person === person);
     for (const item of itemsToUpdate) {
       await onUpdate(item.id, { status: newStatus });
     }
@@ -1618,21 +1636,34 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
         </div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Nome (Autocomplete)</div>
-            <input
-              style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
-              placeholder="Digite ou selecione o nome da pessoa"
-              value={employeeName}
-              onChange={(e) => setEmployeeName(e.target.value)}
-              list="employees-list"
-              disabled={isMonthClosed}
-            />
-            <datalist id="employees-list">
-              {existingEmployees.map((name, idx) => (
-                <option key={idx} value={name} />
-              ))}
-            </datalist>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Nome da Pessoa (Autocomplete)</div>
+              <input
+                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+                placeholder="Ex: Fabi, Débora, Duda"
+                value={personName}
+                onChange={(e) => setPersonName(e.target.value)}
+                list="employees-list"
+                disabled={isMonthClosed}
+              />
+              <datalist id="employees-list">
+                {existingPeople.map((name, idx) => (
+                  <option key={idx} value={name} />
+                ))}
+              </datalist>
+            </div>
+
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Produto Vendido (Opcional)</div>
+              <input
+                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+                placeholder="Ex: Pão Recheado, Cookie, Bolo"
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                disabled={isMonthClosed}
+              />
+            </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 12, alignItems: "end" }}>
@@ -1793,7 +1824,9 @@ function VendasEmpresa({ sales, onAdd, onRemove, onUpdate }) {
                       <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", textTransform: "uppercase" }}>Lançamentos no mês:</div>
                       {item.items.map((s) => (
                         <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "#6e5e5e" }}>
-                          <span>{formatDatePt(s.date)} — <b>{brl(s.total)}</b></span>
+                          <span>
+                            {formatDatePt(s.date)} — <span style={{ color: "#2b2323", fontWeight: 500 }}>{s.parsedProduct}</span> — <b>{brl(s.total)}</b>
+                          </span>
                           {!isMonthClosed ? (
                             <button
                               onClick={() => onRemove(s.id)}
