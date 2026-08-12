@@ -8,11 +8,9 @@ import {
   Star,
   Plus,
   Trash2,
-  X,
   Lock,
   Mail,
   LogOut,
-  BarChart3,
   Briefcase,
   Calculator,
   ArrowUpRight,
@@ -56,7 +54,6 @@ const CATEGORIAS_GASTO = [
   "Outros",
 ];
 const CATEGORIAS_DOC = ["Nota Fiscal", "Comprovante de Gasto", "Contrato", "Outro"];
-
 const FORMAS_PAGAMENTO = ["Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito"];
 
 function brl(value) {
@@ -142,7 +139,7 @@ export default function App() {
         if (rec.data) setRecipes(rec.data);
         if (doc.data) setDocuments(doc.data);
       } catch (err) {
-        console.error("Erro de segurança ao carregar dados autorizados:", err);
+        console.error("Erro ao carregar dados:", err);
       }
       setDataLoading(false);
     })();
@@ -337,13 +334,11 @@ export default function App() {
     const companySales = sales.filter((s) => s.payment === "Empresa (Fiado)");
 
     const vendasHojeVal = salesNormal.filter((s) => s.date === today).reduce((sum, s) => sum + Number(s.total), 0);
-    
     const vendasMesAtual = salesNormal.filter((s) => isSameMonth(s.date, today)).reduce((sum, s) => sum + Number(s.total), 0);
     const vendasMesAnterior = salesNormal.filter((s) => isSameMonth(s.date, `${prevMonthStr}-01`)).reduce((sum, s) => sum + Number(s.total), 0);
     const variacaoVendas = vendasMesAnterior > 0 ? ((vendasMesAtual - vendasMesAnterior) / vendasMesAnterior) * 100 : 0;
 
     const gastosHojeVal = expenses.filter((g) => g.date === today).reduce((sum, g) => sum + Number(g.value), 0);
-
     const gastosMesAtual = expenses.filter((g) => isSameMonth(g.date, today)).reduce((sum, g) => sum + Number(g.value), 0);
     const gastosMesAnterior = expenses.filter((g) => isSameMonth(g.date, `${prevMonthStr}-01`)).reduce((sum, g) => sum + Number(g.value), 0);
     const variacaoGastos = gastosMesAnterior > 0 ? ((gastosMesAtual - gastosMesAnterior) / gastosMesAnterior) * 100 : 0;
@@ -385,20 +380,21 @@ export default function App() {
     weekday: "long",
     day: "numeric",
     month: "long",
+    year: "numeric",
   }).format(new Date());
 
   const shellStyle = {
     minHeight: "100vh",
-    background: "#fdf6f6",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    background: "#f8fafc",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     display: "flex",
   };
 
   const mainContentStyle = {
     flex: 1,
-    marginLeft: isSidebarCollapsed ? 80 : 260,
+    marginLeft: isSidebarCollapsed ? 80 : 250,
     padding: "32px 40px",
-    maxWidth: 1200,
+    maxWidth: 1300,
     boxSizing: "border-box",
     transition: "margin-left 0.3s ease-in-out",
   };
@@ -409,7 +405,7 @@ export default function App() {
 
   if (!session) {
     return (
-      <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #fdf6f6 0%, #fce8ec 100%)", display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
+      <div style={{ minHeight: "100vh", background: "#f8fafc", display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
         <div style={{ width: "100%", maxWidth: 420 }}>
           <AuthScreen />
         </div>
@@ -430,7 +426,7 @@ export default function App() {
 
         .card-interactive:hover {
           transform: translateY(-2px) !important;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04) !important;
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05) !important;
         }
 
         button:hover {
@@ -442,8 +438,8 @@ export default function App() {
         }
 
         .sidebar-btn:hover {
-          background-color: #fbe0e2 !important;
-          color: #c14a5c !important;
+          background-color: #f1f5f9 !important;
+          color: #4f46e5 !important;
         }
 
         @keyframes spin {
@@ -465,7 +461,7 @@ export default function App() {
 
       <div style={mainContentStyle}>
         {dataLoading ? (
-          <div style={{ textAlign: "center", color: "#b3a3a3", padding: "60px 0" }}>Verificando credenciais e carregando...</div>
+          <div style={{ textAlign: "center", color: "#64748b", padding: "60px 0", fontSize: 14 }}>Carregando informações...</div>
         ) : (
           <>
             {view === "dashboard" && (
@@ -524,13 +520,13 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
   return (
     <div
       style={{
-        width: isCollapsed ? 80 : 260,
+        width: isCollapsed ? 80 : 250,
         background: "#ffffff",
-        borderRight: "1px solid #f1dede",
+        borderRight: "1px solid #f1f5f9",
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
-        padding: isCollapsed ? "24px 12px" : "24px 20px",
+        justify: "space-between",
+        padding: isCollapsed ? "24px 12px" : "24px 16px",
         position: "fixed",
         top: 0,
         bottom: 0,
@@ -545,16 +541,16 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
             display: "flex",
             alignItems: "center",
             justifyContent: isCollapsed ? "center" : "space-between",
-            marginBottom: 32,
+            marginBottom: 36,
             position: "relative",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12, overflow: "hidden" }}>
-            <img src="/logo.png" alt="Loove" style={{ width: 42, height: 42, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} />
+            <img src="/logo.png" alt="Loove" style={{ width: 38, height: 38, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} />
             {!isCollapsed && (
               <div style={{ whiteSpace: "nowrap" }}>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "#2b2323" }}>Loove Doceria</div>
-                <div style={{ fontSize: 11, color: "#9c8b8b" }}>CRM Seguro</div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: "#0f172a" }}>Loove Doceria</div>
+                <div style={{ fontSize: 11, color: "#94a3b8" }}>CRM Seguro</div>
               </div>
             )}
           </div>
@@ -562,29 +558,29 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
             style={{
-              background: "#fbe0e2",
+              background: "#eef2ff",
               border: "none",
               borderRadius: "50%",
-              width: 26,
-              height: 26,
+              width: 24,
+              height: 24,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               cursor: "pointer",
-              color: "#e0687a",
+              color: "#6366f1",
               position: isCollapsed ? "absolute" : "static",
-              right: isCollapsed ? -24 : "auto",
-              top: isCollapsed ? 8 : "auto",
-              boxShadow: "0 2px 5px rgba(0,0,0,0.05)",
+              right: isCollapsed ? -20 : "auto",
+              top: isCollapsed ? 6 : "auto",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
               zIndex: 10,
             }}
             title={isCollapsed ? "Expandir menu" : "Recolher menu"}
           >
-            {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
           </button>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {items.map(({ key, label, icon: Icon }) => {
             const isActive = view === key;
             return (
@@ -599,18 +595,18 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
                   justifyContent: isCollapsed ? "center" : "flex-start",
                   gap: 12,
                   width: "100%",
-                  padding: isCollapsed ? "12px 0" : "12px 14px",
+                  padding: isCollapsed ? "12px 0" : "11px 16px",
                   borderRadius: 12,
                   border: "none",
-                  background: isActive ? "#fbe0e2" : "transparent",
-                  color: isActive ? "#c14a5c" : "#7d6e6e",
+                  background: isActive ? "#eef2ff" : "transparent",
+                  color: isActive ? "#6366f1" : "#475569",
                   fontSize: 14,
                   fontWeight: isActive ? 600 : 500,
                   cursor: "pointer",
                   textAlign: "left",
                 }}
               >
-                <Icon size={19} style={{ flexShrink: 0 }} />
+                <Icon size={18} style={{ flexShrink: 0, color: isActive ? "#6366f1" : "#64748b" }} />
                 {!isCollapsed && <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>}
               </button>
             );
@@ -627,17 +623,17 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
           justifyContent: isCollapsed ? "center" : "flex-start",
           gap: 10,
           background: "transparent",
-          border: "1px solid #f2dede",
+          border: "none",
           borderRadius: 12,
-          padding: isCollapsed ? "11px 0" : "11px 14px",
-          color: "#a08f8f",
+          padding: isCollapsed ? "11px 0" : "11px 16px",
+          color: "#64748b",
           fontSize: 13,
           fontWeight: 600,
           cursor: "pointer",
           width: "100%",
         }}
       >
-        <LogOut size={17} style={{ flexShrink: 0 }} />
+        <LogOut size={16} style={{ flexShrink: 0 }} />
         {!isCollapsed && <span style={{ whiteSpace: "nowrap" }}>Sair da conta</span>}
       </button>
     </div>
@@ -654,7 +650,6 @@ function AuthScreen() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
-
   const [lockoutTime, setLockoutTime] = useState(0);
 
   useEffect(() => {
@@ -761,17 +756,17 @@ function AuthScreen() {
   }
 
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 24, padding: 32, boxShadow: "0 8px 30px rgba(224, 104, 122, 0.08)" }}>
+    <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 36, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.05)" }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
-        <img src="/logo.png" alt="Loove Doceria" style={{ width: 68, height: 64, borderRadius: 16, objectFit: "cover", marginBottom: 12 }} />
-        <div style={{ fontWeight: 700, fontSize: 20, color: "#2b2323" }}>Loove Doceria</div>
-        <div style={{ fontSize: 12, color: "#9c8b8b", marginTop: 2 }}>Área Restrita e Protegida</div>
+        <img src="/logo.png" alt="Loove Doceria" style={{ width: 60, height: 60, borderRadius: 16, objectFit: "cover", marginBottom: 12 }} />
+        <div style={{ fontWeight: 700, fontSize: 20, color: "#0f172a" }}>Loove Doceria</div>
+        <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>Área Restrita e Protegida</div>
       </div>
 
       {mode === "login" ? (
         <form onSubmit={submitLogin} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ position: "relative" }}>
-            <Mail size={16} color="#c9b6b6" style={{ position: "absolute", left: 14, top: 14 }} />
+            <Mail size={16} color="#94a3b8" style={{ position: "absolute", left: 14, top: 14 }} />
             <input
               style={{ ...inputStyle, paddingLeft: 40, width: "100%", boxSizing: "border-box" }}
               type="email"
@@ -783,7 +778,7 @@ function AuthScreen() {
           </div>
 
           <div style={{ position: "relative" }}>
-            <Lock size={16} color="#c9b6b6" style={{ position: "absolute", left: 14, top: 14 }} />
+            <Lock size={16} color="#94a3b8" style={{ position: "absolute", left: 14, top: 14 }} />
             <input
               style={{ ...inputStyle, paddingLeft: 40, paddingRight: 40, width: "100%", boxSizing: "border-box" }}
               type={showPassword ? "text" : "password"}
@@ -795,19 +790,19 @@ function AuthScreen() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              style={{ position: "absolute", right: 12, top: 12, background: "none", border: "none", cursor: "pointer", color: "#a08f8f", padding: 2 }}
+              style={{ position: "absolute", right: 12, top: 12, background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 2 }}
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, color: "#7d6e6e", cursor: "pointer" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, color: "#475569", cursor: "pointer" }}>
               <input
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                style={{ accentColor: "#e0687a" }}
+                style={{ accentColor: "#6366f1" }}
               />
               Manter conectado
             </label>
@@ -815,15 +810,15 @@ function AuthScreen() {
             <button
               type="button"
               onClick={() => { setError(""); setInfo(""); setMode("reset"); }}
-              style={{ background: "none", border: "none", color: "#e0687a", fontWeight: 600, cursor: "pointer", fontSize: 12 }}
+              style={{ background: "none", border: "none", color: "#6366f1", fontWeight: 600, cursor: "pointer", fontSize: 12 }}
             >
               Esqueci minha senha
             </button>
           </div>
 
-          {error && <div style={{ color: "#d1445b", fontSize: 12.5, textAlign: "center", background: "#fbe2e5", padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
+          {error && <div style={{ color: "#ef4444", fontSize: 12.5, textAlign: "center", background: "#fef2f2", padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
           {lockoutTime > 0 && (
-            <div style={{ color: "#d1445b", fontSize: 12, textAlign: "center" }}>
+            <div style={{ color: "#ef4444", fontSize: 12, textAlign: "center" }}>
               Muitas tentativas. Tente novamente em {Math.floor(lockoutTime / 60)}m {lockoutTime % 60}s.
             </div>
           )}
@@ -839,12 +834,12 @@ function AuthScreen() {
         </form>
       ) : (
         <form onSubmit={submitReset} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ fontSize: 13, color: "#7d6e6e", textAlign: "center", marginBottom: 4 }}>
+          <div style={{ fontSize: 13, color: "#64748b", textAlign: "center", marginBottom: 4 }}>
             Digite seu e-mail cadastrado para receber o link de redefinição.
           </div>
 
           <div style={{ position: "relative" }}>
-            <Mail size={16} color="#c9b6b6" style={{ position: "absolute", left: 14, top: 14 }} />
+            <Mail size={16} color="#94a3b8" style={{ position: "absolute", left: 14, top: 14 }} />
             <input
               style={{ ...inputStyle, paddingLeft: 40, width: "100%", boxSizing: "border-box" }}
               type="email"
@@ -855,8 +850,8 @@ function AuthScreen() {
             />
           </div>
 
-          {error && <div style={{ color: "#d1445b", fontSize: 12.5, textAlign: "center", background: "#fbe2e5", padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
-          {info && <div style={{ color: "#1f9d6b", fontSize: 12.5, textAlign: "center", background: "#d7f5e6", padding: "8px 12px", borderRadius: 8 }}>{info}</div>}
+          {error && <div style={{ color: "#ef4444", fontSize: 12.5, textAlign: "center", background: "#fef2f2", padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
+          {info && <div style={{ color: "#10b981", fontSize: 12.5, textAlign: "center", background: "#ecfdf5", padding: "8px 12px", borderRadius: 8 }}>{info}</div>}
 
           <button
             style={{ ...primaryBtnStyle, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
@@ -870,7 +865,7 @@ function AuthScreen() {
           <button
             type="button"
             onClick={() => { setError(""); setInfo(""); setMode("login"); }}
-            style={{ background: "none", border: "none", color: "#a08f8f", fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "center" }}
+            style={{ background: "none", border: "none", color: "#64748b", fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "center" }}
           >
             Voltar para o Login
           </button>
@@ -887,27 +882,27 @@ function Card({ label, value, subValue, tooltip, icon, iconBg, valueColor, compa
       title={tooltip || ""}
       style={{ 
         background: "#ffffff", 
-        border: "1px solid #e5e5e5", 
+        border: "1px solid #f1f5f9", 
         borderRadius: 16, 
-        padding: "18px 20px", 
+        padding: "20px 22px", 
         display: "flex", 
         flexDirection: "column", 
         justifyContent: "space-between", 
-        gap: 10, 
-        minHeight: 110, 
-        boxShadow: "0 1px 3px rgba(0,0,0,0.06)" 
+        gap: 12, 
+        minHeight: 125, 
+        boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.03)" 
       }}
     >
       <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 500, color: "#a08f8f", textTransform: "uppercase", letterSpacing: "0.5px" }}>{label}</span>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: iconBg || "rgba(224, 104, 122, 0.08)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>{label}</span>
+          <div style={{ width: 36, height: 36, borderRadius: "50%", background: iconBg || "#f5f3ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
         </div>
-        <div style={{ fontSize: 20, fontWeight: 600, color: valueColor || "#2b2323", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div style={{ fontSize: 22, fontWeight: 700, color: valueColor || "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {value}
         </div>
         {subValue && (
-          <div style={{ fontSize: 12, fontWeight: 500, color: "#7d6e6e", marginTop: 2 }}>
+          <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginTop: 4 }}>
             {subValue}
           </div>
         )}
@@ -924,12 +919,12 @@ function Card({ label, value, subValue, tooltip, icon, iconBg, valueColor, compa
 
 function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
   function getComparison(val) {
-    if (val === 0) return { text: "Sem alteração vs mês passado", color: "#7d6e6e", icon: null };
+    if (val === 0) return { text: "Sem alteração vs mês passado", color: "#64748b", icon: null };
     const isPositive = val > 0;
     return {
       text: `${isPositive ? "↑" : "↓"} ${Math.abs(val).toFixed(1)}% vs mês passado`,
-      color: isPositive ? "#1f9d6b" : "#d1445b",
-      icon: isPositive ? <ArrowUpRight size={14} color="#1f9d6b" /> : <ArrowDownRight size={14} color="#d1445b" />,
+      color: isPositive ? "#10b981" : "#f43f5e",
+      icon: isPositive ? <ArrowUpRight size={14} color="#10b981" /> : <ArrowDownRight size={14} color="#f43f5e" />,
     };
   }
 
@@ -937,45 +932,49 @@ function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: "#2b2323", margin: "0 0 4px 0" }}>Dashboard Visão Geral</h1>
-          <div style={{ color: "#c1707d", fontSize: 14, textTransform: "capitalize", fontWeight: 500 }}>{dataFormatada}</div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#0f172a", margin: "0 0 6px 0", letterSpacing: "-0.5px" }}>Dashboard</h1>
+          <div style={{ color: "#64748b", fontSize: 14, textTransform: "capitalize", fontWeight: 400 }}>Visão Geral do Seu Negócio</div>
         </div>
         
-        <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={() => setView("vendas")} style={{ background: "#e0687a", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ color: "#475569", fontSize: 13, fontWeight: 500, marginRight: 8 }}>{dataFormatada}</div>
+
+          <button onClick={() => setView("vendas")} style={{ background: "#6366f1", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
             <Plus size={15} /> Nova Venda
           </button>
-          <button onClick={() => setView("gastos")} style={{ background: "#ffffff", color: "#e0687a", border: "1px solid #e0687a", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+          <button onClick={() => setView("gastos")} style={{ background: "#ffffff", color: "#6366f1", border: "1px solid #e0e7ff", borderRadius: 10, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
             <Plus size={15} /> Novo Gasto
           </button>
-          <button onClick={() => setView("empresa")} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+          <button onClick={() => setView("empresa")} style={{ background: "#0f172a", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
             <Plus size={15} /> Venda Empresa
           </button>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16, marginBottom: 28 }}>
         <Card
           label="Vendas hoje"
           value={brl(metrics.vendasHoje)}
-          icon={<ShoppingCart size={17} color="#e0687a" />}
+          icon={<ShoppingCart size={18} color="#8b5cf6" />}
+          iconBg="#f5f3ff"
           comparison={getComparison(metrics.variacaoVendas)}
         />
         <Card
           label="Gastos hoje"
           value={brl(metrics.gastosHoje)}
-          icon={<Receipt size={17} color="#e0687a" />}
-          valueColor={metrics.gastosHoje > 0 ? "#d1445b" : "#2b2323"}
+          icon={<Receipt size={18} color="#ec4899" />}
+          iconBg="#fdf2f8"
+          valueColor={metrics.gastosHoje > 0 ? "#0f172a" : "#0f172a"}
           comparison={getComparison(metrics.variacaoGastos)}
         />
         <Card
           label="Lucro do mês"
           value={brl(metrics.lucroMes)}
-          icon={<TrendingUp size={17} color={metrics.lucroMes >= 0 ? "#1f9d6b" : "#d1445b"} />}
-          iconBg={metrics.lucroMes >= 0 ? "rgba(31, 157, 107, 0.08)" : "rgba(209, 68, 91, 0.08)"}
-          valueColor={metrics.lucroMes >= 0 ? "#1f9d6b" : "#d1445b"}
+          icon={<TrendingUp size={18} color="#10b981" />}
+          iconBg="#ecfdf5"
+          valueColor="#10b981"
           comparison={getComparison(metrics.variacaoLucro)}
         />
         <Card
@@ -983,15 +982,16 @@ function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
           value={metrics.maisVendidoNome}
           subValue={metrics.maisVendidoQtd}
           tooltip={maisVendidoFull}
-          icon={<Star size={17} color="#e0687a" />}
-          valueColor="#2b2323"
+          icon={<Star size={18} color="#f59e0b" />}
+          iconBg="#fffbeb"
+          valueColor="#0f172a"
         />
         <Card
           label="Total a receber (Empresa)"
           value={brl(metrics.totalEmpresa)}
-          icon={<Briefcase size={17} color="#3f51b5" />}
-          iconBg="#e8eaf6"
-          valueColor="#3f51b5"
+          icon={<Briefcase size={18} color="#3b82f6" />}
+          iconBg="#eff6ff"
+          valueColor="#2563eb"
         />
       </div>
 
@@ -1032,21 +1032,21 @@ function SalesChart({ sales }) {
   const chartTitle = chartMode === "vendas" ? "Vendas (últimos 7 dias)" : "Vendas Empresa (últimos 7 dias)";
 
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: "24px 20px 14px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323" }}>{chartTitle}</div>
+    <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: "24px 24px 16px", boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.03)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{chartTitle}</div>
         
-        <div style={{ display: "flex", background: "#fdf9f9", padding: 3, borderRadius: 10, border: "1px solid #f2dede" }}>
+        <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 10 }}>
           <button
             onClick={() => setChartMode("vendas")}
             style={{
-              padding: "6px 12px",
+              padding: "6px 14px",
               borderRadius: 8,
               border: "none",
-              background: chartMode === "vendas" ? "#fbe0e2" : "transparent",
-              color: chartMode === "vendas" ? "#c14a5c" : "#a08f8f",
+              background: chartMode === "vendas" ? "#6366f1" : "transparent",
+              color: chartMode === "vendas" ? "#ffffff" : "#64748b",
               fontSize: 12,
-              fontWeight: chartMode === "vendas" ? 600 : 500,
+              fontWeight: 600,
               cursor: "pointer",
             }}
           >
@@ -1055,13 +1055,13 @@ function SalesChart({ sales }) {
           <button
             onClick={() => setChartMode("empresa")}
             style={{
-              padding: "6px 12px",
+              padding: "6px 14px",
               borderRadius: 8,
               border: "none",
-              background: chartMode === "empresa" ? "#fbe0e2" : "transparent",
-              color: chartMode === "empresa" ? "#c14a5c" : "#a08f8f",
+              background: chartMode === "empresa" ? "#6366f1" : "transparent",
+              color: chartMode === "empresa" ? "#ffffff" : "#64748b",
               fontSize: 12,
-              fontWeight: chartMode === "empresa" ? 600 : 500,
+              fontWeight: 600,
               cursor: "pointer",
             }}
           >
@@ -1073,14 +1073,14 @@ function SalesChart({ sales }) {
       {!hasData ? (
         <EmptyState text="Sem movimentações registradas nos últimos 7 dias." />
       ) : (
-        <div style={{ width: "100%", height: 280 }}>
+        <div style={{ width: "100%", height: 300 }}>
           <ResponsiveContainer>
-            <BarChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f2dede" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#a08f8f" }} />
-              <YAxis tick={{ fontSize: 12, fill: "#a08f8f" }} />
+            <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={{ stroke: "#f1f5f9" }} tickLine={false} />
+              <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <Tooltip formatter={(v) => brl(v)} />
-              <Bar dataKey="Valor" fill="#e0687a" radius={[4, 4, 0, 0]} maxBarSize={32} />
+              <Bar dataKey="Valor" fill="#818cf8" radius={[6, 6, 0, 0]} maxBarSize={36} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -1091,15 +1091,15 @@ function SalesChart({ sales }) {
 
 function SectionTitleWithBack({ title, onBack }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
       <button
         onClick={onBack}
         style={{
-          background: "#fbe0e2",
+          background: "#eef2ff",
           border: "none",
           borderRadius: 10,
           padding: "8px 14px",
-          color: "#e0687a",
+          color: "#6366f1",
           fontSize: 13,
           fontWeight: 600,
           cursor: "pointer",
@@ -1110,13 +1110,13 @@ function SectionTitleWithBack({ title, onBack }) {
       >
         <ArrowLeft size={16} /> Voltar
       </button>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: "#2b2323", margin: 0 }}>{title}</h2>
+      <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", margin: 0 }}>{title}</h2>
     </div>
   );
 }
 
 function EmptyState({ text }) {
-  return <div style={{ textAlign: "center", color: "#b3a3a3", fontSize: 14, padding: "40px 0", border: "1px dashed #eeddde", borderRadius: 16, background: "#ffffff" }}>{text}</div>;
+  return <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 14, padding: "48px 0", border: "1px dashed #e2e8f0", borderRadius: 16, background: "#ffffff" }}>{text}</div>;
 }
 
 function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, setView }) {
@@ -1184,13 +1184,13 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, setView })
             position: "fixed",
             bottom: 24,
             right: 24,
-            background: "#1f9d6b",
+            background: "#10b981",
             color: "#ffffff",
             padding: "12px 20px",
             borderRadius: 12,
             fontWeight: 600,
             fontSize: 14,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
             zIndex: 1000,
             display: "flex",
             alignItems: "center",
@@ -1204,13 +1204,13 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, setView })
 
       <SectionTitleWithBack title="Produtos" onBack={() => setView("dashboard")} />
 
-      <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>{editingProductId ? "Editar Produto" : "Cadastrar Novo Produto"}</span>
           {editingProductId && (
             <button
               onClick={cancelEditProduct}
-              style={{ background: "transparent", border: "1px solid #c9b6b6", color: "#7d6e6e", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+              style={{ background: "transparent", border: "1px solid #cbd5e1", color: "#64748b", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
             >
               Cancelar Edição
             </button>
@@ -1218,17 +1218,17 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, setView })
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Nome do Doce / Produto</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Nome do Doce / Produto</div>
             <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Bolo de Chocolate" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Preço (R$)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Preço (R$)</div>
               <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="0,00" value={price} onChange={(e) => setPrice(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Categoria</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Categoria</div>
               <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
                 {CATEGORIAS_PRODUTO.map((cat) => (
                   <option key={cat} value={cat}>{cat}</option>
@@ -1238,7 +1238,7 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, setView })
           </div>
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Vincular Insumo / Ingrediente Principal (Opcional)</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Vincular Insumo / Ingrediente Principal (Opcional)</div>
             <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={linkedIngredient} onChange={(e) => setLinkedIngredient(e.target.value)}>
               <option value="">Nenhum ingrediente vinculado</option>
               {ingredients.map((ing) => (
@@ -1247,14 +1247,14 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, setView })
             </select>
           </div>
 
-          <button style={{ ...primaryBtnStyle, background: editingProductId ? "#e0687a" : "#e0687a" }} onClick={submit}>
+          <button style={{ ...primaryBtnStyle }} onClick={submit}>
             {editingProductId ? "Salvar Alterações" : "Salvar Produto"}
           </button>
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 20 }}>
-        <div style={{ fontSize: 16, fontWeight: 600, color: "#2b2323", marginBottom: 16 }}>Produtos Cadastrados Recentes</div>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>Produtos Cadastrados Recentes</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
           {products.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum produto cadastrado ainda." /></div>}
           {products.map((p) => (
@@ -1302,8 +1302,8 @@ function Vendas({ products, sales, onAdd, onRemove, setView }) {
     <div>
       <SectionTitleWithBack title="Vendas" onBack={() => setView("dashboard")} />
 
-      <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", marginBottom: 16 }}>Registrar Nova Venda</div>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>Registrar Nova Venda</div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "flex", gap: 8 }}>
@@ -1314,32 +1314,32 @@ function Vendas({ products, sales, onAdd, onRemove, setView }) {
           {mode === "catalogo" ? (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 130px", gap: 12 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Produto</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Produto</div>
                 <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={productId} onChange={(e) => setProductId(e.target.value)}>
                   <option value="">Selecione o produto...</option>
                   {products.map((p) => <option key={p.id} value={p.id}>{p.name} — {brl(p.price)}</option>)}
                 </select>
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Quantidade</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Quantidade</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} />
               </div>
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 130px", gap: 12 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Descrição da Venda</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Descrição da Venda</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Encomenda Especial" value={manualDesc} onChange={(e) => setManualDesc(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Valor Total (R$)</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Valor Total (R$)</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="0,00" value={manualValue} onChange={(e) => setManualValue(e.target.value)} />
               </div>
             </div>
           )}
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Forma de Pagamento</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Forma de Pagamento</div>
             <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={payment} onChange={(e) => setPayment(e.target.value)}>
               {FORMAS_PAGAMENTO.map((f) => <option key={f} value={f}>{f}</option>)}
             </select>
@@ -1349,8 +1349,8 @@ function Vendas({ products, sales, onAdd, onRemove, setView }) {
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 20 }}>
-        <div style={{ fontSize: 16, fontWeight: 600, color: "#2b2323", marginBottom: 16 }}>Vendas Recentes</div>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>Vendas Recentes</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
           {salesNormais.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhuma venda registrada." /></div>}
           {salesNormais.map((s) => (
@@ -1359,7 +1359,7 @@ function Vendas({ products, sales, onAdd, onRemove, setView }) {
               title={s.product_name}
               subtitle={`${formatDatePt(s.date)} · ${s.payment} ${s.qty > 1 ? `· Qtd: ${s.qty}` : ""}`}
               value={brl(s.total)}
-              valueColor="#1f9d6b"
+              valueColor="#10b981"
               onDelete={() => onRemove(s.id)}
             />
           ))}
@@ -1386,22 +1386,22 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
     <div>
       <SectionTitleWithBack title="Gastos" onBack={() => setView("dashboard")} />
 
-      <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", marginBottom: 16 }}>Registrar Novo Gasto</div>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>Registrar Novo Gasto</div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Descrição do Gasto</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Descrição do Gasto</div>
             <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Compra de Leite Condensado" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Valor (R$)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Valor (R$)</div>
               <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="0,00" value={value} onChange={(e) => setValue(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Categoria</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Categoria</div>
               <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
                 {CATEGORIAS_GASTO.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -1412,8 +1412,8 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 20 }}>
-        <div style={{ fontSize: 16, fontWeight: 600, color: "#2b2323", marginBottom: 16 }}>Gastos Recentes</div>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>Gastos Recentes</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
           {expenses.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum gasto registrado." /></div>}
           {expenses.map((g) => (
@@ -1422,7 +1422,7 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
               title={g.description}
               subtitle={`${formatDatePt(g.date)} · ${g.category}`}
               value={brl(g.value)}
-              valueColor="#d1445b"
+              valueColor="#ef4444"
               onDelete={() => onRemove(g.id)}
             />
           ))}
@@ -1468,7 +1468,6 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
     return { person: parts[0], product: "Venda Empresa" };
   }
 
-  // Recalcula automaticamente o valor total sugerido quando seleciona um produto cadastrado e muda a quantidade
   function handleProductChange(newProdName) {
     setProductName(newProdName);
     if (!newProdName) return;
@@ -1665,7 +1664,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
       head: [["Funcionário / Cliente", "Total Devido", "Status"]],
       body: dadosTabela,
       theme: "grid",
-      headStyles: { fillColor: [63, 81, 181] },
+      headStyles: { fillColor: [99, 102, 241] },
     });
 
     doc.save(`vendas-empresa-${selectedMonth}.pdf`);
@@ -1679,13 +1678,13 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
             position: "fixed",
             bottom: 24,
             right: 24,
-            background: "#1f9d6b",
+            background: "#10b981",
             color: "#ffffff",
             padding: "12px 20px",
             borderRadius: 12,
             fontWeight: 600,
             fontSize: 14,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
             zIndex: 1000,
             display: "flex",
             alignItems: "center",
@@ -1697,17 +1696,17 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
         </div>
       )}
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: "#2b2323", margin: 0 }}>Vendas Empresa</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", margin: 0 }}>Vendas Empresa</h2>
         <div style={{ display: "flex", gap: 10 }}>
           <button
             onClick={fecharMesGeral}
             disabled={isMonthClosed || listaDetalhadaMes.length === 0}
             style={{
-              background: isMonthClosed ? "#a08f8f" : "#3f51b5",
+              background: isMonthClosed ? "#94a3b8" : "#6366f1",
               color: "#ffffff",
               border: "none",
-              borderRadius: 12,
+              borderRadius: 10,
               padding: "10px 18px",
               fontSize: 13,
               fontWeight: 600,
@@ -1723,24 +1722,24 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 20, marginBottom: 24, opacity: isMonthClosed ? 0.7 : 1 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, marginBottom: 28, opacity: isMonthClosed ? 0.7 : 1 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span>{editingSaleId ? "Editar Lançamento" : "Lançar venda para funcionário / empresa"}</span>
           {editingSaleId && (
             <button
               onClick={cancelEditSale}
-              style={{ background: "transparent", border: "1px solid #c9b6b6", color: "#7d6e6e", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+              style={{ background: "transparent", border: "1px solid #cbd5e1", color: "#64748b", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
             >
               Cancelar Edição
             </button>
           )}
-          {isMonthClosed && !editingSaleId && <span style={{ fontSize: 13, color: "#d1445b", fontWeight: 600 }}>Mês Fechado (Lançamentos travados)</span>}
+          {isMonthClosed && !editingSaleId && <span style={{ fontSize: 13, color: "#ef4444", fontWeight: 600 }}>Mês Fechado (Lançamentos travados)</span>}
         </div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Nome da Pessoa (Autocomplete)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Nome da Pessoa (Autocomplete)</div>
               <input
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
                 placeholder="Ex: Fabi, Débora, Duda"
@@ -1757,7 +1756,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
             </div>
 
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Produto Vendido (Opcional)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Produto Vendido (Opcional)</div>
               <input
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
                 placeholder="Ex: Pão Recheado, Cookie, Bolo"
@@ -1776,7 +1775,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
 
           <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 180px auto", gap: 12, alignItems: "end" }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Quantidade</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Quantidade</div>
               <input
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
                 type="number"
@@ -1789,7 +1788,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
             </div>
 
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Valor Total (R$)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Valor Total (R$)</div>
               <input
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
                 type="number"
@@ -1802,7 +1801,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
             </div>
 
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Data</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Data</div>
               <input
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
                 type="date"
@@ -1816,15 +1815,15 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
               onClick={submit}
               disabled={isMonthClosed}
               style={{
-                background: isMonthClosed ? "#ccc" : editingSaleId ? "#e0687a" : "#7d2a3f",
+                background: isMonthClosed ? "#cbd5e1" : "#6366f1",
                 color: "#ffffff",
                 border: "none",
-                borderRadius: 12,
+                borderRadius: 10,
                 padding: "12px 24px",
                 fontSize: 14,
                 fontWeight: 600,
                 cursor: isMonthClosed ? "not-allowed" : "pointer",
-                height: 45,
+                height: 44,
               }}
             >
               {editingSaleId ? "Salvar Alterações" : "Adicionar"}
@@ -1833,7 +1832,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 20 }}>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <select
@@ -1847,7 +1846,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
             </select>
 
             <div style={{ position: "relative" }}>
-              <Search size={16} color="#a08f8f" style={{ position: "absolute", left: 12, top: 14 }} />
+              <Search size={16} color="#94a3b8" style={{ position: "absolute", left: 12, top: 14 }} />
               <input
                 style={{ ...inputStyle, paddingLeft: 36, width: 220, boxSizing: "border-box" }}
                 placeholder="Buscar funcionário..."
@@ -1858,13 +1857,13 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ background: "#e8eaf6", color: "#3f51b5", padding: "10px 18px", borderRadius: 12, fontSize: 14, fontWeight: 600, border: "1px solid #c5cae9" }}>
+            <div style={{ background: "#eef2ff", color: "#6366f1", padding: "10px 18px", borderRadius: 10, fontSize: 14, fontWeight: 600, border: "1px solid #e0e7ff" }}>
               Total Pendente: {brl(totalPendenteMes)} <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.8 }}>(Geral: {brl(totalGeralMes)})</span>
             </div>
             {resumoMes.length > 0 && (
               <button
                 onClick={gerarPDF}
-                style={{ background: "#3f51b5", color: "#ffffff", border: "none", borderRadius: 12, padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                style={{ background: "#6366f1", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
               >
                 Exportar PDF
               </button>
@@ -1882,17 +1881,17 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
               const isExpanded = !!expandedCards[item.name];
 
               return (
-                <div key={index} className="card-interactive" style={{ background: "#fdf9f9", border: "1px solid #e5e5e5", borderRadius: 14, padding: "16px 18px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div key={index} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 14, padding: "18px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ fontWeight: 700, color: "#2b2323", fontSize: 16 }}>{item.name}</div>
+                      <div style={{ fontWeight: 700, color: "#0f172a", fontSize: 16 }}>{item.name}</div>
                       <span style={{
                         fontSize: 11,
                         fontWeight: 600,
                         padding: "3px 8px",
                         borderRadius: 6,
-                        background: item.isPaid ? "#d7f5e6" : "#fbe2e5",
-                        color: item.isPaid ? "#1f9d6b" : "#d1445b",
+                        background: item.isPaid ? "#ecfdf5" : "#fef2f2",
+                        color: item.isPaid ? "#10b981" : "#ef4444",
                         display: "flex",
                         alignItems: "center",
                         gap: 4
@@ -1901,19 +1900,19 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
                         {item.isPaid ? "Pago" : "Pendente"}
                       </span>
                     </div>
-                    <div style={{ fontWeight: 700, color: "#7d2a3f", fontSize: 17 }}>{brl(item.sum)}</div>
+                    <div style={{ fontWeight: 700, color: "#6366f1", fontSize: 18 }}>{brl(item.sum)}</div>
                   </div>
 
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                     <button
                       onClick={() => toggleEmployeeStatus(item.name, item.isPaid)}
                       style={{
-                        background: item.isPaid ? "#fff" : "#1f9d6b",
-                        color: item.isPaid ? "#1f9d6b" : "#fff",
-                        border: "1px solid #1f9d6b",
+                        background: item.isPaid ? "#ffffff" : "#10b981",
+                        color: item.isPaid ? "#10b981" : "#ffffff",
+                        border: "1px solid #10b981",
                         borderRadius: 8,
-                        padding: "5px 10px",
-                        fontSize: 11,
+                        padding: "6px 12px",
+                        fontSize: 12,
                         fontWeight: 600,
                         cursor: "pointer",
                       }}
@@ -1925,7 +1924,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
                       onClick={() => toggleExpand(item.name)}
                       style={{
                         background: "transparent",
-                        color: "#7d2a3f",
+                        color: "#6366f1",
                         border: "none",
                         fontSize: 12,
                         fontWeight: 600,
@@ -1941,36 +1940,36 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
                   </div>
 
                   {isExpanded && (
-                    <div style={{ borderTop: "1px dashed #f2dede", marginTop: 12, paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: "#a08f8f", textTransform: "uppercase" }}>Lançamentos no mês:</div>
+                    <div style={{ borderTop: "1px dashed #e2e8f0", marginTop: 12, paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase" }}>Lançamentos no mês:</div>
                       {item.items.map((s) => {
                         const itemQty = s.qty || 1;
                         const productLabel = itemQty > 1 ? `${itemQty}x ${s.parsedProduct}` : s.parsedProduct;
 
                         return (
-                          <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "#6e5e5e" }}>
+                          <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "#475569" }}>
                             <span>
-                              {formatDatePt(s.date)} — <span style={{ color: "#2b2323", fontWeight: 500 }}>{productLabel}</span> — <b>{brl(s.total)}</b>
+                              {formatDatePt(s.date)} — <span style={{ color: "#0f172a", fontWeight: 500 }}>{productLabel}</span> — <b>{brl(s.total)}</b>
                             </span>
                             {!isMonthClosed ? (
                               <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                                 <button
                                   onClick={() => startEditSale(s)}
-                                  style={{ border: "none", background: "transparent", cursor: "pointer", color: "#e0687a", padding: 4, display: "flex", alignItems: "center" }}
+                                  style={{ border: "none", background: "transparent", cursor: "pointer", color: "#6366f1", padding: 4, display: "flex", alignItems: "center" }}
                                   title="Editar lançamento"
                                 >
                                   <Pencil size={14} />
                                 </button>
                                 <button
                                   onClick={() => onRemove(s.id)}
-                                  style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 4, display: "flex", alignItems: "center" }}
+                                  style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 4, display: "flex", alignItems: "center" }}
                                   title="Excluir lançamento"
                                 >
                                   <Trash2 size={14} />
                                 </button>
                               </div>
                             ) : (
-                              <span style={{ fontSize: 11, color: "#a08f8f" }}>Bloqueado</span>
+                              <span style={{ fontSize: 11, color: "#94a3b8" }}>Bloqueado</span>
                             )}
                           </div>
                         );
@@ -2160,25 +2159,25 @@ function Precificacao({
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(20);
-      doc.setTextColor(224, 104, 122);
+      doc.setTextColor(99, 102, 241);
       doc.text("Loove Doceria", 14, 20);
 
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(120, 120, 120);
+      doc.setTextColor(100, 116, 139);
       doc.text("Ficha Técnica e Modo de Preparo", 14, 26);
 
-      doc.setDrawColor(241, 222, 222);
+      doc.setDrawColor(241, 245, 249);
       doc.line(14, 30, 196, 30);
 
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(43, 35, 35);
+      doc.setTextColor(15, 23, 42);
       doc.text(rec.product_name, 14, 40);
 
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(80, 80, 80);
+      doc.setTextColor(71, 85, 105);
       doc.text(`Rendimento: ${rec.yield_amount || 1} unidades/porções`, 14, 47);
       doc.text(`Custo Total: ${brl(rec.total_cost)}  |  Custo Unitário: ${brl(custoCalcUnitario)}`, 14, 53);
 
@@ -2193,7 +2192,7 @@ function Precificacao({
         head: [["Ingrediente / Insumo", "Quantidade Utilizada", "Custo (R$)"]],
         body: tableBody,
         theme: "grid",
-        headStyles: { fillColor: [224, 104, 122] },
+        headStyles: { fillColor: [99, 102, 241] },
       });
 
       let currentY = doc.lastAutoTable.finalY + 12;
@@ -2201,12 +2200,12 @@ function Precificacao({
       if (rec.preparation_method) {
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(43, 35, 35);
+        doc.setTextColor(15, 23, 42);
         doc.text("Modo de Preparo:", 14, currentY);
 
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.setTextColor(60, 60, 60);
+        doc.setTextColor(71, 85, 105);
 
         const splitText = doc.splitTextToSize(rec.preparation_method, 180);
         doc.text(splitText, 14, currentY + 7);
@@ -2226,13 +2225,13 @@ function Precificacao({
             position: "fixed",
             bottom: 24,
             right: 24,
-            background: "#1f9d6b",
+            background: "#10b981",
             color: "#ffffff",
             padding: "12px 20px",
             borderRadius: 12,
             fontWeight: 600,
             fontSize: 14,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
             zIndex: 1000,
             display: "flex",
             alignItems: "center",
@@ -2244,7 +2243,7 @@ function Precificacao({
         </div>
       )}
 
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: "#2b2323", margin: "0 0 20px" }}>
+      <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", margin: "0 0 24px" }}>
         Precificação e Ficha Técnica
       </h2>
 
@@ -2259,13 +2258,13 @@ function Precificacao({
 
       {tab === "ingredientes" ? (
         <div>
-          <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 20, marginBottom: 24 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, marginBottom: 24 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>{editingIngId ? "Editar Ingrediente" : "Cadastrar Ingrediente ou Embalagem"}</span>
               {editingIngId && (
                 <button
                   onClick={cancelEditIngredient}
-                  style={{ background: "transparent", border: "1px solid #c9b6b6", color: "#7d6e6e", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                  style={{ background: "transparent", border: "1px solid #cbd5e1", color: "#64748b", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
                 >
                   Cancelar Edição
                 </button>
@@ -2273,19 +2272,19 @@ function Precificacao({
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 120px auto", gap: 12, alignItems: "end" }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Nome</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Nome</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Farinha de Trigo" value={ingName} onChange={(e) => setIngName(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Preço Pago (R$)</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Preço Pago (R$)</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="Ex: 10.00" value={pkgPrice} onChange={(e) => setPkgPrice(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Qtd Embalagem</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Qtd Embalagem</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 1 ou 1000" value={pkgAmount} onChange={(e) => setPkgAmount(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Unidade do Pacote</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Unidade do Pacote</div>
                 <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={unit} onChange={(e) => setUnit(e.target.value)}>
                   <option value="g">Gramas (g)</option>
                   <option value="kg">Quilos (kg)</option>
@@ -2293,7 +2292,7 @@ function Precificacao({
                   <option value="un">Unidade (un)</option>
                 </select>
               </div>
-              <button onClick={submitIngredient} style={{ background: editingIngId ? "#e0687a" : "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", height: 45 }}>
+              <button onClick={submitIngredient} style={{ background: "#6366f1", color: "#ffffff", border: "none", borderRadius: 10, padding: "12px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", height: 44 }}>
                 {editingIngId ? "Salvar Alterações" : "Cadastrar"}
               </button>
             </div>
@@ -2306,18 +2305,18 @@ function Precificacao({
               const displayUnit = i.unit === "kg" ? "g" : i.unit;
               const custoUnitario = Number(i.package_price) / totalAmount;
               return (
-                <div key={i.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 14, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div key={i.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 14, padding: "18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323" }}>{i.name}</div>
-                    <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 4 }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a" }}>{i.name}</div>
+                    <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
                       Pacote: {i.package_amount}{i.unit} por {brl(i.package_price)} · Custo: {brl(custoUnitario)} por {displayUnit}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => startEditIngredient(i)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#e0687a", padding: 6 }} title="Editar ingrediente">
+                    <button onClick={() => startEditIngredient(i)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#6366f1", padding: 6 }} title="Editar ingrediente">
                       <Pencil size={16} />
                     </button>
-                    <button onClick={() => onRemoveIng(i.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6 }} title="Excluir ingrediente">
+                    <button onClick={() => onRemoveIng(i.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 6 }} title="Excluir ingrediente">
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -2328,13 +2327,13 @@ function Precificacao({
         </div>
       ) : (
         <div>
-          <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 20, marginBottom: 24 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, marginBottom: 24 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>{editingRecId ? "Editar Ficha Técnica / Receita" : "Montar Ficha Técnica / Receita"}</span>
               {editingRecId && (
                 <button
                   onClick={cancelEditRecipe}
-                  style={{ background: "transparent", border: "1px solid #c9b6b6", color: "#7d6e6e", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                  style={{ background: "transparent", border: "1px solid #cbd5e1", color: "#64748b", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
                 >
                   Cancelar Edição
                 </button>
@@ -2343,18 +2342,18 @@ function Precificacao({
             
             <div style={{ display: "grid", gridTemplateColumns: "1fr 180px", gap: 12, marginBottom: 16 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Nome do Produto / Receita</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Nome do Produto / Receita</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Pão Caseiro / Massa de Brigadeiro" value={recName} onChange={(e) => setRecName(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Rendimento (unidades/porções)</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Rendimento (unidades)</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" min="1" value={yieldAmount} onChange={(e) => setYieldAmount(e.target.value)} />
               </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 12, alignItems: "end", marginBottom: 16 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Selecionar Ingrediente</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Selecionar Ingrediente</div>
                 <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={selectedIngId} onChange={(e) => setSelectedIngId(e.target.value)}>
                   <option value="">Selecione o ingrediente...</option>
                   {ingredients.map((ing) => (
@@ -2363,43 +2362,43 @@ function Precificacao({
                 </select>
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Quantidade a usar (g/ml)</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Quantidade a usar (g/ml)</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 100" value={usedAmount} onChange={(e) => setUsedAmount(e.target.value)} />
               </div>
-              <button onClick={addIngredientToRecipe} style={{ background: "#e0687a", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", height: 45 }}>
+              <button onClick={addIngredientToRecipe} style={{ background: "#6366f1", color: "#ffffff", border: "none", borderRadius: 10, padding: "12px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", height: 44 }}>
                 Adicionar na Receita
               </button>
             </div>
 
             {currentRecipeItems.length > 0 && (
-              <div style={{ background: "#fdf9f9", border: "1px solid #f2dede", borderRadius: 12, padding: 14, marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#7d2a3f", marginBottom: 10 }}>Ingredientes desta receita:</div>
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", marginBottom: 10 }}>Ingredientes desta receita:</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {currentRecipeItems.map((item, idx) => (
-                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, borderBottom: "1px solid #f9e8e8", paddingBottom: 6 }}>
+                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, borderBottom: "1px solid #e2e8f0", paddingBottom: 6 }}>
                       <span>{item.name} — {item.used_amount}{item.unit}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontWeight: 600, color: "#7d2a3f" }}>{brl(item.cost)}</span>
-                        <button onClick={() => removeItemFromRecipe(idx)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 2 }} title="Remover item">
+                        <span style={{ fontWeight: 600, color: "#6366f1" }}>{brl(item.cost)}</span>
+                        <button onClick={() => removeItemFromRecipe(idx)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 2 }} title="Remover item">
                           <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, paddingTop: 8, borderTop: "1px solid #f2dede", fontWeight: 600, fontSize: 15 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, paddingTop: 8, borderTop: "1px solid #e2e8f0", fontWeight: 600, fontSize: 15 }}>
                   <span>Custo Total da Receita:</span>
-                  <span style={{ color: "#7d2a3f" }}>{brl(recipeTotalCost)}</span>
+                  <span style={{ color: "#6366f1" }}>{brl(recipeTotalCost)}</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 13, color: "#a08f8f" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 13, color: "#64748b" }}>
                   <span>Custo por Unidade (Rendimento: {yieldAmount}):</span>
-                  <span style={{ fontWeight: 600, color: "#1f9d6b" }}>{brl(recipeTotalCost / Number(yieldAmount || 1))}</span>
+                  <span style={{ fontWeight: 600, color: "#10b981" }}>{brl(recipeTotalCost / Number(yieldAmount || 1))}</span>
                 </div>
               </div>
             )}
 
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Modo de Preparo (Passo a Passo)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Modo de Preparo (Passo a Passo)</div>
               <textarea
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box", minHeight: 90, resize: "vertical", fontFamily: "inherit" }}
                 placeholder="Descreva o modo de preparo ex: 1. Misture os ingredientes secos... 2. Leve ao forno por 30 minutos..."
@@ -2408,7 +2407,7 @@ function Precificacao({
               />
             </div>
 
-            <button onClick={saveRecipe} disabled={currentRecipeItems.length === 0 || !recName} style={{ background: "#7d2a3f", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 600, cursor: currentRecipeItems.length === 0 || !recName ? "not-allowed" : "pointer", opacity: currentRecipeItems.length === 0 || !recName ? 0.6 : 1, width: "100%" }}>
+            <button onClick={saveRecipe} disabled={currentRecipeItems.length === 0 || !recName} style={{ background: "#0f172a", color: "#ffffff", border: "none", borderRadius: 10, padding: "12px 24px", fontSize: 14, fontWeight: 600, cursor: currentRecipeItems.length === 0 || !recName ? "not-allowed" : "pointer", opacity: currentRecipeItems.length === 0 || !recName ? 0.6 : 1, width: "100%" }}>
               {editingRecId ? "Salvar Alterações" : "Salvar Ficha Técnica"}
             </button>
           </div>
@@ -2420,34 +2419,34 @@ function Precificacao({
               const isPrepShown = !!expandedPrep[rec.id];
 
               return (
-                <div key={rec.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 20 }}>
+                <div key={rec.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                     <div>
-                      <div style={{ fontSize: 17, fontWeight: 600, color: "#2b2323" }}>{rec.product_name}</div>
-                      <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 2 }}>Rendimento: {rec.yield_amount} unidades/porções</div>
+                      <div style={{ fontSize: 17, fontWeight: 700, color: "#0f172a" }}>{rec.product_name}</div>
+                      <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>Rendimento: {rec.yield_amount} unidades/porções</div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 12, color: "#a08f8f", fontWeight: 500 }}>Custo Unitário</div>
-                        <div style={{ fontSize: 18, fontWeight: 600, color: "#1f9d6b" }}>{brl(custoPorUnidade)}</div>
+                        <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>Custo Unitário</div>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: "#10b981" }}>{brl(custoPorUnidade)}</div>
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button onClick={() => exportRecipePDF(rec)} style={{ border: "none", background: "#fbe0e2", color: "#e0687a", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }} title="Exportar em PDF">
+                        <button onClick={() => exportRecipePDF(rec)} style={{ border: "none", background: "#eef2ff", color: "#6366f1", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }} title="Exportar em PDF">
                           <FileText size={15} /> PDF
                         </button>
-                        <button onClick={() => startEditRecipe(rec)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#e0687a", padding: 6 }} title="Editar receita">
+                        <button onClick={() => startEditRecipe(rec)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#6366f1", padding: 6 }} title="Editar receita">
                           <Pencil size={18} />
                         </button>
-                        <button onClick={() => onRemoveRec(rec.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 6 }} title="Excluir receita">
+                        <button onClick={() => onRemoveRec(rec.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 6 }} title="Excluir receita">
                           <Trash2 size={18} />
                         </button>
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ background: "#fdf9f9", borderRadius: 10, padding: 10, display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                  <div style={{ background: "#f8fafc", borderRadius: 10, padding: 12, display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
                     {rec.ingredients_used?.map((ing, idx) => (
-                      <span key={idx} style={{ background: "#ffffff", border: "1px solid #f2dede", padding: "4px 10px", borderRadius: 8, fontSize: 12, color: "#7d6e6e" }}>
+                      <span key={idx} style={{ background: "#ffffff", border: "1px solid #e2e8f0", padding: "4px 10px", borderRadius: 8, fontSize: 12, color: "#475569" }}>
                         {ing.name}: <b>{ing.used_amount}{ing.unit}</b> ({brl(ing.cost)})
                       </span>
                     ))}
@@ -2460,7 +2459,7 @@ function Precificacao({
                         style={{
                           background: "transparent",
                           border: "none",
-                          color: "#7d2a3f",
+                          color: "#6366f1",
                           fontSize: 12,
                           fontWeight: 600,
                           cursor: "pointer",
@@ -2475,8 +2474,8 @@ function Precificacao({
                       </button>
 
                       {isPrepShown && (
-                        <div style={{ background: "#fdf6f6", border: "1px solid #f2dede", borderRadius: 10, padding: 12, marginTop: 8, fontSize: 13, color: "#524343", whiteSpace: "pre-line", lineHeight: 1.5 }}>
-                          <div style={{ fontWeight: 600, color: "#7d2a3f", marginBottom: 6 }}>Passo a Passo:</div>
+                        <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 14, marginTop: 8, fontSize: 13, color: "#334155", whiteSpace: "pre-line", lineHeight: 1.5 }}>
+                          <div style={{ fontWeight: 600, color: "#0f172a", marginBottom: 6 }}>Passo a Passo:</div>
                           {rec.preparation_method}
                         </div>
                       )}
@@ -2569,32 +2568,32 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
 
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: "#2b2323", margin: "0 0 20px" }}>Gerenciador de Documentos</h2>
+      <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", margin: "0 0 24px" }}>Gerenciador de Documentos</h2>
 
-      <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 24, marginBottom: 28, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", marginBottom: 16 }}>Fazer Upload de Documento</div>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, marginBottom: 28, boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>Fazer Upload de Documento</div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Nome / Descrição</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Nome / Descrição</div>
               <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Nota fiscal farinha julho" value={docName} onChange={(e) => setDocName(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Categoria</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Categoria</div>
               <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
                 {CATEGORIAS_DOC.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Data</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Data</div>
               <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "end" }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Vincular a um Gasto (Opcional)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Vincular a um Gasto (Opcional)</div>
               <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={expenseLink} onChange={(e) => setExpenseLink(e.target.value)}>
                 <option value="">Nenhum gasto vinculado</option>
                 {expenses.map((g) => (
@@ -2603,8 +2602,8 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
               </select>
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#a08f8f", marginBottom: 6 }}>Arquivo (PDF, JPG, PNG - máx 2MB)</div>
-              <input id="file-input" style={{ ...inputStyle, width: "100%", boxSizing: "border-box", padding: "9px 12px", background: "#fdf9f9" }} type="file" accept=".pdf, .jpg, .jpeg, .png" onChange={handleFileChange} />
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Arquivo (PDF, JPG, PNG - máx 2MB)</div>
+              <input id="file-input" style={{ ...inputStyle, width: "100%", boxSizing: "border-box", padding: "9px 12px", background: "#ffffff" }} type="file" accept=".pdf, .jpg, .jpeg, .png" onChange={handleFileChange} />
             </div>
           </div>
 
@@ -2612,7 +2611,7 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 16, padding: 20 }}>
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <select
@@ -2635,7 +2634,7 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
             </select>
           </div>
 
-          <div style={{ fontSize: 13, fontWeight: 500, color: "#a08f8f" }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: "#64748b" }}>
             Total de documentos: {filteredDocs.length}
           </div>
         </div>
@@ -2649,38 +2648,38 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
           {filteredDocs.map((doc) => {
             const isImage = doc.file_type && doc.file_type.startsWith("image/");
             return (
-              <div key={doc.id} className="card-interactive" style={{ background: "#fdf9f9", border: "1px solid #e5e5e5", borderRadius: 14, padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12 }}>
+              <div key={doc.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 14, padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12 }}>
                 <div>
-                  <div style={{ width: "100%", height: 130, background: "#ffffff", borderRadius: 10, border: "1px solid #f1dede", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 12, position: "relative" }}>
+                  <div style={{ width: "100%", height: 130, background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 12, position: "relative" }}>
                     {isImage ? (
                       <img src={doc.file_data} alt={doc.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     ) : (
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "#e0687a" }}>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "#6366f1" }}>
                         <FileText size={36} />
                         <span style={{ fontSize: 11, fontWeight: 700 }}>DOCUMENTO PDF</span>
                       </div>
                     )}
                   </div>
 
-                  <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.name}</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.name}</div>
                   <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "#fbe0e2", color: "#e0687a" }}>{doc.category}</span>
-                    <span style={{ fontSize: 12, color: "#a08f8f" }}>{formatDatePt(doc.date)}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "#eef2ff", color: "#6366f1" }}>{doc.category}</span>
+                    <span style={{ fontSize: 12, color: "#94a3b8" }}>{formatDatePt(doc.date)}</span>
                   </div>
                   {doc.expense_link && (
-                    <div style={{ fontSize: 12, color: "#1f9d6b", fontWeight: 600, background: "#d7f5e6", padding: "3px 8px", borderRadius: 6, display: "inline-block" }}>
+                    <div style={{ fontSize: 12, color: "#10b981", fontWeight: 600, background: "#ecfdf5", padding: "3px 8px", borderRadius: 6, display: "inline-block" }}>
                       Gasto: {doc.expense_link}
                     </div>
                   )}
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f2dede", paddingTop: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f1f5f9", paddingTop: 10 }}>
                   <div style={{ display: "flex", gap: 8 }}>
                     <a
                       href={doc.file_data}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ background: "#fbe0e2", color: "#e0687a", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
+                      style={{ background: "#eef2ff", color: "#6366f1", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
                       title="Visualizar arquivo"
                     >
                       <Eye size={14} /> Ver
@@ -2688,7 +2687,7 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
                     <a
                       href={doc.file_data}
                       download={doc.name}
-                      style={{ background: "#3f51b5", color: "#ffffff", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
+                      style={{ background: "#6366f1", color: "#ffffff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
                       title="Baixar arquivo"
                     >
                       <Download size={14} /> Baixar
@@ -2696,7 +2695,7 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
                   </div>
                   <button
                     onClick={() => onRemove(doc.id)}
-                    style={{ border: "none", background: "transparent", cursor: "pointer", color: "#c9b6b6", padding: 4, display: "flex" }}
+                    style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 4, display: "flex" }}
                     title="Excluir documento"
                   >
                     <Trash2 size={16} />
@@ -2713,21 +2712,21 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
 
 function ListRow({ title, subtitle, value, valueColor, onEdit, onDelete }) {
   return (
-    <div className="card-interactive" style={{ background: "#ffffff", border: "1px solid #e5e5e5", borderRadius: 14, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+    <div className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 14, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
-        <div style={{ fontSize: 13, color: "#a08f8f", marginTop: 4 }}>{subtitle}</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
+        <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>{subtitle}</div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-        <span style={{ fontSize: 15, fontWeight: 600, color: valueColor || "#2b2323" }}>{value}</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: valueColor || "#0f172a" }}>{value}</span>
         <div style={{ display: "flex", gap: 4 }}>
           {onEdit && (
-            <button onClick={onEdit} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#e0687a", display: "flex" }} title="Editar produto">
+            <button onClick={onEdit} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#6366f1", display: "flex" }} title="Editar produto">
               <Pencil size={16} />
             </button>
           )}
           {onDelete && (
-            <button onClick={onDelete} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#c9b6b6", display: "flex" }} title="Excluir produto">
+            <button onClick={onDelete} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#cbd5e1", display: "flex" }} title="Excluir produto">
               <Trash2 size={16} />
             </button>
           )}
@@ -2739,7 +2738,7 @@ function ListRow({ title, subtitle, value, valueColor, onEdit, onDelete }) {
 
 function ToggleButton({ active, onClick, children }) {
   return (
-    <button onClick={onClick} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: active ? "1px solid #e0687a" : "1px solid #f2dede", background: active ? "#fbe0e2" : "#ffffff", color: active ? "#c14a5c" : "#a08f8f", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+    <button onClick={onClick} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: active ? "1px solid #6366f1" : "1px solid #e2e8f0", background: active ? "#eef2ff" : "#ffffff", color: active ? "#6366f1" : "#64748b", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
       {children}
     </button>
   );
@@ -2752,20 +2751,20 @@ function formatDatePt(dateStr) {
 }
 
 const inputStyle = {
-  border: "1px solid #e5e5e5",
-  borderRadius: 12,
-  padding: "12px 14px",
+  border: "1px solid #e2e8f0",
+  borderRadius: 10,
+  padding: "11px 14px",
   fontSize: 14,
   outline: "none",
-  color: "#2b2323",
-  background: "#fdf9f9",
+  color: "#0f172a",
+  background: "#ffffff",
 };
 
 const primaryBtnStyle = {
   border: "none",
-  borderRadius: 12,
+  borderRadius: 10,
   padding: "12px 0",
-  background: "#e0687a",
+  background: "#6366f1",
   color: "#ffffff",
   fontSize: 14,
   fontWeight: 600,
