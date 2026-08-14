@@ -1784,21 +1784,37 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
     listaDetalhadaMes.forEach((s) => {
       const { person, product } = parseSaleTarget(s.product_name);
       if (!map[person]) {
-        map[person] = { sum: 0, items: [], allPaid: true };
+        map[person] = { sum: 0, paidSum: 0, pendingSum: 0, items: [] };
       }
-      map[person].sum += Number(s.total);
+      const itemVal = Number(s.total);
+      map[person].sum += itemVal;
+      if (s.status === "Pago") {
+        map[person].paidSum += itemVal;
+      } else {
+        map[person].pendingSum += itemVal;
+      }
       map[person].items.push({ ...s, parsedProduct: product });
-      if (s.status !== "Pago") {
-        map[person].allPaid = false;
-      }
     });
 
-    let entries = Object.entries(map).map(([name, data]) => ({
-      name,
-      sum: data.sum,
-      items: data.items,
-      isPaid: data.allPaid,
-    }));
+    let entries = Object.entries(map).map(([name, data]) => {
+      const allPaid = data.items.length > 0 && data.items.every((it) => it.status === "Pago");
+      const nonePaid = data.items.length > 0 && data.items.every((it) => it.status !== "Pago");
+      let statusLabel = "Pendente";
+      if (allPaid) {
+        statusLabel = "Pago";
+      } else if (!nonePaid) {
+        statusLabel = "Parcial";
+      }
+
+      return {
+        name,
+        sum: data.sum,
+        paidSum: data.paidSum,
+        pendingSum: data.pendingSum,
+        items: data.items,
+        statusLabel,
+      };
+    });
 
     if (searchFilter.trim()) {
       entries = entries.filter((e) => e.name.toLowerCase().includes(searchFilter.toLowerCase()));
@@ -1811,16 +1827,26 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
     return resumoMes.reduce((acc, item) => acc + item.sum, 0);
   }, [resumoMes]);
 
+  // Calcula apenas os itens individuais que ainda estão pendentes
   const totalPendenteMes = useMemo(() => {
-    return resumoMes.filter((item) => !item.isPaid).reduce((acc, item) => acc + item.sum, 0);
-  }, [resumoMes]);
+    return listaDetalhadaMes
+      .filter((s) => s.status !== "Pago")
+      .reduce((acc, item) => acc + Number(item.total), 0);
+  }, [listaDetalhadaMes]);
 
-  async function toggleEmployeeStatus(person, currentIsPaid) {
-    const newStatus = currentIsPaid ? "Pendente" : "Pago";
+  // Ação em massa: marca todos os itens do cliente como pagos ou pendentes
+  async function toggleEmployeeStatus(person, currentStatusLabel) {
+    const newStatus = currentStatusLabel === "Pago" ? "Pendente" : "Pago";
     const itemsToUpdate = listaDetalhadaMes.filter((s) => parseSaleTarget(s.product_name).person === person);
     for (const item of itemsToUpdate) {
       await onUpdate(item.id, { status: newStatus });
     }
+  }
+
+  // Alterna o status de um item específico individualmente
+  async function toggleIndividualItemStatus(saleItem) {
+    const newStatus = saleItem.status === "Pago" ? "Pendente" : "Pago";
+    await onUpdate(saleItem.id, { status: newStatus });
   }
 
   async function fecharMesGeral() {
@@ -1845,11 +1871,17 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
     doc.setFont("helvetica", "normal");
     doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 28);
 
-    const dadosTabela = resumoMes.map((item) => [item.name, brl(item.sum), item.isPaid ? "Pago" : "Pendente"]);
+    const dadosTabela = resumoMes.map((item) => [
+      item.name,
+      brl(item.sum),
+      brl(item.paidSum),
+      brl(item.pendingSum),
+      item.statusLabel,
+    ]);
 
     doc.autoTable({
       startY: 36,
-      head: [["Funcionário / Cliente", "Total Devido", "Status"]],
+      head: [["Funcionário / Cliente", "Total Geral", "Total Pago", "Total Pendente", "Status"]],
       body: dadosTabela,
       theme: "grid",
       headStyles: { fillColor: [99, 102, 241] },
@@ -1883,22 +1915,27 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
     doc.setFont("helvetica", "normal");
     doc.setTextColor(71, 85, 105);
     doc.text(`Mês de Referência: ${formatMonthLabel(selectedMonth)}`, 14, 47);
-    doc.text(`Status: ${item.isPaid ? "Pago" : "Pendente"}`, 14, 53);
+    doc.text(`Situação Geral: ${item.statusLabel}`, 14, 53);
     doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 59);
 
     const dadosTabela = (item.items || []).map((s) => {
       const itemQty = s.qty || 1;
       const productLabel = itemQty > 1 ? `${itemQty}x ${s.parsedProduct}` : s.parsedProduct;
-      return [formatDatePt(s.date), productLabel, brl(s.total)];
+      const statusText = s.status === "Pago" ? "Pago" : "Pendente";
+      return [formatDatePt(s.date), productLabel, brl(s.total), statusText];
     });
 
     doc.autoTable({
       startY: 65,
-      head: [["Data", "Item / Produto Comprado", "Valor"]],
+      head: [["Data", "Item / Produto Comprado", "Valor", "Status do Item"]],
       body: dadosTabela,
       theme: "grid",
       headStyles: { fillColor: [99, 102, 241] },
-      foot: [["Total do Mês", "", brl(item.sum)]],
+      foot: [
+        ["Total do Mês", "", brl(item.sum), ""],
+        ["Total Pago", "", brl(item.paidSum), ""],
+        ["Total Pendente", "", brl(item.pendingSum), ""],
+      ],
       footStyles: { fillColor: [248, 250, 252], textColor: [15, 23, 42], fontStyle: "bold" },
     });
 
@@ -2120,36 +2157,50 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
             {resumoMes.map((item, index) => {
               const isExpanded = !!expandedCards[item.name];
 
+              // Cores e estilos do badge de acordo com o status
+              const badgeStyles = {
+                Pago: { bg: "#ecfdf5", color: "#10b981", icon: <CheckCircle2 size={12} /> },
+                Parcial: { bg: "#fffbeb", color: "#d97706", icon: <Clock size={12} /> },
+                Pendente: { bg: "#fef2f2", color: "#ef4444", icon: <Clock size={12} /> },
+              }[item.statusLabel];
+
               return (
                 <div key={index} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 14, padding: "18px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ fontWeight: 700, color: "#0f172a", fontSize: 16 }}>{item.name}</div>
-                      <span style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        padding: "3px 8px",
-                        borderRadius: 6,
-                        background: item.isPaid ? "#ecfdf5" : "#fef2f2",
-                        color: item.isPaid ? "#10b981" : "#ef4444",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4
-                      }}>
-                        {item.isPaid ? <CheckCircle2 size={12} /> : <Clock size={12} />}
-                        {item.isPaid ? "Pago" : "Pendente"}
-                      </span>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <div style={{ fontWeight: 700, color: "#0f172a", fontSize: 16 }}>{item.name}</div>
+                        <span style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: "3px 8px",
+                          borderRadius: 6,
+                          background: badgeStyles.bg,
+                          color: badgeStyles.color,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4
+                        }}>
+                          {badgeStyles.icon}
+                          {item.statusLabel}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>
+                        Pago: <span style={{ color: "#10b981", fontWeight: 600 }}>{brl(item.paidSum)}</span> | Pendente: <span style={{ color: item.pendingSum > 0 ? "#ef4444" : "#64748b", fontWeight: 600 }}>{brl(item.pendingSum)}</span>
+                      </div>
                     </div>
-                    <div style={{ fontWeight: 700, color: "#6366f1", fontSize: 18 }}>{brl(item.sum)}</div>
+                    <div style={{ fontWeight: 700, color: "#6366f1", fontSize: 18, textAlign: "right" }}>
+                      {brl(item.sum)}
+                    </div>
                   </div>
 
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <button
-                        onClick={() => toggleEmployeeStatus(item.name, item.isPaid)}
+                        onClick={() => toggleEmployeeStatus(item.name, item.statusLabel)}
                         style={{
-                          background: item.isPaid ? "#ffffff" : "#10b981",
-                          color: item.isPaid ? "#10b981" : "#ffffff",
+                          background: item.statusLabel === "Pago" ? "#ffffff" : "#10b981",
+                          color: item.statusLabel === "Pago" ? "#10b981" : "#ffffff",
                           border: "1px solid #10b981",
                           borderRadius: 8,
                           padding: "6px 12px",
@@ -2158,7 +2209,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                           cursor: "pointer",
                         }}
                       >
-                        {item.isPaid ? "Marcar como pendente" : "Marcar como pago"}
+                        {item.statusLabel === "Pago" ? "Marcar todos como pendentes" : "Marcar todos como pagos"}
                       </button>
 
                       <button
@@ -2207,14 +2258,34 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                       {item.items.map((s) => {
                         const itemQty = s.qty || 1;
                         const productLabel = itemQty > 1 ? `${itemQty}x ${s.parsedProduct}` : s.parsedProduct;
+                        const isItemPaid = s.status === "Pago";
 
                         return (
-                          <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "#475569" }}>
-                            <span>
-                              {formatDatePt(s.date)} — <span style={{ color: "#0f172a", fontWeight: 500 }}>{productLabel}</span> — <b>{brl(s.total)}</b>
-                            </span>
+                          <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "#475569", background: isItemPaid ? "#f8fafc" : "transparent", padding: "4px 6px", borderRadius: 8 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
+                              <button
+                                onClick={() => toggleIndividualItemStatus(s)}
+                                disabled={isMonthClosed}
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  cursor: isMonthClosed ? "not-allowed" : "pointer",
+                                  padding: 0,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  color: isItemPaid ? "#10b981" : "#94a3b8",
+                                }}
+                                title={isItemPaid ? "Clique para marcar este item como Pendente" : "Clique para marcar este item como Pago"}
+                              >
+                                {isItemPaid ? <CheckCircle2 size={16} /> : <Clock size={16} />}
+                              </button>
+                              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {formatDatePt(s.date)} — <span style={{ color: "#0f172a", fontWeight: 500 }}>{productLabel}</span> — <b style={{ color: isItemPaid ? "#10b981" : "#0f172a" }}>{brl(s.total)}</b>
+                              </span>
+                            </div>
+
                             {!isMonthClosed ? (
-                              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                              <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
                                 <button
                                   onClick={() => startEditSale(s)}
                                   style={{ border: "none", background: "transparent", cursor: "pointer", color: "#6366f1", padding: 4, display: "flex", alignItems: "center" }}
