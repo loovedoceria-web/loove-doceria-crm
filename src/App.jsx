@@ -32,6 +32,7 @@ import {
   BookOpen,
   AlertTriangle,
   ClipboardList,
+  RotateCcw,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -57,7 +58,7 @@ const CATEGORIAS_GASTO = [
 ];
 const CATEGORIAS_DOC = ["Nota Fiscal", "Comprovante de Gasto", "Contrato", "Outro"];
 const FORMAS_PAGAMENTO = ["Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito"];
-const STATUS_ENCOMENDA = ["Pendente", "Em Produção", "Entregue"];
+const STATUS_ENCOMENDA = ["Pendente", "Em Produção", "Entregue", "Finalizado"];
 
 function brl(value) {
   return (value || 0).toLocaleString("pt-BR", {
@@ -1441,6 +1442,14 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
     }
   }
 
+  async function toggleOrderStatus(order) {
+    const nextStatus = order.status === "Finalizado" ? "Pendente" : "Finalizado";
+    const success = await onUpdate(order.id, { ...order, status: nextStatus });
+    if (success !== false) {
+      showToast(nextStatus === "Finalizado" ? "Encomenda finalizada!" : "Status alterado para Pendente!");
+    }
+  }
+
   const filteredOrders = useMemo(() => {
     let list = orders;
     if (filterStatus !== "Todos") {
@@ -1607,15 +1616,17 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
             const itemQty = o.qty || 1;
             const productName = o.product || o.description || "Produto Geral";
             const obsText = o.product && o.description ? o.description : (o.product ? "" : o.description);
+            const isDone = o.status === "Finalizado";
 
             const badgeStyles = {
               "Pendente": { bg: "#fffbeb", color: "#d97706" },
               "Em Produção": { bg: "#eff6ff", color: "#3b82f6" },
               "Entregue": { bg: "#ecfdf5", color: "#10b981" },
+              "Finalizado": { bg: "#ecfdf5", color: "#10b981" },
             }[o.status] || { bg: "#f1f5f9", color: "#64748b" };
 
             return (
-              <div key={o.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 14, padding: "18px", display: "flex", flexDirection: "column", gap: 12 }}>
+              <div key={o.id} className="card-interactive" style={{ background: "#ffffff", border: isDone ? "1px solid #a7f3d0" : "1px solid #f1f5f9", borderRadius: 14, padding: "18px", display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{o.client_name}</div>
@@ -1644,7 +1655,23 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
                     Restante: <span style={{ fontWeight: 600, color: restante > 0 ? "#ef4444" : "#64748b" }}>{brl(restante)}</span>
                   </div>
                   
-                  <div style={{ display: "flex", gap: 4 }}>
+                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <button
+                      onClick={() => toggleOrderStatus(o)}
+                      style={{
+                        border: "none",
+                        background: isDone ? "#ecfdf5" : "transparent",
+                        cursor: "pointer",
+                        padding: 6,
+                        color: isDone ? "#10b981" : "#10b981",
+                        borderRadius: 8,
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                      title={isDone ? "Marcar como Pendente" : "Marcar como Finalizado"}
+                    >
+                      {isDone ? <RotateCcw size={16} /> : <CheckCircle2 size={16} />}
+                    </button>
                     <button onClick={() => startEditOrder(o)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#6366f1", display: "flex" }} title="Editar encomenda">
                       <Pencil size={16} />
                     </button>
