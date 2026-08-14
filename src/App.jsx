@@ -86,7 +86,7 @@ export default function App() {
   const [ingredients, setIngredients] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [documents, setDocuments] = useState([]);
-  const [orders, setOrders] = useState([]); // Novo estado para Encomendas
+  const [orders, setOrders] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
 
   // Estado do Modal de Confirmação de Exclusão
@@ -359,7 +359,6 @@ export default function App() {
     if (!error) setDocuments((prev) => prev.filter((d) => d.id !== id));
   }
 
-  // --- Funções CRUD para Encomendas ---
   async function addOrder(order) {
     if (!session) return false;
     const { data, error } = await supabase.from("orders").insert(order).select().single();
@@ -397,7 +396,6 @@ export default function App() {
     const { error } = await supabase.from("orders").delete().eq("id", id);
     if (!error) setOrders((prev) => prev.filter((o) => o.id !== id));
   }
-  // ------------------------------------
 
   const today = todayISO();
 
@@ -1364,10 +1362,12 @@ function EmptyState({ text }) {
   return <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 14, padding: "48px 0", border: "1px dashed #e2e8f0", borderRadius: 16, background: "#ffffff" }}>{text}</div>;
 }
 
-// NOVO MÓDULO: ENCOMENDAS
+// MÓDULO: ENCOMENDAS
 function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView }) {
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [clientName, setClientName] = useState("");
+  const [product, setProduct] = useState("");
+  const [qty, setQty] = useState("1");
   const [description, setDescription] = useState("");
   const [deliveryDate, setDeliveryDate] = useState(todayISO());
   const [totalValue, setTotalValue] = useState("");
@@ -1387,7 +1387,9 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
   function startEditOrder(order) {
     setEditingOrderId(order.id);
     setClientName(order.client_name);
-    setDescription(order.description);
+    setProduct(order.product || order.description || "");
+    setQty(order.qty || "1");
+    setDescription(order.description && order.product ? order.description : "");
     setDeliveryDate(order.delivery_date);
     setTotalValue(order.total_value);
     setAdvancePayment(order.advance_payment || "0");
@@ -1398,6 +1400,8 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
   function cancelEditOrder() {
     setEditingOrderId(null);
     setClientName("");
+    setProduct("");
+    setQty("1");
     setDescription("");
     setDeliveryDate(todayISO());
     setTotalValue("");
@@ -1406,14 +1410,16 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
   }
 
   async function submit() {
-    if (!clientName.trim() || !description.trim() || !deliveryDate || !totalValue) {
-      alert("Preencha cliente, descrição, data de entrega e valor total.");
+    if (!clientName.trim() || !product.trim() || !deliveryDate || !totalValue) {
+      alert("Preencha cliente, produto, data de entrega e valor total.");
       return;
     }
 
     const payload = {
       client_name: clientName.trim(),
-      description: description.trim(),
+      product: product.trim(),
+      qty: Math.max(1, parseInt(qty) || 1),
+      description: description.trim() || null,
       delivery_date: deliveryDate,
       total_value: parseFloat(totalValue),
       advance_payment: parseFloat(advancePayment || 0),
@@ -1424,13 +1430,13 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
       const success = await onUpdate(editingOrderId, payload);
       if (success !== false) {
         cancelEditOrder();
-        showToast("Encomenda atualizada!");
+        showToast("Encomenda atualizada com sucesso!");
       }
     } else {
       const success = await onAdd(payload);
       if (success !== false) {
         cancelEditOrder();
-        showToast("Encomenda cadastrada!");
+        showToast("Encomenda cadastrada com sucesso!");
       }
     }
   }
@@ -1442,6 +1448,44 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
     }
     return list;
   }, [orders, filterStatus]);
+
+  function exportOrdersPDF() {
+    const doc = new jsPDF();
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("Relatório de Encomendas - Loove Doceria", 14, 20);
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 28);
+
+    const dadosTabela = filteredOrders.map((o) => {
+      const prodName = o.product || o.description || "Produto Geral";
+      const q = o.qty || 1;
+      const desc = o.description && o.product ? ` (${o.description})` : "";
+      const restante = Number(o.total_value) - Number(o.advance_payment || 0);
+
+      return [
+        formatDatePt(o.delivery_date),
+        o.client_name,
+        `${q}x ${prodName}${desc}`,
+        brl(o.total_value),
+        brl(o.advance_payment),
+        brl(restante),
+        o.status,
+      ];
+    });
+
+    doc.autoTable({
+      startY: 36,
+      head: [["Entrega", "Cliente", "Produto / Observações", "Total", "Sinal", "Falta", "Status"]],
+      body: dadosTabela,
+      theme: "grid",
+      headStyles: { fillColor: [99, 102, 241] },
+    });
+
+    doc.save(`encomendas-${todayISO()}.pdf`);
+  }
 
   return (
     <div style={{ position: "relative" }}>
@@ -1482,15 +1526,29 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
         </div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr 110px", gap: 12 }}>
             <div>
               <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Nome do Cliente</div>
               <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Maria Silva" value={clientName} onChange={(e) => setClientName(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Descrição do Pedido</div>
-              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Bolo de Casamento 3kg + 100 Docinhos" value={description} onChange={(e) => setDescription(e.target.value)} />
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Produto</div>
+              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Bolo de Casamento 3kg" value={product} onChange={(e) => setProduct(e.target.value)} />
             </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Quantidade</div>
+              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" min="1" step="1" value={qty} onChange={(e) => setQty(e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Descrição / Observações Adicionais</div>
+            <textarea
+              style={{ ...inputStyle, width: "100%", boxSizing: "border-box", minHeight: 70, resize: "vertical", fontFamily: "inherit" }}
+              placeholder="Ex: Recheio de ninho com morango, sem lactose, topo com nome 'Ana 15 anos'..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, alignItems: "end" }}>
@@ -1521,12 +1579,21 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
       </div>
 
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Lista de Encomendas</div>
-          <select style={{ ...inputStyle, width: 200, padding: "8px 12px" }} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            <option value="Todos">Todos os Status</option>
-            {STATUS_ENCOMENDA.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <select style={{ ...inputStyle, width: 180, padding: "8px 12px" }} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+              <option value="Todos">Todos os Status</option>
+              {STATUS_ENCOMENDA.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+
+            {filteredOrders.length > 0 && (
+              <button onClick={exportOrdersPDF} style={{ background: "#6366f1", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                <FileText size={15} /> Exportar PDF
+              </button>
+            )}
+          </div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
@@ -1537,7 +1604,10 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
           )}
           {filteredOrders.map((o) => {
             const restante = Number(o.total_value) - Number(o.advance_payment || 0);
-            
+            const itemQty = o.qty || 1;
+            const productName = o.product || o.description || "Produto Geral";
+            const obsText = o.product && o.description ? o.description : (o.product ? "" : o.description);
+
             const badgeStyles = {
               "Pendente": { bg: "#fffbeb", color: "#d97706" },
               "Em Produção": { bg: "#eff6ff", color: "#3b82f6" },
@@ -1549,15 +1619,22 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{o.client_name}</div>
-                    <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>Para: <span style={{ fontWeight: 600, color: "#0f172a" }}>{formatDatePt(o.delivery_date)}</span></div>
+                    <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>Entrega: <span style={{ fontWeight: 600, color: "#0f172a" }}>{formatDatePt(o.delivery_date)}</span></div>
                   </div>
                   <span style={{ fontSize: 11, fontWeight: 600, padding: "4px 8px", borderRadius: 6, background: badgeStyles.bg, color: badgeStyles.color }}>
                     {o.status}
                   </span>
                 </div>
 
-                <div style={{ fontSize: 14, color: "#475569", background: "#f8fafc", padding: "10px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                  {o.description}
+                <div style={{ background: "#f8fafc", padding: "12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>
+                    {itemQty > 1 ? `${itemQty}x ` : ""}{productName}
+                  </div>
+                  {obsText && (
+                    <div style={{ fontSize: 13, color: "#64748b", marginTop: 4, whiteSpace: "pre-line" }}>
+                      {obsText}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
@@ -2432,7 +2509,6 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
             {resumoMes.map((item, index) => {
               const isExpanded = !!expandedCards[item.name];
 
-              // Cores e estilos do badge de acordo com o status
               const badgeStyles = {
                 Pago: { bg: "#ecfdf5", color: "#10b981", icon: <CheckCircle2 size={12} /> },
                 Parcial: { bg: "#fffbeb", color: "#d97706", icon: <Clock size={12} /> },
