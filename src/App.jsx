@@ -30,6 +30,7 @@ import {
   Pencil,
   Loader2,
   BookOpen,
+  AlertTriangle,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -84,6 +85,35 @@ export default function App() {
   const [recipes, setRecipes] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
+
+  // Estado do Modal de Confirmação de Exclusão
+  const [deleteConfirmation, setDeleteConfirmation] = useState({
+    isOpen: false,
+    title: "",
+    itemName: "",
+    onConfirm: null,
+  });
+
+  function requestDelete(itemName, onConfirm, title = "Excluir Item") {
+    setDeleteConfirmation({
+      isOpen: true,
+      title,
+      itemName,
+      onConfirm: async () => {
+        await onConfirm();
+        setDeleteConfirmation((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
+  }
+
+  function closeDeleteDialog() {
+    setDeleteConfirmation({
+      isOpen: false,
+      title: "",
+      itemName: "",
+      onConfirm: null,
+    });
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -451,6 +481,14 @@ export default function App() {
         }
       `}</style>
 
+      <ConfirmDialog
+        isOpen={deleteConfirmation.isOpen}
+        title={deleteConfirmation.title}
+        itemName={deleteConfirmation.itemName}
+        onConfirm={deleteConfirmation.onConfirm}
+        onCancel={closeDeleteDialog}
+      />
+
       <Sidebar
         view={view}
         setView={setView}
@@ -480,12 +518,39 @@ export default function App() {
                 onAdd={addProduct} 
                 onUpdate={updateProduct} 
                 onRemove={removeProduct} 
+                requestDelete={requestDelete}
                 setView={setView} 
               />
             )}
-            {view === "vendas" && <Vendas products={products} sales={sales} onAdd={addSale} onRemove={removeSale} setView={setView} />}
-            {view === "gastos" && <Gastos expenses={expenses} onAdd={addExpense} onRemove={removeExpense} setView={setView} />}
-            {view === "empresa" && <VendasEmpresa sales={sales} products={products} onAdd={addSale} onRemove={removeSale} onUpdate={updateSale} />}
+            {view === "vendas" && (
+              <Vendas
+                products={products}
+                sales={sales}
+                onAdd={addSale}
+                onRemove={removeSale}
+                requestDelete={requestDelete}
+                setView={setView}
+              />
+            )}
+            {view === "gastos" && (
+              <Gastos
+                expenses={expenses}
+                onAdd={addExpense}
+                onRemove={removeExpense}
+                requestDelete={requestDelete}
+                setView={setView}
+              />
+            )}
+            {view === "empresa" && (
+              <VendasEmpresa
+                sales={sales}
+                products={products}
+                onAdd={addSale}
+                onRemove={removeSale}
+                onUpdate={updateSale}
+                requestDelete={requestDelete}
+              />
+            )}
             {view === "precificacao" && (
               <Precificacao
                 ingredients={ingredients}
@@ -496,11 +561,134 @@ export default function App() {
                 onAddRec={addRecipe}
                 onRemoveRec={removeRecipe}
                 onUpdateRec={updateRecipe}
+                requestDelete={requestDelete}
               />
             )}
-            {view === "documentos" && <Documentos documents={documents} expenses={expenses} onAdd={addDocument} onRemove={removeDocument} />}
+            {view === "documentos" && (
+              <Documentos
+                documents={documents}
+                expenses={expenses}
+                onAdd={addDocument}
+                onRemove={removeDocument}
+                requestDelete={requestDelete}
+              />
+            )}
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ConfirmDialog({ isOpen, title, itemName, onConfirm, onCancel }) {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(15, 23, 42, 0.45)",
+        backdropFilter: "blur(3px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 9999,
+        padding: 16,
+      }}
+      onClick={onCancel}
+    >
+      <div
+        style={{
+          background: "#ffffff",
+          borderRadius: 18,
+          padding: 24,
+          maxWidth: 420,
+          width: "100%",
+          boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+          border: "1px solid #f1f5f9",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              backgroundColor: "#fef2f2",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#ef4444",
+              flexShrink: 0,
+            }}
+          >
+            <AlertTriangle size={20} />
+          </div>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+              {title || "Confirmar Exclusão"}
+            </h3>
+            <p style={{ margin: "2px 0 0", fontSize: 13, color: "#64748b" }}>
+              Esta ação é permanente e não poderá ser desfeita.
+            </p>
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: 10,
+            padding: "10px 14px",
+            fontSize: 13,
+            color: "#334155",
+            fontWeight: 500,
+            marginBottom: 20,
+            wordBreak: "break-word",
+          }}
+        >
+          Item: <span style={{ fontWeight: 700, color: "#0f172a" }}>{itemName}</span>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: 10,
+              padding: "9px 16px",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#475569",
+              cursor: "pointer",
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            style={{
+              background: "#ef4444",
+              border: "none",
+              borderRadius: 10,
+              padding: "9px 18px",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#ffffff",
+              cursor: "pointer",
+            }}
+          >
+            Excluir
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1119,7 +1307,7 @@ function EmptyState({ text }) {
   return <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 14, padding: "48px 0", border: "1px dashed #e2e8f0", borderRadius: 16, background: "#ffffff" }}>{text}</div>;
 }
 
-function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, setView }) {
+function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDelete, setView }) {
   const [editingProductId, setEditingProductId] = useState(null);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
@@ -1264,7 +1452,7 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, setView })
               subtitle={`${p.category} ${p.linked_ingredient ? `· Insumo: ${p.linked_ingredient}` : ""}`}
               value={brl(p.price)}
               onEdit={() => startEditProduct(p)}
-              onDelete={() => onRemove(p.id)}
+              onDelete={() => requestDelete(p.name, () => onRemove(p.id), "Excluir Produto")}
             />
           ))}
         </div>
@@ -1273,7 +1461,7 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, setView })
   );
 }
 
-function Vendas({ products, sales, onAdd, onRemove, setView }) {
+function Vendas({ products, sales, onAdd, onRemove, requestDelete, setView }) {
   const [mode, setMode] = useState("catalogo");
   const [productId, setProductId] = useState("");
   const [qty, setQty] = useState(1);
@@ -1360,7 +1548,7 @@ function Vendas({ products, sales, onAdd, onRemove, setView }) {
               subtitle={`${formatDatePt(s.date)} · ${s.payment} ${s.qty > 1 ? `· Qtd: ${s.qty}` : ""}`}
               value={brl(s.total)}
               valueColor="#10b981"
-              onDelete={() => onRemove(s.id)}
+              onDelete={() => requestDelete(`${s.product_name} (${brl(s.total)})`, () => onRemove(s.id), "Excluir Venda")}
             />
           ))}
         </div>
@@ -1369,7 +1557,7 @@ function Vendas({ products, sales, onAdd, onRemove, setView }) {
   );
 }
 
-function Gastos({ expenses, onAdd, onRemove, setView }) {
+function Gastos({ expenses, onAdd, onRemove, requestDelete, setView }) {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState(CATEGORIAS_GASTO[0]);
   const [value, setValue] = useState("");
@@ -1423,7 +1611,7 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
               subtitle={`${formatDatePt(g.date)} · ${g.category}`}
               value={brl(g.value)}
               valueColor="#ef4444"
-              onDelete={() => onRemove(g.id)}
+              onDelete={() => requestDelete(`${g.description} (${brl(g.value)})`, () => onRemove(g.id), "Excluir Gasto")}
             />
           ))}
         </div>
@@ -1432,7 +1620,7 @@ function Gastos({ expenses, onAdd, onRemove, setView }) {
   );
 }
 
-function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
+function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDelete }) {
   const [editingSaleId, setEditingSaleId] = useState(null);
   const [personName, setPersonName] = useState("");
   const [productName, setProductName] = useState("");
@@ -2035,7 +2223,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
                                   <Pencil size={14} />
                                 </button>
                                 <button
-                                  onClick={() => onRemove(s.id)}
+                                  onClick={() => requestDelete(`${productLabel} (${brl(s.total)})`, () => onRemove(s.id), "Excluir Lançamento")}
                                   style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 4, display: "flex", alignItems: "center" }}
                                   title="Excluir lançamento"
                                 >
@@ -2069,6 +2257,7 @@ function Precificacao({
   onAddRec,
   onRemoveRec,
   onUpdateRec,
+  requestDelete,
 }) {
   const [tab, setTab] = useState("ingredientes");
   const [toastMessage, setToastMessage] = useState("");
@@ -2390,7 +2579,7 @@ function Precificacao({
                     <button onClick={() => startEditIngredient(i)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#6366f1", padding: 6 }} title="Editar ingrediente">
                       <Pencil size={16} />
                     </button>
-                    <button onClick={() => onRemoveIng(i.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 6 }} title="Excluir ingrediente">
+                    <button onClick={() => requestDelete(i.name, () => onRemoveIng(i.id), "Excluir Ingrediente")} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 6 }} title="Excluir ingrediente">
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -2425,7 +2614,7 @@ function Precificacao({
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 12, alignItems: "end" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 12, alignItems: "end", marginBottom: 16 }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Selecionar Ingrediente</div>
                 <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={selectedIngId} onChange={(e) => setSelectedIngId(e.target.value)}>
@@ -2511,7 +2700,7 @@ function Precificacao({
                         <button onClick={() => startEditRecipe(rec)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#6366f1", padding: 6 }} title="Editar receita">
                           <Pencil size={18} />
                         </button>
-                        <button onClick={() => onRemoveRec(rec.id)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 6 }} title="Excluir receita">
+                        <button onClick={() => requestDelete(rec.product_name, () => onRemoveRec(rec.id), "Excluir Ficha Técnica")} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 6 }} title="Excluir receita">
                           <Trash2 size={18} />
                         </button>
                       </div>
@@ -2565,7 +2754,7 @@ function Precificacao({
   );
 }
 
-function Documentos({ documents, expenses, onAdd, onRemove }) {
+function Documentos({ documents, expenses, onAdd, onRemove, requestDelete }) {
   const [docName, setDocName] = useState("");
   const [category, setCategory] = useState(CATEGORIAS_DOC[0]);
   const [date, setDate] = useState(todayISO());
@@ -2768,7 +2957,7 @@ function Documentos({ documents, expenses, onAdd, onRemove }) {
                     </a>
                   </div>
                   <button
-                    onClick={() => onRemove(doc.id)}
+                    onClick={() => requestDelete(doc.name, () => onRemove(doc.id), "Excluir Documento")}
                     style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 4, display: "flex" }}
                     title="Excluir documento"
                   >
