@@ -525,7 +525,7 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
         borderRight: "1px solid #f1f5f9",
         display: "flex",
         flexDirection: "column",
-        justify: "space-between",
+        justifyContent: "space-between",
         padding: isCollapsed ? "24px 12px" : "24px 16px",
         position: "fixed",
         top: 0,
@@ -1670,6 +1670,58 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
     doc.save(`vendas-empresa-${selectedMonth}.pdf`);
   }
 
+  function gerarPDFIndividual(item) {
+    const doc = new jsPDF();
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.setTextColor(99, 102, 241);
+    doc.text("Loove Doceria", 14, 20);
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text("Extrato Individual - Vendas Empresa", 14, 26);
+
+    doc.setDrawColor(241, 245, 249);
+    doc.line(14, 30, 196, 30);
+
+    doc.setFontSize(15);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text(`Cliente: ${item.name}`, 14, 40);
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Mês de Referência: ${formatMonthLabel(selectedMonth)}`, 14, 47);
+    doc.text(`Status: ${item.isPaid ? "Pago" : "Pendente"}`, 14, 53);
+    doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 59);
+
+    const dadosTabela = (item.items || []).map((s) => {
+      const itemQty = s.qty || 1;
+      const productLabel = itemQty > 1 ? `${itemQty}x ${s.parsedProduct}` : s.parsedProduct;
+      return [formatDatePt(s.date), productLabel, brl(s.total)];
+    });
+
+    doc.autoTable({
+      startY: 65,
+      head: [["Data", "Item / Produto Comprado", "Valor"]],
+      body: dadosTabela,
+      theme: "grid",
+      headStyles: { fillColor: [99, 102, 241] },
+      foot: [["Total do Mês", "", brl(item.sum)]],
+      footStyles: { fillColor: [248, 250, 252], textColor: [15, 23, 42], fontStyle: "bold" },
+    });
+
+    const [ano, mesNum] = selectedMonth.split("-");
+    const dataRef = new Date(Number(ano), Number(mesNum) - 1, 1);
+    const nomeMes = dataRef.toLocaleDateString("pt-BR", { month: "long" }).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const safeClientName = item.name.toLowerCase().trim().replace(/\s+/g, "-").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
+    doc.save(`${safeClientName}_${nomeMes}_${ano}.pdf`);
+  }
+
   return (
     <div style={{ position: "relative" }}>
       {toastMessage && (
@@ -1903,22 +1955,44 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate }) {
                     <div style={{ fontWeight: 700, color: "#6366f1", fontSize: 18 }}>{brl(item.sum)}</div>
                   </div>
 
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                    <button
-                      onClick={() => toggleEmployeeStatus(item.name, item.isPaid)}
-                      style={{
-                        background: item.isPaid ? "#ffffff" : "#10b981",
-                        color: item.isPaid ? "#10b981" : "#ffffff",
-                        border: "1px solid #10b981",
-                        borderRadius: 8,
-                        padding: "6px 12px",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                      }}
-                    >
-                      {item.isPaid ? "Marcar como pendente" : "Marcar como pago"}
-                    </button>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button
+                        onClick={() => toggleEmployeeStatus(item.name, item.isPaid)}
+                        style={{
+                          background: item.isPaid ? "#ffffff" : "#10b981",
+                          color: item.isPaid ? "#10b981" : "#ffffff",
+                          border: "1px solid #10b981",
+                          borderRadius: 8,
+                          padding: "6px 12px",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {item.isPaid ? "Marcar como pendente" : "Marcar como pago"}
+                      </button>
+
+                      <button
+                        onClick={() => gerarPDFIndividual(item)}
+                        style={{
+                          background: "#eef2ff",
+                          color: "#6366f1",
+                          border: "1px solid #e0e7ff",
+                          borderRadius: 8,
+                          padding: "6px 12px",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                        title="Exportar extrato individual em PDF"
+                      >
+                        <FileText size={14} /> Exportar PDF
+                      </button>
+                    </div>
 
                     <button
                       onClick={() => toggleExpand(item.name)}
@@ -2351,7 +2425,7 @@ function Precificacao({
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 12, alignItems: "end", marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 12, alignItems: "end" }}>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Selecionar Ingrediente</div>
                 <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={selectedIngId} onChange={(e) => setSelectedIngId(e.target.value)}>
