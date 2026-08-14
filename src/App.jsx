@@ -31,6 +31,7 @@ import {
   Loader2,
   BookOpen,
   AlertTriangle,
+  ClipboardList,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -56,6 +57,7 @@ const CATEGORIAS_GASTO = [
 ];
 const CATEGORIAS_DOC = ["Nota Fiscal", "Comprovante de Gasto", "Contrato", "Outro"];
 const FORMAS_PAGAMENTO = ["Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito"];
+const STATUS_ENCOMENDA = ["Pendente", "Em Produção", "Entregue"];
 
 function brl(value) {
   return (value || 0).toLocaleString("pt-BR", {
@@ -84,6 +86,7 @@ export default function App() {
   const [ingredients, setIngredients] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [documents, setDocuments] = useState([]);
+  const [orders, setOrders] = useState([]); // Novo estado para Encomendas
   const [dataLoading, setDataLoading] = useState(false);
 
   // Estado do Modal de Confirmação de Exclusão
@@ -149,18 +152,20 @@ export default function App() {
       setIngredients([]);
       setRecipes([]);
       setDocuments([]);
+      setOrders([]);
       return;
     }
     (async () => {
       setDataLoading(true);
       try {
-        const [p, s, g, ing, rec, doc] = await Promise.all([
+        const [p, s, g, ing, rec, doc, ord] = await Promise.all([
           supabase.from("products").select("*").order("created_at", { ascending: false }),
           supabase.from("sales").select("*").order("date", { ascending: false }),
           supabase.from("expenses").select("*").order("date", { ascending: false }),
           supabase.from("ingredients").select("*").order("name"),
           supabase.from("recipes").select("*").order("created_at", { ascending: false }),
           supabase.from("documents").select("*").order("date", { ascending: false }),
+          supabase.from("orders").select("*").order("delivery_date", { ascending: true }),
         ]);
         if (p.data) setProducts(p.data);
         if (s.data) setSales(s.data);
@@ -168,6 +173,7 @@ export default function App() {
         if (ing.data) setIngredients(ing.data);
         if (rec.data) setRecipes(rec.data);
         if (doc.data) setDocuments(doc.data);
+        if (ord.data) setOrders(ord.data);
       } catch (err) {
         console.error("Erro ao carregar dados:", err);
       }
@@ -353,6 +359,46 @@ export default function App() {
     if (!error) setDocuments((prev) => prev.filter((d) => d.id !== id));
   }
 
+  // --- Funções CRUD para Encomendas ---
+  async function addOrder(order) {
+    if (!session) return false;
+    const { data, error } = await supabase.from("orders").insert(order).select().single();
+    if (error) {
+      alert("Erro ao salvar encomenda: " + error.message);
+      return false;
+    }
+    if (data) {
+      setOrders((prev) => {
+        const newList = [...prev, data];
+        return newList.sort((a, b) => new Date(a.delivery_date) - new Date(b.delivery_date));
+      });
+      return true;
+    }
+  }
+
+  async function updateOrder(id, order) {
+    if (!session) return false;
+    const { data, error } = await supabase.from("orders").update(order).eq("id", id).select().single();
+    if (error) {
+      alert("Erro ao atualizar encomenda: " + error.message);
+      return false;
+    }
+    if (data) {
+      setOrders((prev) => {
+        const newList = prev.map((o) => (o.id === id ? data : o));
+        return newList.sort((a, b) => new Date(a.delivery_date) - new Date(b.delivery_date));
+      });
+      return true;
+    }
+  }
+
+  async function removeOrder(id) {
+    if (!session) return;
+    const { error } = await supabase.from("orders").delete().eq("id", id);
+    if (!error) setOrders((prev) => prev.filter((o) => o.id !== id));
+  }
+  // ------------------------------------
+
   const today = todayISO();
 
   const metrics = useMemo(() => {
@@ -509,6 +555,16 @@ export default function App() {
                 sales={sales}
                 expenses={expenses}
                 setView={setView}
+              />
+            )}
+            {view === "encomendas" && (
+              <Encomendas 
+                orders={orders} 
+                onAdd={addOrder} 
+                onUpdate={updateOrder} 
+                onRemove={removeOrder} 
+                requestDelete={requestDelete} 
+                setView={setView} 
               />
             )}
             {view === "produtos" && (
@@ -697,6 +753,7 @@ function ConfirmDialog({ isOpen, title, itemName, onConfirm, onCancel }) {
 function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
   const items = [
     { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
+    { key: "encomendas", label: "Encomendas", icon: ClipboardList },
     { key: "produtos", label: "Produtos", icon: Cookie },
     { key: "vendas", label: "Vendas", icon: ShoppingCart },
     { key: "gastos", label: "Gastos", icon: Receipt },
@@ -1307,6 +1364,227 @@ function EmptyState({ text }) {
   return <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 14, padding: "48px 0", border: "1px dashed #e2e8f0", borderRadius: 16, background: "#ffffff" }}>{text}</div>;
 }
 
+// NOVO MÓDULO: ENCOMENDAS
+function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView }) {
+  const [editingOrderId, setEditingOrderId] = useState(null);
+  const [clientName, setClientName] = useState("");
+  const [description, setDescription] = useState("");
+  const [deliveryDate, setDeliveryDate] = useState(todayISO());
+  const [totalValue, setTotalValue] = useState("");
+  const [advancePayment, setAdvancePayment] = useState("");
+  const [status, setStatus] = useState(STATUS_ENCOMENDA[0]);
+
+  const [toastMessage, setToastMessage] = useState("");
+  const [filterStatus, setFilterStatus] = useState("Todos");
+
+  function showToast(msg) {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage("");
+    }, 3000);
+  }
+
+  function startEditOrder(order) {
+    setEditingOrderId(order.id);
+    setClientName(order.client_name);
+    setDescription(order.description);
+    setDeliveryDate(order.delivery_date);
+    setTotalValue(order.total_value);
+    setAdvancePayment(order.advance_payment || "0");
+    setStatus(order.status);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEditOrder() {
+    setEditingOrderId(null);
+    setClientName("");
+    setDescription("");
+    setDeliveryDate(todayISO());
+    setTotalValue("");
+    setAdvancePayment("");
+    setStatus(STATUS_ENCOMENDA[0]);
+  }
+
+  async function submit() {
+    if (!clientName.trim() || !description.trim() || !deliveryDate || !totalValue) {
+      alert("Preencha cliente, descrição, data de entrega e valor total.");
+      return;
+    }
+
+    const payload = {
+      client_name: clientName.trim(),
+      description: description.trim(),
+      delivery_date: deliveryDate,
+      total_value: parseFloat(totalValue),
+      advance_payment: parseFloat(advancePayment || 0),
+      status,
+    };
+
+    if (editingOrderId) {
+      const success = await onUpdate(editingOrderId, payload);
+      if (success !== false) {
+        cancelEditOrder();
+        showToast("Encomenda atualizada!");
+      }
+    } else {
+      const success = await onAdd(payload);
+      if (success !== false) {
+        cancelEditOrder();
+        showToast("Encomenda cadastrada!");
+      }
+    }
+  }
+
+  const filteredOrders = useMemo(() => {
+    let list = orders;
+    if (filterStatus !== "Todos") {
+      list = list.filter((o) => o.status === filterStatus);
+    }
+    return list;
+  }, [orders, filterStatus]);
+
+  return (
+    <div style={{ position: "relative" }}>
+      {toastMessage && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            background: "#10b981",
+            color: "#ffffff",
+            padding: "12px 20px",
+            borderRadius: 12,
+            fontWeight: 600,
+            fontSize: 14,
+            boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <CheckCircle2 size={18} />
+          {toastMessage}
+        </div>
+      )}
+
+      <SectionTitleWithBack title="Gerenciador de Encomendas" onBack={() => setView("dashboard")} />
+
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, marginBottom: 28, boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>{editingOrderId ? "Editar Encomenda" : "Nova Encomenda"}</span>
+          {editingOrderId && (
+            <button onClick={cancelEditOrder} style={{ background: "transparent", border: "1px solid #cbd5e1", color: "#64748b", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              Cancelar Edição
+            </button>
+          )}
+        </div>
+        
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Nome do Cliente</div>
+              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Maria Silva" value={clientName} onChange={(e) => setClientName(e.target.value)} />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Descrição do Pedido</div>
+              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Bolo de Casamento 3kg + 100 Docinhos" value={description} onChange={(e) => setDescription(e.target.value)} />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, alignItems: "end" }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Data de Entrega</div>
+              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Valor Total (R$)</div>
+              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="0,00" value={totalValue} onChange={(e) => setTotalValue(e.target.value)} />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Sinal / Pago (R$)</div>
+              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="0,00" value={advancePayment} onChange={(e) => setAdvancePayment(e.target.value)} />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Status</div>
+              <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={status} onChange={(e) => setStatus(e.target.value)}>
+                {STATUS_ENCOMENDA.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <button style={primaryBtnStyle} onClick={submit}>
+            {editingOrderId ? "Salvar Alterações" : "Salvar Encomenda"}
+          </button>
+        </div>
+      </div>
+
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Lista de Encomendas</div>
+          <select style={{ ...inputStyle, width: 200, padding: "8px 12px" }} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+            <option value="Todos">Todos os Status</option>
+            {STATUS_ENCOMENDA.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+          {filteredOrders.length === 0 && (
+            <div style={{ gridColumn: "span 2" }}>
+              <EmptyState text="Nenhuma encomenda encontrada." />
+            </div>
+          )}
+          {filteredOrders.map((o) => {
+            const restante = Number(o.total_value) - Number(o.advance_payment || 0);
+            
+            const badgeStyles = {
+              "Pendente": { bg: "#fffbeb", color: "#d97706" },
+              "Em Produção": { bg: "#eff6ff", color: "#3b82f6" },
+              "Entregue": { bg: "#ecfdf5", color: "#10b981" },
+            }[o.status] || { bg: "#f1f5f9", color: "#64748b" };
+
+            return (
+              <div key={o.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 14, padding: "18px", display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{o.client_name}</div>
+                    <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>Para: <span style={{ fontWeight: 600, color: "#0f172a" }}>{formatDatePt(o.delivery_date)}</span></div>
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 600, padding: "4px 8px", borderRadius: 6, background: badgeStyles.bg, color: badgeStyles.color }}>
+                    {o.status}
+                  </span>
+                </div>
+
+                <div style={{ fontSize: 14, color: "#475569", background: "#f8fafc", padding: "10px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                  {o.description}
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+                  <div style={{ fontSize: 12, color: "#64748b" }}>
+                    Total: <span style={{ fontWeight: 600, color: "#0f172a" }}>{brl(o.total_value)}</span><br/>
+                    Sinal: <span style={{ fontWeight: 600, color: "#10b981" }}>{brl(o.advance_payment)}</span><br/>
+                    Restante: <span style={{ fontWeight: 600, color: restante > 0 ? "#ef4444" : "#64748b" }}>{brl(restante)}</span>
+                  </div>
+                  
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button onClick={() => startEditOrder(o)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#6366f1", display: "flex" }} title="Editar encomenda">
+                      <Pencil size={16} />
+                    </button>
+                    <button onClick={() => requestDelete(`Encomenda de ${o.client_name}`, () => onRemove(o.id), "Excluir Encomenda")} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#cbd5e1", display: "flex" }} title="Excluir encomenda">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDelete, setView }) {
   const [editingProductId, setEditingProductId] = useState(null);
   const [name, setName] = useState("");
@@ -1827,14 +2105,12 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
     return resumoMes.reduce((acc, item) => acc + item.sum, 0);
   }, [resumoMes]);
 
-  // Calcula apenas os itens individuais que ainda estão pendentes
   const totalPendenteMes = useMemo(() => {
     return listaDetalhadaMes
       .filter((s) => s.status !== "Pago")
       .reduce((acc, item) => acc + Number(item.total), 0);
   }, [listaDetalhadaMes]);
 
-  // Ação em massa: marca todos os itens do cliente como pagos ou pendentes
   async function toggleEmployeeStatus(person, currentStatusLabel) {
     const newStatus = currentStatusLabel === "Pago" ? "Pendente" : "Pago";
     const itemsToUpdate = listaDetalhadaMes.filter((s) => parseSaleTarget(s.product_name).person === person);
@@ -1843,7 +2119,6 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
     }
   }
 
-  // Alterna o status de um item específico individualmente
   async function toggleIndividualItemStatus(saleItem) {
     const newStatus = saleItem.status === "Pago" ? "Pendente" : "Pago";
     await onUpdate(saleItem.id, { status: newStatus });
