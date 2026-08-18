@@ -34,6 +34,7 @@ import {
   ClipboardList,
   RotateCcw,
   Calendar,
+  X,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -91,6 +92,18 @@ export default function App() {
   const [orders, setOrders] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
 
+  // Sistema de Toasts Modernos
+  const [toasts, setToasts] = useState([]);
+
+  function addToast(message, type = "success") {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  }
+
+  // Modal de Confirmação de Exclusão
   const [deleteConfirmation, setDeleteConfirmation] = useState({
     isOpen: false,
     title: "",
@@ -177,6 +190,7 @@ export default function App() {
         if (ord.data) setOrders(ord.data);
       } catch (err) {
         console.error("Erro ao carregar dados:", err);
+        addToast("Erro ao carregar dados.", "error");
       }
       setDataLoading(false);
     })();
@@ -186,11 +200,12 @@ export default function App() {
     if (!session) return false;
     const { data, error } = await supabase.from("products").insert(product).select().single();
     if (error) {
-      alert("Erro ao salvar produto: " + error.message);
+      addToast("Erro ao salvar produto: " + error.message, "error");
       return false;
     }
     if (data) {
       setProducts((prev) => [data, ...prev]);
+      addToast("Produto cadastrado com sucesso!");
       return true;
     }
   }
@@ -199,11 +214,12 @@ export default function App() {
     if (!session) return false;
     const { data, error } = await supabase.from("products").update(product).eq("id", id).select().single();
     if (error) {
-      alert("Erro ao atualizar produto: " + error.message);
+      addToast("Erro ao atualizar produto: " + error.message, "error");
       return false;
     }
     if (data) {
       setProducts((prev) => prev.map((p) => (p.id === id ? data : p)));
+      addToast("Produto atualizado com sucesso!");
       return true;
     }
   }
@@ -211,22 +227,28 @@ export default function App() {
   async function removeProduct(id) {
     if (!session) return;
     const { error } = await supabase.from("products").delete().eq("id", id);
-    if (!error) setProducts((prev) => prev.filter((p) => p.id !== id));
+    if (!error) {
+      setProducts((prev) => prev.filter((p) => p.id !== id));
+      addToast("Produto excluído.");
+    } else {
+      addToast("Erro ao excluir: " + error.message, "error");
+    }
   }
 
   async function addSale(sale) {
     if (!session) return false;
     if (Number(sale.total) < 0) {
-      alert("Valor inválido.");
+      addToast("Valor inválido.", "error");
       return false;
     }
     const { data, error } = await supabase.from("sales").insert(sale).select().single();
     if (error) {
-      alert("Erro ao salvar venda: " + error.message);
+      addToast("Erro ao salvar venda: " + error.message, "error");
       return false;
     }
     if (data) {
       setSales((prev) => [data, ...prev]);
+      addToast("Venda registrada com sucesso!");
       return true;
     }
   }
@@ -234,18 +256,24 @@ export default function App() {
   async function removeSale(id) {
     if (!session) return;
     const { error } = await supabase.from("sales").delete().eq("id", id);
-    if (!error) setSales((prev) => prev.filter((s) => s.id !== id));
+    if (!error) {
+      setSales((prev) => prev.filter((s) => s.id !== id));
+      addToast("Lançamento de venda excluído.");
+    } else {
+      addToast("Erro ao excluir venda: " + error.message, "error");
+    }
   }
 
   async function updateSale(id, updates) {
     if (!session) return false;
     const { data, error } = await supabase.from("sales").update(updates).eq("id", id).select().single();
     if (error) {
-      alert("Erro ao atualizar venda: " + error.message);
+      addToast("Erro ao atualizar venda: " + error.message, "error");
       return false;
     }
     if (data) {
       setSales((prev) => prev.map((s) => (s.id === id ? data : s)));
+      addToast("Venda atualizada com sucesso!");
       return true;
     }
   }
@@ -253,16 +281,17 @@ export default function App() {
   async function addExpense(expense) {
     if (!session) return false;
     if (Number(expense.value) < 0) {
-      alert("Valor de gasto inválido.");
+      addToast("Valor de gasto inválido.", "error");
       return false;
     }
     const { data, error } = await supabase.from("expenses").insert(expense).select().single();
     if (error) {
-      alert("Erro ao salvar gasto: " + error.message);
+      addToast("Erro ao salvar gasto: " + error.message, "error");
       return false;
     }
     if (data) {
       setExpenses((prev) => [data, ...prev]);
+      addToast("Gasto registrado com sucesso!");
       return true;
     }
   }
@@ -270,18 +299,24 @@ export default function App() {
   async function removeExpense(id) {
     if (!session) return;
     const { error } = await supabase.from("expenses").delete().eq("id", id);
-    if (!error) setExpenses((prev) => prev.filter((g) => g.id !== id));
+    if (!error) {
+      setExpenses((prev) => prev.filter((g) => g.id !== id));
+      addToast("Gasto excluído.");
+    } else {
+      addToast("Erro ao excluir gasto: " + error.message, "error");
+    }
   }
 
   async function addIngredient(ing) {
     if (!session) return false;
     const { data, error } = await supabase.from("ingredients").insert(ing).select().single();
     if (error) {
-      alert("Erro ao salvar ingrediente: " + error.message);
+      addToast("Erro ao salvar ingrediente: " + error.message, "error");
       return false;
     }
     if (data) {
       setIngredients((prev) => [...prev, data]);
+      addToast("Ingrediente cadastrado com sucesso!");
       return true;
     }
   }
@@ -290,11 +325,12 @@ export default function App() {
     if (!session) return false;
     const { data, error } = await supabase.from("ingredients").update(ing).eq("id", id).select().single();
     if (error) {
-      alert("Erro ao atualizar ingrediente: " + error.message);
+      addToast("Erro ao atualizar ingrediente: " + error.message, "error");
       return false;
     }
     if (data) {
       setIngredients((prev) => prev.map((i) => (i.id === id ? data : i)));
+      addToast("Ingrediente atualizado!");
       return true;
     }
   }
@@ -302,18 +338,24 @@ export default function App() {
   async function removeIngredient(id) {
     if (!session) return;
     const { error } = await supabase.from("ingredients").delete().eq("id", id);
-    if (!error) setIngredients((prev) => prev.filter((i) => i.id !== id));
+    if (!error) {
+      setIngredients((prev) => prev.filter((i) => i.id !== id));
+      addToast("Ingrediente excluído.");
+    } else {
+      addToast("Erro ao excluir ingrediente: " + error.message, "error");
+    }
   }
 
   async function addRecipe(rec) {
     if (!session) return false;
     const { data, error } = await supabase.from("recipes").insert(rec).select().single();
     if (error) {
-      alert("Erro ao salvar receita: " + error.message);
+      addToast("Erro ao salvar receita: " + error.message, "error");
       return false;
     }
     if (data) {
       setRecipes((prev) => [data, ...prev]);
+      addToast("Ficha técnica cadastrada!");
       return true;
     }
   }
@@ -322,11 +364,12 @@ export default function App() {
     if (!session) return false;
     const { data, error } = await supabase.from("recipes").update(rec).eq("id", id).select().single();
     if (error) {
-      alert("Erro ao atualizar receita: " + error.message);
+      addToast("Erro ao atualizar receita: " + error.message, "error");
       return false;
     }
     if (data) {
       setRecipes((prev) => prev.map((r) => (r.id === id ? data : r)));
+      addToast("Ficha técnica atualizada!");
       return true;
     }
   }
@@ -334,22 +377,24 @@ export default function App() {
   async function removeRecipe(id) {
     if (!session) return;
     const { error } = await supabase.from("recipes").delete().eq("id", id);
-    if (error) {
-      alert("Erro ao excluir receita: " + error.message);
-      return;
+    if (!error) {
+      setRecipes((prev) => prev.filter((r) => r.id !== id));
+      addToast("Ficha técnica excluída.");
+    } else {
+      addToast("Erro ao excluir: " + error.message, "error");
     }
-    setRecipes((prev) => prev.filter((r) => r.id !== id));
   }
 
   async function addDocument(doc) {
     if (!session) return false;
     const { data, error } = await supabase.from("documents").insert(doc).select().single();
     if (error) {
-      alert("Erro ao salvar documento: " + error.message);
+      addToast("Erro ao salvar documento: " + error.message, "error");
       return false;
     }
     if (data) {
       setDocuments((prev) => [data, ...prev]);
+      addToast("Documento enviado com sucesso!");
       return true;
     }
   }
@@ -357,14 +402,19 @@ export default function App() {
   async function removeDocument(id) {
     if (!session) return;
     const { error } = await supabase.from("documents").delete().eq("id", id);
-    if (!error) setDocuments((prev) => prev.filter((d) => d.id !== id));
+    if (!error) {
+      setDocuments((prev) => prev.filter((d) => d.id !== id));
+      addToast("Documento excluído.");
+    } else {
+      addToast("Erro ao excluir documento: " + error.message, "error");
+    }
   }
 
   async function addOrder(order) {
     if (!session) return false;
     const { data, error } = await supabase.from("orders").insert(order).select().single();
     if (error) {
-      alert("Erro ao salvar encomenda: " + error.message);
+      addToast("Erro ao salvar encomenda: " + error.message, "error");
       return false;
     }
     if (data) {
@@ -372,6 +422,7 @@ export default function App() {
         const newList = [...prev, data];
         return newList.sort((a, b) => new Date(a.delivery_date) - new Date(b.delivery_date));
       });
+      addToast("Encomenda cadastrada!");
       return true;
     }
   }
@@ -380,7 +431,7 @@ export default function App() {
     if (!session) return false;
     const { data, error } = await supabase.from("orders").update(order).eq("id", id).select().single();
     if (error) {
-      alert("Erro ao atualizar encomenda: " + error.message);
+      addToast("Erro ao atualizar encomenda: " + error.message, "error");
       return false;
     }
     if (data) {
@@ -388,6 +439,7 @@ export default function App() {
         const newList = prev.map((o) => (o.id === id ? data : o));
         return newList.sort((a, b) => new Date(a.delivery_date) - new Date(b.delivery_date));
       });
+      addToast("Encomenda atualizada!");
       return true;
     }
   }
@@ -395,7 +447,12 @@ export default function App() {
   async function removeOrder(id) {
     if (!session) return;
     const { error } = await supabase.from("orders").delete().eq("id", id);
-    if (!error) setOrders((prev) => prev.filter((o) => o.id !== id));
+    if (!error) {
+      setOrders((prev) => prev.filter((o) => o.id !== id));
+      addToast("Encomenda excluída.");
+    } else {
+      addToast("Erro ao excluir: " + error.message, "error");
+    }
   }
 
   const today = todayISO();
@@ -482,7 +539,7 @@ export default function App() {
     return (
       <div style={{ minHeight: "100vh", background: "#f8fafc", display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
         <div style={{ width: "100%", maxWidth: 420 }}>
-          <AuthScreen />
+          <AuthScreen addToast={addToast} />
         </div>
       </div>
     );
@@ -524,8 +581,20 @@ export default function App() {
         .spin {
           animation: spin 1s linear infinite;
         }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: .5; }
+        }
+        .animate-pulse {
+          animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
       `}</style>
 
+      {/* Container de Toasts Flutuantes */}
+      <ToastContainer toasts={toasts} />
+
+      {/* Modal de Confirmação de Exclusão */}
       <ConfirmDialog
         isOpen={deleteConfirmation.isOpen}
         title={deleteConfirmation.title}
@@ -544,7 +613,7 @@ export default function App() {
 
       <div style={mainContentStyle}>
         {dataLoading ? (
-          <div style={{ textAlign: "center", color: "#64748b", padding: "60px 0", fontSize: 14 }}>Carregando informações...</div>
+          <SkeletonGrid />
         ) : (
           <>
             {view === "dashboard" && (
@@ -630,6 +699,121 @@ export default function App() {
             )}
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── COMPONENTE DE TOASTS FLUTUANTES ───────────────────────────────────────────
+function ToastContainer({ toasts }) {
+  if (toasts.length === 0) return null;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        bottom: 24,
+        right: 24,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        zIndex: 99999,
+        pointerEvents: "none",
+      }}
+    >
+      {toasts.map((t) => {
+        const isError = t.type === "error";
+        return (
+          <div
+            key={t.id}
+            style={{
+              background: isError ? "#ef4444" : "#10b981",
+              color: "#ffffff",
+              padding: "12px 20px",
+              borderRadius: 12,
+              fontWeight: 600,
+              fontSize: 14,
+              boxShadow: "0 10px 15px -3px rgba(0,0,0,0.15)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              pointerEvents: "auto",
+              animation: "slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+            }}
+          >
+            {isError ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
+            <span>{t.message}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── SKELETON LOADING ELEGANTE ──────────────────────────────────────────────────
+function SkeletonGrid() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }} className="animate-pulse">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ height: 32, width: 220, background: "#e2e8f0", borderRadius: 8 }} />
+        <div style={{ height: 38, width: 140, background: "#e2e8f0", borderRadius: 10 }} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} style={{ height: 125, background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 20 }}>
+            <div style={{ height: 12, width: "50%", background: "#f1f5f9", borderRadius: 4, marginBottom: 16 }} />
+            <div style={{ height: 28, width: "80%", background: "#e2e8f0", borderRadius: 6 }} />
+          </div>
+        ))}
+      </div>
+      <div style={{ height: 320, background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }} />
+    </div>
+  );
+}
+
+// ─── MODAL GENÉRICO E REUTILIZÁVEL ─────────────────────────────────────────────
+function Modal({ isOpen, onClose, title, children, maxWidth = 580 }) {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(15, 23, 42, 0.45)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 9998,
+        padding: 16,
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: "#ffffff",
+          borderRadius: 20,
+          padding: 28,
+          maxWidth,
+          width: "100%",
+          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)",
+          border: "1px solid #f1f5f9",
+          maxHeight: "90vh",
+          overflowY: "auto",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#1e293b" }}>{title}</h3>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: 4 }}>
+            <X size={20} />
+          </button>
+        </div>
+        {children}
       </div>
     </div>
   );
@@ -884,7 +1068,7 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
   );
 }
 
-function AuthScreen() {
+function AuthScreen({ addToast }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -973,6 +1157,7 @@ function AuthScreen() {
       }
     } else {
       clearFailedAttempts(email);
+      addToast("Login realizado com sucesso!");
     }
   }
 
@@ -996,6 +1181,7 @@ function AuthScreen() {
       setError("Erro ao solicitar redefinição: " + resetErr.message);
     } else {
       setInfo("Enviamos um link de redefinição para o seu e-mail.");
+      addToast("Link de redefinição enviado!");
     }
   }
 
@@ -1333,28 +1519,51 @@ function SalesChart({ sales }) {
   );
 }
 
-function SectionTitleWithBack({ title, onBack }) {
+function SectionTitleWithBack({ title, onBack, onAction, actionLabel }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-      <button
-        onClick={onBack}
-        style={{
-          background: "#eeeffe",
-          border: "none",
-          borderRadius: 10,
-          padding: "8px 14px",
-          color: "#5352ed",
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-        }}
-      >
-        <ArrowLeft size={16} /> Voltar
-      </button>
-      <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: 0 }}>{title}</h2>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <button
+          onClick={onBack}
+          style={{
+            background: "#eeeffe",
+            border: "none",
+            borderRadius: 10,
+            padding: "8px 14px",
+            color: "#5352ed",
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <ArrowLeft size={16} /> Voltar
+        </button>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: 0 }}>{title}</h2>
+      </div>
+
+      {onAction && (
+        <button
+          onClick={onAction}
+          style={{
+            background: "#5352ed",
+            color: "#ffffff",
+            border: "none",
+            borderRadius: 10,
+            padding: "10px 18px",
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <Plus size={16} /> {actionLabel || "Novo"}
+        </button>
+      )}
     </div>
   );
 }
@@ -1363,8 +1572,9 @@ function EmptyState({ text }) {
   return <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 14, padding: "48px 0", border: "1px dashed #e2e8f0", borderRadius: 16, background: "#ffffff" }}>{text}</div>;
 }
 
-// MÓDULO: ENCOMENDAS
+// ─── MÓDULO: ENCOMENDAS (COM MODAL FLUTUANTE) ──────────────────────────────────
 function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [clientName, setClientName] = useState("");
   const [product, setProduct] = useState("");
@@ -1375,14 +1585,11 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
   const [advancePayment, setAdvancePayment] = useState("");
   const [status, setStatus] = useState(STATUS_ENCOMENDA[0]);
 
-  const [toastMessage, setToastMessage] = useState("");
   const [filterStatus, setFilterStatus] = useState("Todos");
 
-  function showToast(msg) {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage("");
-    }, 3000);
+  function openCreateModal() {
+    cancelEditOrder();
+    setIsModalOpen(true);
   }
 
   function startEditOrder(order) {
@@ -1395,7 +1602,7 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
     setTotalValue(order.total_value);
     setAdvancePayment(order.advance_payment || "0");
     setStatus(order.status);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setIsModalOpen(true);
   }
 
   function cancelEditOrder() {
@@ -1408,6 +1615,7 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
     setTotalValue("");
     setAdvancePayment("");
     setStatus(STATUS_ENCOMENDA[0]);
+    setIsModalOpen(false);
   }
 
   async function submit() {
@@ -1429,25 +1637,16 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
 
     if (editingOrderId) {
       const success = await onUpdate(editingOrderId, payload);
-      if (success !== false) {
-        cancelEditOrder();
-        showToast("Encomenda atualizada com sucesso!");
-      }
+      if (success !== false) cancelEditOrder();
     } else {
       const success = await onAdd(payload);
-      if (success !== false) {
-        cancelEditOrder();
-        showToast("Encomenda cadastrada com sucesso!");
-      }
+      if (success !== false) cancelEditOrder();
     }
   }
 
   async function toggleOrderStatus(order) {
     const nextStatus = order.status === "Finalizado" ? "Pendente" : "Finalizado";
-    const success = await onUpdate(order.id, { ...order, status: nextStatus });
-    if (success !== false) {
-      showToast(nextStatus === "Finalizado" ? "Encomenda finalizada!" : "Status alterado para Pendente!");
-    }
+    await onUpdate(order.id, { ...order, status: nextStatus });
   }
 
   const filteredOrders = useMemo(() => {
@@ -1497,43 +1696,20 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
   }
 
   return (
-    <div style={{ position: "relative" }}>
-      {toastMessage && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 24,
-            right: 24,
-            background: "#00b894",
-            color: "#ffffff",
-            padding: "12px 20px",
-            borderRadius: 12,
-            fontWeight: 600,
-            fontSize: 14,
-            boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          <CheckCircle2 size={18} />
-          {toastMessage}
-        </div>
-      )}
+    <div>
+      <SectionTitleWithBack 
+        title="Gerenciador de Encomendas" 
+        onBack={() => setView("dashboard")} 
+        onAction={openCreateModal}
+        actionLabel="Nova Encomenda"
+      />
 
-      <SectionTitleWithBack title="Gerenciador de Encomendas" onBack={() => setView("dashboard")} />
-
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, marginBottom: 28, boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span>{editingOrderId ? "Editar Encomenda" : "Nova Encomenda"}</span>
-          {editingOrderId && (
-            <button onClick={cancelEditOrder} style={{ background: "transparent", border: "1px solid #cbd5e1", color: "#64748b", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-              Cancelar Edição
-            </button>
-          )}
-        </div>
-        
+      {/* Modal de Cadastro/Edição de Encomenda */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={cancelEditOrder}
+        title={editingOrderId ? "Editar Encomenda" : "Nova Encomenda"}
+      >
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr 110px", gap: 12 }}>
             <div>
@@ -1585,11 +1761,11 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
             {editingOrderId ? "Salvar Alterações" : "Salvar Encomenda"}
           </button>
         </div>
-      </div>
+      </Modal>
 
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>Lista de Encomendas</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>Lista de Encomendas ({filteredOrders.length})</div>
           
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <select style={{ ...inputStyle, width: 180, padding: "8px 12px" }} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
@@ -1689,19 +1865,18 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
   );
 }
 
+// ─── MÓDULO: PRODUTOS (COM MODAL FLUTUANTE) ────────────────────────────────────
 function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDelete, setView }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState(CATEGORIAS_PRODUTO[0]);
   const [linkedIngredient, setLinkedIngredient] = useState("");
-  const [toastMessage, setToastMessage] = useState("");
 
-  function showToast(msg) {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage("");
-    }, 3000);
+  function openCreateModal() {
+    cancelEditProduct();
+    setIsModalOpen(true);
   }
 
   function startEditProduct(product) {
@@ -1710,7 +1885,7 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
     setPrice(product.price);
     setCategory(product.category);
     setLinkedIngredient(product.linked_ingredient || "");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setIsModalOpen(true);
   }
 
   function cancelEditProduct() {
@@ -1719,6 +1894,7 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
     setPrice("");
     setCategory(CATEGORIAS_PRODUTO[0]);
     setLinkedIngredient("");
+    setIsModalOpen(false);
   }
 
   async function submit() {
@@ -1733,59 +1909,28 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
 
     if (editingProductId) {
       const success = await onUpdate(editingProductId, payload);
-      if (success !== false) {
-        cancelEditProduct();
-        showToast("Produto atualizado com sucesso!");
-      }
+      if (success !== false) cancelEditProduct();
     } else {
       const success = await onAdd(payload);
-      if (success !== false) {
-        cancelEditProduct();
-        showToast("Produto cadastrado com sucesso!");
-      }
+      if (success !== false) cancelEditProduct();
     }
   }
 
   return (
-    <div style={{ position: "relative" }}>
-      {toastMessage && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 24,
-            right: 24,
-            background: "#00b894",
-            color: "#ffffff",
-            padding: "12px 20px",
-            borderRadius: 12,
-            fontWeight: 600,
-            fontSize: 14,
-            boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          <CheckCircle2 size={18} />
-          {toastMessage}
-        </div>
-      )}
+    <div>
+      <SectionTitleWithBack 
+        title="Produtos" 
+        onBack={() => setView("dashboard")} 
+        onAction={openCreateModal}
+        actionLabel="Novo Produto"
+      />
 
-      <SectionTitleWithBack title="Produtos" onBack={() => setView("dashboard")} />
-
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span>{editingProductId ? "Editar Produto" : "Cadastrar Novo Produto"}</span>
-          {editingProductId && (
-            <button
-              onClick={cancelEditProduct}
-              style={{ background: "transparent", border: "1px solid #cbd5e1", color: "#64748b", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-            >
-              Cancelar Edição
-            </button>
-          )}
-        </div>
+      {/* Modal de Cadastro/Edição de Produto */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={cancelEditProduct}
+        title={editingProductId ? "Editar Produto" : "Cadastrar Novo Produto"}
+      >
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Nome do Doce / Produto</div>
@@ -1808,7 +1953,7 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
           </div>
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Vincular Insumo / Ingrediente Principal (Opcional)</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Vincular Insumo Principal (Opcional)</div>
             <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={linkedIngredient} onChange={(e) => setLinkedIngredient(e.target.value)}>
               <option value="">Nenhum ingrediente vinculado</option>
               {ingredients.map((ing) => (
@@ -1821,10 +1966,10 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
             {editingProductId ? "Salvar Alterações" : "Salvar Produto"}
           </button>
         </div>
-      </div>
+      </Modal>
 
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Produtos Cadastrados Recentes</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Produtos Cadastrados ({products.length})</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
           {products.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum produto cadastrado ainda." /></div>}
           {products.map((p) => (
@@ -1843,7 +1988,9 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
   );
 }
 
+// ─── MÓDULO: VENDAS (COM MODAL FLUTUANTE) ──────────────────────────────────────
 function Vendas({ products, sales, onAdd, onRemove, requestDelete, setView }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [mode, setMode] = useState("catalogo");
   const [productId, setProductId] = useState("");
   const [qty, setQty] = useState(1);
@@ -1863,6 +2010,7 @@ function Vendas({ products, sales, onAdd, onRemove, requestDelete, setView }) {
     }
     if (success !== false) {
       setProductId(""); setQty(1); setManualDesc(""); setManualValue("");
+      setIsModalOpen(false);
     }
   }
 
@@ -1870,15 +2018,19 @@ function Vendas({ products, sales, onAdd, onRemove, requestDelete, setView }) {
 
   return (
     <div>
-      <SectionTitleWithBack title="Vendas" onBack={() => setView("dashboard")} />
+      <SectionTitleWithBack 
+        title="Vendas" 
+        onBack={() => setView("dashboard")} 
+        onAction={() => setIsModalOpen(true)}
+        actionLabel="Registrar Venda"
+      />
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Registrar Nova Venda</div>
-        
+      {/* Modal de Nova Venda */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Registrar Nova Venda">
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "flex", gap: 8 }}>
-            <ToggleButton active={mode === "catalogo"} onClick={() => setMode("catalogo")}>Catálogo de Produtos</ToggleButton>
-            <ToggleButton active={mode === "manual"} onClick={() => setMode("manual")}>Venda Manual / Personalizada</ToggleButton>
+            <ToggleButton active={mode === "catalogo"} onClick={() => setMode("catalogo")}>Catálogo</ToggleButton>
+            <ToggleButton active={mode === "manual"} onClick={() => setMode("manual")}>Venda Manual</ToggleButton>
           </div>
 
           {mode === "catalogo" ? (
@@ -1917,10 +2069,10 @@ function Vendas({ products, sales, onAdd, onRemove, requestDelete, setView }) {
 
           <button style={primaryBtnStyle} onClick={submit}>Registrar Venda</button>
         </div>
-      </div>
+      </Modal>
 
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Vendas Recentes</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Vendas Recentes ({salesNormais.length})</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
           {salesNormais.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhuma venda registrada." /></div>}
           {salesNormais.map((s) => (
@@ -1939,7 +2091,9 @@ function Vendas({ products, sales, onAdd, onRemove, requestDelete, setView }) {
   );
 }
 
+// ─── MÓDULO: GASTOS (COM MODAL FLUTUANTE) ──────────────────────────────────────
 function Gastos({ expenses, onAdd, onRemove, requestDelete, setView }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState(CATEGORIAS_GASTO[0]);
   const [value, setValue] = useState("");
@@ -1949,16 +2103,21 @@ function Gastos({ expenses, onAdd, onRemove, requestDelete, setView }) {
     const success = await onAdd({ date: todayISO(), description, category, value: Number(value) });
     if (success !== false) {
       setDescription(""); setValue(""); setCategory(CATEGORIAS_GASTO[0]);
+      setIsModalOpen(false);
     }
   }
 
   return (
     <div>
-      <SectionTitleWithBack title="Gastos" onBack={() => setView("dashboard")} />
+      <SectionTitleWithBack 
+        title="Gastos" 
+        onBack={() => setView("dashboard")} 
+        onAction={() => setIsModalOpen(true)}
+        actionLabel="Novo Gasto"
+      />
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Registrar Novo Gasto</div>
-        
+      {/* Modal de Novo Gasto */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Registrar Novo Gasto">
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Descrição do Gasto</div>
@@ -1980,10 +2139,10 @@ function Gastos({ expenses, onAdd, onRemove, requestDelete, setView }) {
 
           <button style={primaryBtnStyle} onClick={submit}>Registrar Gasto</button>
         </div>
-      </div>
+      </Modal>
 
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Gastos Recentes</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Gastos Recentes ({expenses.length})</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
           {expenses.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum gasto registrado." /></div>}
           {expenses.map((g) => (
@@ -2002,6 +2161,7 @@ function Gastos({ expenses, onAdd, onRemove, requestDelete, setView }) {
   );
 }
 
+// ─── MÓDULO: VENDAS EMPRESA ───────────────────────────────────────────────────
 function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDelete }) {
   const [viewMode, setViewMode] = useState("mes");
   const [selectedDay, setSelectedDay] = useState(todayISO());
@@ -2014,16 +2174,8 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
   const [date, setDate] = useState(todayISO());
   const [selectedMonth, setSelectedMonth] = useState(todayISO().slice(0, 7));
   const [searchFilter, setSearchFilter] = useState("");
-  const [toastMessage, setToastMessage] = useState("");
   
   const [expandedCards, setExpandedCards] = useState({});
-
-  function showToast(msg) {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage("");
-    }, 3000);
-  }
 
   const toggleExpand = (name) => {
     setExpandedCards((prev) => ({
@@ -2162,10 +2314,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
         qty: finalQty,
         total: parseFloat(total),
       });
-      if (success !== false) {
-        cancelEditSale();
-        showToast("Lançamento atualizado com sucesso!");
-      }
+      if (success !== false) cancelEditSale();
     } else {
       await onAdd({
         date: date,
@@ -2176,7 +2325,6 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
         status: "Pendente",
       });
       cancelEditSale();
-      showToast("Lançamento registrado com sucesso!");
     }
   }
 
@@ -2346,31 +2494,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
   }
 
   return (
-    <div style={{ position: "relative" }}>
-      {toastMessage && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 24,
-            right: 24,
-            background: "#00b894",
-            color: "#ffffff",
-            padding: "12px 20px",
-            borderRadius: 12,
-            fontWeight: 600,
-            fontSize: 14,
-            boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          <CheckCircle2 size={18} />
-          {toastMessage}
-        </div>
-      )}
-
+    <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: 0 }}>Vendas Empresa</h2>
         
@@ -2857,6 +2981,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
   );
 }
 
+// ─── MÓDULO: PRECIFICAÇÃO ──────────────────────────────────────────────────────
 function Precificacao({
   ingredients,
   recipes,
@@ -2869,7 +2994,6 @@ function Precificacao({
   requestDelete,
 }) {
   const [tab, setTab] = useState("ingredientes");
-  const [toastMessage, setToastMessage] = useState("");
 
   const [editingIngId, setEditingIngId] = useState(null);
   const [ingName, setIngName] = useState("");
@@ -2886,13 +3010,6 @@ function Precificacao({
   const [preparationMethod, setPreparationMethod] = useState("");
 
   const [expandedPrep, setExpandedPrep] = useState({});
-
-  function showToast(msg) {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage("");
-    }, 3000);
-  }
 
   function togglePrep(recId) {
     setExpandedPrep((prev) => ({ ...prev, [recId]: !prev[recId] }));
@@ -2929,16 +3046,10 @@ function Precificacao({
 
     if (editingIngId) {
       const success = await onUpdateIng(editingIngId, payload);
-      if (success !== false) {
-        cancelEditIngredient();
-        showToast("Alterações salvas com sucesso!");
-      }
+      if (success !== false) cancelEditIngredient();
     } else {
       const success = await onAddIng(payload);
-      if (success !== false) {
-        cancelEditIngredient();
-        showToast("Ingrediente cadastrado com sucesso!");
-      }
+      if (success !== false) cancelEditIngredient();
     }
   }
 
@@ -3011,16 +3122,10 @@ function Precificacao({
 
     if (editingRecId) {
       const success = await onUpdateRec(editingRecId, payload);
-      if (success !== false) {
-        cancelEditRecipe();
-        showToast("Alterações salvas com sucesso!");
-      }
+      if (success !== false) cancelEditRecipe();
     } else {
       const success = await onAddRec(payload);
-      if (success !== false) {
-        cancelEditRecipe();
-        showToast("Ficha técnica criada com sucesso!");
-      }
+      if (success !== false) cancelEditRecipe();
     }
   }
 
@@ -3090,31 +3195,7 @@ function Precificacao({
   }
 
   return (
-    <div style={{ position: "relative" }}>
-      {toastMessage && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 24,
-            right: 24,
-            background: "#00b894",
-            color: "#ffffff",
-            padding: "12px 20px",
-            borderRadius: 12,
-            fontWeight: 600,
-            fontSize: 14,
-            boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          <CheckCircle2 size={18} />
-          {toastMessage}
-        </div>
-      )}
-
+    <div>
       <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: "0 0 24px" }}>
         Precificação e Ficha Técnica
       </h2>
@@ -3363,6 +3444,7 @@ function Precificacao({
   );
 }
 
+// ─── MÓDULO: DOCUMENTOS ────────────────────────────────────────────────────────
 function Documentos({ documents, expenses, onAdd, onRemove, requestDelete }) {
   const [docName, setDocName] = useState("");
   const [category, setCategory] = useState(CATEGORIAS_DOC[0]);
