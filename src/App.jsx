@@ -91,7 +91,6 @@ export default function App() {
   const [orders, setOrders] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
 
-  // Estado do Modal de Confirmação de Exclusão
   const [deleteConfirmation, setDeleteConfirmation] = useState({
     isOpen: false,
     title: "",
@@ -502,7 +501,7 @@ export default function App() {
 
         .card-interactive:hover {
           transform: translateY(-2px) !important;
-          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05) !important;
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04) !important;
         }
 
         button:hover {
@@ -515,7 +514,7 @@ export default function App() {
 
         .sidebar-btn:hover {
           background-color: #f1f5f9 !important;
-          color: #6d5ce7 !important;
+          color: #5352ed !important;
         }
 
         @keyframes spin {
@@ -675,18 +674,18 @@ function ConfirmDialog({ isOpen, title, itemName, onConfirm, onCancel }) {
               width: 40,
               height: 40,
               borderRadius: "50%",
-              backgroundColor: "#fbe0e2",
+              backgroundColor: "#fde8f1",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#e0687a",
+              color: "#e84393",
               flexShrink: 0,
             }}
           >
             <AlertTriangle size={20} />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#2b2323" }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1e293b" }}>
               {title || "Confirmar Exclusão"}
             </h3>
             <p style={{ margin: "2px 0 0", fontSize: 13, color: "#64748b" }}>
@@ -708,7 +707,7 @@ function ConfirmDialog({ isOpen, title, itemName, onConfirm, onCancel }) {
             wordBreak: "break-word",
           }}
         >
-          Item: <span style={{ fontWeight: 700, color: "#2b2323" }}>{itemName}</span>
+          Item: <span style={{ fontWeight: 700, color: "#1e293b" }}>{itemName}</span>
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
@@ -732,7 +731,7 @@ function ConfirmDialog({ isOpen, title, itemName, onConfirm, onCancel }) {
             type="button"
             onClick={onConfirm}
             style={{
-              background: "#e0687a",
+              background: "#e84393",
               border: "none",
               borderRadius: 10,
               padding: "9px 18px",
@@ -791,11 +790,11 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12, overflow: "hidden" }}>
-            <img src="/logo.png" alt="Loove" style={{ width: 38, height: 38, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} />
+            <img src="/logo.png" alt="Loove" style={{ width: 40, height: 40, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} />
             {!isCollapsed && (
               <div style={{ whiteSpace: "nowrap" }}>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "#2b2323" }}>Loove Doceria</div>
-                <div style={{ fontSize: 11, color: "#94a3b8" }}>CRM Seguro</div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: "#1e293b", letterSpacing: "-0.3px" }}>Loove Doceria</div>
+                <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>CRM Seguro</div>
               </div>
             )}
           </div>
@@ -803,7 +802,7 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
             style={{
-              background: "#fbe0e2",
+              background: "#edf2f7",
               border: "none",
               borderRadius: "50%",
               width: 24,
@@ -812,11 +811,11 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
               alignItems: "center",
               justifyContent: "center",
               cursor: "pointer",
-              color: "#e0687a",
+              color: "#5352ed",
               position: isCollapsed ? "absolute" : "static",
               right: isCollapsed ? -20 : "auto",
               top: isCollapsed ? 6 : "auto",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
               zIndex: 10,
             }}
             title={isCollapsed ? "Expandir menu" : "Recolher menu"}
@@ -825,7 +824,7 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
           </button>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {items.map(({ key, label, icon: Icon }) => {
             const isActive = view === key;
             return (
@@ -843,15 +842,15 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
                   padding: isCollapsed ? "12px 0" : "11px 16px",
                   borderRadius: 12,
                   border: "none",
-                  background: isActive ? "#fbe0e2" : "transparent",
-                  color: isActive ? "#e0687a" : "#475569",
+                  background: isActive ? "#eeeffe" : "transparent",
+                  color: isActive ? "#5352ed" : "#475569",
                   fontSize: 14,
-                  fontWeight: isActive ? 600 : 500,
+                  fontWeight: isActive ? 700 : 500,
                   cursor: "pointer",
                   textAlign: "left",
                 }}
               >
-                <Icon size={18} style={{ flexShrink: 0, color: isActive ? "#e0687a" : "#64748b" }} />
+                <Icon size={18} style={{ flexShrink: 0, color: isActive ? "#5352ed" : "#64748b" }} />
                 {!isCollapsed && <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>}
               </button>
             );
@@ -1004,7 +1003,7 @@ function AuthScreen() {
     <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 36, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.05)" }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
         <img src="/logo.png" alt="Loove Doceria" style={{ width: 60, height: 60, borderRadius: 16, objectFit: "cover", marginBottom: 12 }} />
-        <div style={{ fontWeight: 700, fontSize: 20, color: "#2b2323" }}>Loove Doceria</div>
+        <div style={{ fontWeight: 800, fontSize: 20, color: "#1e293b" }}>Loove Doceria</div>
         <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>Área Restrita e Protegida</div>
       </div>
 
@@ -1047,7 +1046,7 @@ function AuthScreen() {
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                style={{ accentColor: "#6d5ce7" }}
+                style={{ accentColor: "#5352ed" }}
               />
               Manter conectado
             </label>
@@ -1055,15 +1054,15 @@ function AuthScreen() {
             <button
               type="button"
               onClick={() => { setError(""); setInfo(""); setMode("reset"); }}
-              style={{ background: "none", border: "none", color: "#6d5ce7", fontWeight: 600, cursor: "pointer", fontSize: 12 }}
+              style={{ background: "none", border: "none", color: "#5352ed", fontWeight: 600, cursor: "pointer", fontSize: 12 }}
             >
               Esqueci minha senha
             </button>
           </div>
 
-          {error && <div style={{ color: "#e0687a", fontSize: 12.5, textAlign: "center", background: "#fbe0e2", padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
+          {error && <div style={{ color: "#e84393", fontSize: 12.5, textAlign: "center", background: "#fde8f1", padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
           {lockoutTime > 0 && (
-            <div style={{ color: "#e0687a", fontSize: 12, textAlign: "center" }}>
+            <div style={{ color: "#e84393", fontSize: 12, textAlign: "center" }}>
               Muitas tentativas. Tente novamente em {Math.floor(lockoutTime / 60)}m {lockoutTime % 60}s.
             </div>
           )}
@@ -1095,8 +1094,8 @@ function AuthScreen() {
             />
           </div>
 
-          {error && <div style={{ color: "#e0687a", fontSize: 12.5, textAlign: "center", background: "#fbe0e2", padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
-          {info && <div style={{ color: "#10b981", fontSize: 12.5, textAlign: "center", background: "#ecfdf5", padding: "8px 12px", borderRadius: 8 }}>{info}</div>}
+          {error && <div style={{ color: "#e84393", fontSize: 12.5, textAlign: "center", background: "#fde8f1", padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
+          {info && <div style={{ color: "#00b894", fontSize: 12.5, textAlign: "center", background: "#e8f8f5", padding: "8px 12px", borderRadius: 8 }}>{info}</div>}
 
           <button
             style={{ ...primaryBtnStyle, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
@@ -1141,9 +1140,9 @@ function Card({ label, value, subValue, tooltip, icon, iconBg, valueColor, compa
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
           <span style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>{label}</span>
-          <div style={{ width: 36, height: 36, borderRadius: "50%", background: iconBg || "#fbe0e2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
+          <div style={{ width: 36, height: 36, borderRadius: "50%", background: iconBg || "#f1f2f6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
         </div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: valueColor || "#2b2323", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div style={{ fontSize: 24, fontWeight: 800, color: valueColor || "#1e293b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", letterSpacing: "-0.5px" }}>
           {value}
         </div>
         {subValue && (
@@ -1168,8 +1167,8 @@ function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
     const isPositive = val > 0;
     return {
       text: `${isPositive ? "↑" : "↓"} ${Math.abs(val).toFixed(1)}% vs mês passado`,
-      color: isPositive ? "#10b981" : "#e0687a",
-      icon: isPositive ? <ArrowUpRight size={14} color="#10b981" /> : <ArrowDownRight size={14} color="#e0687a" />,
+      color: isPositive ? "#00b894" : "#e84393",
+      icon: isPositive ? <ArrowUpRight size={14} color="#00b894" /> : <ArrowDownRight size={14} color="#e84393" />,
     };
   }
 
@@ -1179,20 +1178,20 @@ function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#2b2323", margin: "0 0 6px 0", letterSpacing: "-0.5px" }}>Dashboard</h1>
-          <div style={{ color: "#64748b", fontSize: 14, textTransform: "capitalize", fontWeight: 400 }}>Visão Geral do Seu Negócio</div>
+          <h1 style={{ fontSize: 32, fontWeight: 900, color: "#1e293b", margin: "0 0 4px 0", letterSpacing: "-0.8px" }}>Dashboard</h1>
+          <div style={{ color: "#64748b", fontSize: 14, fontWeight: 500 }}>Visão Geral Do Seu Negócio</div>
         </div>
         
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ color: "#475569", fontSize: 13, fontWeight: 500, marginRight: 8 }}>{dataFormatada}</div>
 
-          <button onClick={() => setView("vendas")} style={{ background: "#6d5ce7", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+          <button onClick={() => setView("vendas")} style={{ background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
             <Plus size={15} /> Nova Venda
           </button>
-          <button onClick={() => setView("gastos")} style={{ background: "#ffffff", color: "#6d5ce7", border: "1px solid #e0e7ff", borderRadius: 10, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+          <button onClick={() => setView("gastos")} style={{ background: "#ffffff", color: "#5352ed", border: "1px solid #e0e7ff", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
             <Plus size={15} /> Novo Gasto
           </button>
-          <button onClick={() => setView("empresa")} style={{ background: "#2b2323", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+          <button onClick={() => setView("empresa")} style={{ background: "#1e272e", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
             <Plus size={15} /> Venda Empresa
           </button>
         </div>
@@ -1202,24 +1201,24 @@ function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
         <Card
           label="Vendas hoje"
           value={brl(metrics.vendasHoje)}
-          icon={<ShoppingCart size={18} color="#e0687a" />}
-          iconBg="#fbe0e2"
+          icon={<ShoppingCart size={18} color="#5352ed" />}
+          iconBg="#eeeffe"
           comparison={getComparison(metrics.variacaoVendas)}
         />
         <Card
           label="Gastos hoje"
           value={brl(metrics.gastosHoje)}
-          icon={<Receipt size={18} color="#e0687a" />}
-          iconBg="#fdf2f8"
-          valueColor={metrics.gastosHoje > 0 ? "#2b2323" : "#2b2323"}
+          icon={<Receipt size={18} color="#e84393" />}
+          iconBg="#fde8f1"
+          valueColor="#1e293b"
           comparison={getComparison(metrics.variacaoGastos)}
         />
         <Card
           label="Lucro do mês"
           value={brl(metrics.lucroMes)}
-          icon={<TrendingUp size={18} color="#10b981" />}
-          iconBg="#ecfdf5"
-          valueColor="#10b981"
+          icon={<TrendingUp size={18} color="#00b894" />}
+          iconBg="#e8f8f5"
+          valueColor="#00b894"
           comparison={getComparison(metrics.variacaoLucro)}
         />
         <Card
@@ -1227,16 +1226,16 @@ function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
           value={metrics.maisVendidoNome}
           subValue={metrics.maisVendidoQtd}
           tooltip={maisVendidoFull}
-          icon={<Star size={18} color="#f59e0b" />}
-          iconBg="#fffbeb"
-          valueColor="#2b2323"
+          icon={<Star size={18} color="#e17055" />}
+          iconBg="#fef5e7"
+          valueColor="#1e293b"
         />
         <Card
           label="Total a receber (Empresa)"
           value={brl(metrics.totalEmpresa)}
-          icon={<Briefcase size={18} color="#6d5ce7" />}
-          iconBg="#ede9fe"
-          valueColor="#6d5ce7"
+          icon={<Briefcase size={18} color="#0984e3" />}
+          iconBg="#e1f0fa"
+          valueColor="#0984e3"
         />
       </div>
 
@@ -1245,14 +1244,12 @@ function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
   );
 }
 
-// 1) DASHBOARD: Componente SalesChart com Seletor de 7, 14 e 30 dias
 function SalesChart({ sales }) {
   const [chartMode, setChartMode] = useState("vendas");
-  const [periodDays, setPeriodDays] = useState(7); // Padrão: 7 dias
 
   const data = useMemo(() => {
     const days = [];
-    for (let i = periodDays - 1; i >= 0; i--) {
+    for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const iso = d.toISOString().slice(0, 10);
@@ -1273,78 +1270,52 @@ function SalesChart({ sales }) {
       });
     }
     return days;
-  }, [sales, chartMode, periodDays]);
+  }, [sales, chartMode]);
 
   const hasData = data.some((d) => d.Valor > 0);
-  const typeLabel = chartMode === "vendas" ? "Vendas" : "Vendas Empresa";
-  const chartTitle = `${typeLabel} (últimos ${periodDays} dias)`;
+  const chartTitle = chartMode === "vendas" ? "Vendas (últimos 7 dias)" : "Vendas Empresa (últimos 7 dias)";
 
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: "24px 24px 16px", boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.03)" }}>
+    <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: "24px 24px 20px", boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.03)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323" }}>{chartTitle}</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>{chartTitle}</div>
         
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          {/* Seletor de Período (7, 14, 30 dias) */}
-          <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 10 }}>
-            {[7, 14, 30].map((days) => (
-              <button
-                key={days}
-                onClick={() => setPeriodDays(days)}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 8,
-                  border: "none",
-                  background: periodDays === days ? "#6d5ce7" : "transparent",
-                  color: periodDays === days ? "#ffffff" : "#64748b",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                {days} dias
-              </button>
-            ))}
-          </div>
-
-          {/* Seletor Vendas / Vendas Empresa */}
-          <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 10 }}>
-            <button
-              onClick={() => setChartMode("vendas")}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 8,
-                border: "none",
-                background: chartMode === "vendas" ? "#6d5ce7" : "transparent",
-                color: chartMode === "vendas" ? "#ffffff" : "#64748b",
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Vendas
-            </button>
-            <button
-              onClick={() => setChartMode("empresa")}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 8,
-                border: "none",
-                background: chartMode === "empresa" ? "#6d5ce7" : "transparent",
-                color: chartMode === "empresa" ? "#ffffff" : "#64748b",
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Vendas Empresa
-            </button>
-          </div>
+        <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 10 }}>
+          <button
+            onClick={() => setChartMode("vendas")}
+            style={{
+              padding: "6px 14px",
+              borderRadius: 8,
+              border: "none",
+              background: chartMode === "vendas" ? "#5352ed" : "transparent",
+              color: chartMode === "vendas" ? "#ffffff" : "#64748b",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Vendas
+          </button>
+          <button
+            onClick={() => setChartMode("empresa")}
+            style={{
+              padding: "6px 14px",
+              borderRadius: 8,
+              border: "none",
+              background: chartMode === "empresa" ? "#5352ed" : "transparent",
+              color: chartMode === "empresa" ? "#ffffff" : "#64748b",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Vendas Empresa
+          </button>
         </div>
       </div>
 
       {!hasData ? (
-        <EmptyState text={`Sem movimentações registradas nos últimos ${periodDays} dias.`} />
+        <EmptyState text="Sem movimentações registradas nos últimos 7 dias." />
       ) : (
         <div style={{ width: "100%", height: 300 }}>
           <ResponsiveContainer>
@@ -1353,7 +1324,7 @@ function SalesChart({ sales }) {
               <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={{ stroke: "#f1f5f9" }} tickLine={false} />
               <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <Tooltip formatter={(v) => brl(v)} />
-              <Bar dataKey="Valor" fill="#6d5ce7" radius={[6, 6, 0, 0]} maxBarSize={36} />
+              <Bar dataKey="Valor" fill="#5352ed" radius={[6, 6, 0, 0]} maxBarSize={36} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -1368,11 +1339,11 @@ function SectionTitleWithBack({ title, onBack }) {
       <button
         onClick={onBack}
         style={{
-          background: "#fbe0e2",
+          background: "#eeeffe",
           border: "none",
           borderRadius: 10,
           padding: "8px 14px",
-          color: "#e0687a",
+          color: "#5352ed",
           fontSize: 13,
           fontWeight: 600,
           cursor: "pointer",
@@ -1383,7 +1354,7 @@ function SectionTitleWithBack({ title, onBack }) {
       >
         <ArrowLeft size={16} /> Voltar
       </button>
-      <h2 style={{ fontSize: 22, fontWeight: 800, color: "#2b2323", margin: 0 }}>{title}</h2>
+      <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: 0 }}>{title}</h2>
     </div>
   );
 }
@@ -1519,7 +1490,7 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
       head: [["Entrega", "Cliente", "Produto / Observações", "Total", "Sinal", "Falta", "Status"]],
       body: dadosTabela,
       theme: "grid",
-      headStyles: { fillColor: [109, 92, 231] },
+      headStyles: { fillColor: [83, 82, 237] },
     });
 
     doc.save(`encomendas-${todayISO()}.pdf`);
@@ -1533,7 +1504,7 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
             position: "fixed",
             bottom: 24,
             right: 24,
-            background: "#10b981",
+            background: "#00b894",
             color: "#ffffff",
             padding: "12px 20px",
             borderRadius: 12,
@@ -1554,7 +1525,7 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
       <SectionTitleWithBack title="Gerenciador de Encomendas" onBack={() => setView("dashboard")} />
 
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, marginBottom: 28, boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>{editingOrderId ? "Editar Encomenda" : "Nova Encomenda"}</span>
           {editingOrderId && (
             <button onClick={cancelEditOrder} style={{ background: "transparent", border: "1px solid #cbd5e1", color: "#64748b", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
@@ -1618,7 +1589,7 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
 
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323" }}>Lista de Encomendas</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>Lista de Encomendas</div>
           
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <select style={{ ...inputStyle, width: 180, padding: "8px 12px" }} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
@@ -1627,7 +1598,7 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
             </select>
 
             {filteredOrders.length > 0 && (
-              <button onClick={exportOrdersPDF} style={{ background: "#6d5ce7", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+              <button onClick={exportOrdersPDF} style={{ background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
                 <FileText size={15} /> Exportar PDF
               </button>
             )}
@@ -1648,18 +1619,18 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
             const isDone = o.status === "Finalizado";
 
             const badgeStyles = {
-              "Pendente": { bg: "#fffbeb", color: "#d97706" },
-              "Em Produção": { bg: "#eff6ff", color: "#3b82f6" },
-              "Entregue": { bg: "#ecfdf5", color: "#10b981" },
-              "Finalizado": { bg: "#ecfdf5", color: "#10b981" },
+              "Pendente": { bg: "#fef5e7", color: "#e17055" },
+              "Em Produção": { bg: "#eeeffe", color: "#5352ed" },
+              "Entregue": { bg: "#e8f8f5", color: "#00b894" },
+              "Finalizado": { bg: "#e8f8f5", color: "#00b894" },
             }[o.status] || { bg: "#f1f5f9", color: "#64748b" };
 
             return (
               <div key={o.id} className="card-interactive" style={{ background: "#ffffff", border: isDone ? "1px solid #a7f3d0" : "1px solid #f1f5f9", borderRadius: 14, padding: "18px", display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323" }}>{o.client_name}</div>
-                    <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>Entrega: <span style={{ fontWeight: 600, color: "#2b2323" }}>{formatDatePt(o.delivery_date)}</span></div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>{o.client_name}</div>
+                    <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>Entrega: <span style={{ fontWeight: 600, color: "#1e293b" }}>{formatDatePt(o.delivery_date)}</span></div>
                   </div>
                   <span style={{ fontSize: 11, fontWeight: 600, padding: "4px 8px", borderRadius: 6, background: badgeStyles.bg, color: badgeStyles.color }}>
                     {o.status}
@@ -1667,7 +1638,7 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
                 </div>
 
                 <div style={{ background: "#f8fafc", padding: "12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#2b2323" }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#1e293b" }}>
                     {itemQty > 1 ? `${itemQty}x ` : ""}{productName}
                   </div>
                   {obsText && (
@@ -1679,9 +1650,9 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
                   <div style={{ fontSize: 12, color: "#64748b" }}>
-                    Total: <span style={{ fontWeight: 600, color: "#2b2323" }}>{brl(o.total_value)}</span><br/>
-                    Sinal: <span style={{ fontWeight: 600, color: "#10b981" }}>{brl(o.advance_payment)}</span><br/>
-                    Restante: <span style={{ fontWeight: 600, color: restante > 0 ? "#e0687a" : "#64748b" }}>{brl(restante)}</span>
+                    Total: <span style={{ fontWeight: 600, color: "#1e293b" }}>{brl(o.total_value)}</span><br/>
+                    Sinal: <span style={{ fontWeight: 600, color: "#00b894" }}>{brl(o.advance_payment)}</span><br/>
+                    Restante: <span style={{ fontWeight: 600, color: restante > 0 ? "#e84393" : "#64748b" }}>{brl(restante)}</span>
                   </div>
                   
                   <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
@@ -1689,10 +1660,10 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
                       onClick={() => toggleOrderStatus(o)}
                       style={{
                         border: "none",
-                        background: isDone ? "#ecfdf5" : "transparent",
+                        background: isDone ? "#e8f8f5" : "transparent",
                         cursor: "pointer",
                         padding: 6,
-                        color: isDone ? "#10b981" : "#10b981",
+                        color: "#00b894",
                         borderRadius: 8,
                         display: "flex",
                         alignItems: "center",
@@ -1701,7 +1672,7 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
                     >
                       {isDone ? <RotateCcw size={16} /> : <CheckCircle2 size={16} />}
                     </button>
-                    <button onClick={() => startEditOrder(o)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#6d5ce7", display: "flex" }} title="Editar encomenda">
+                    <button onClick={() => startEditOrder(o)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#5352ed", display: "flex" }} title="Editar encomenda">
                       <Pencil size={16} />
                     </button>
                     <button onClick={() => requestDelete(`Encomenda de ${o.client_name}`, () => onRemove(o.id), "Excluir Encomenda")} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#cbd5e1", display: "flex" }} title="Excluir encomenda">
@@ -1783,7 +1754,7 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
             position: "fixed",
             bottom: 24,
             right: 24,
-            background: "#10b981",
+            background: "#00b894",
             color: "#ffffff",
             padding: "12px 20px",
             borderRadius: 12,
@@ -1804,7 +1775,7 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
       <SectionTitleWithBack title="Produtos" onBack={() => setView("dashboard")} />
 
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>{editingProductId ? "Editar Produto" : "Cadastrar Novo Produto"}</span>
           {editingProductId && (
             <button
@@ -1853,7 +1824,7 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
       </div>
 
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Produtos Cadastrados Recentes</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Produtos Cadastrados Recentes</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
           {products.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum produto cadastrado ainda." /></div>}
           {products.map((p) => (
@@ -1902,7 +1873,7 @@ function Vendas({ products, sales, onAdd, onRemove, requestDelete, setView }) {
       <SectionTitleWithBack title="Vendas" onBack={() => setView("dashboard")} />
 
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Registrar Nova Venda</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Registrar Nova Venda</div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "flex", gap: 8 }}>
@@ -1949,7 +1920,7 @@ function Vendas({ products, sales, onAdd, onRemove, requestDelete, setView }) {
       </div>
 
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Vendas Recentes</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Vendas Recentes</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
           {salesNormais.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhuma venda registrada." /></div>}
           {salesNormais.map((s) => (
@@ -1958,7 +1929,7 @@ function Vendas({ products, sales, onAdd, onRemove, requestDelete, setView }) {
               title={s.product_name}
               subtitle={`${formatDatePt(s.date)} · ${s.payment} ${s.qty > 1 ? `· Qtd: ${s.qty}` : ""}`}
               value={brl(s.total)}
-              valueColor="#10b981"
+              valueColor="#00b894"
               onDelete={() => requestDelete(`${s.product_name} (${brl(s.total)})`, () => onRemove(s.id), "Excluir Venda")}
             />
           ))}
@@ -1986,7 +1957,7 @@ function Gastos({ expenses, onAdd, onRemove, requestDelete, setView }) {
       <SectionTitleWithBack title="Gastos" onBack={() => setView("dashboard")} />
 
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, maxWidth: 600, margin: "0 auto 32px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Registrar Novo Gasto</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Registrar Novo Gasto</div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
@@ -2012,7 +1983,7 @@ function Gastos({ expenses, onAdd, onRemove, requestDelete, setView }) {
       </div>
 
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Gastos Recentes</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Gastos Recentes</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
           {expenses.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum gasto registrado." /></div>}
           {expenses.map((g) => (
@@ -2021,7 +1992,7 @@ function Gastos({ expenses, onAdd, onRemove, requestDelete, setView }) {
               title={g.description}
               subtitle={`${formatDatePt(g.date)} · ${g.category}`}
               value={brl(g.value)}
-              valueColor="#e0687a"
+              valueColor="#e84393"
               onDelete={() => requestDelete(`${g.description} (${brl(g.value)})`, () => onRemove(g.id), "Excluir Gasto")}
             />
           ))}
@@ -2031,9 +2002,8 @@ function Gastos({ expenses, onAdd, onRemove, requestDelete, setView }) {
   );
 }
 
-// 2) VENDAS EMPRESA: Com visualização por Dia e por Mês
 function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDelete }) {
-  const [viewMode, setViewMode] = useState("mes"); // "mes" ou "dia"
+  const [viewMode, setViewMode] = useState("mes");
   const [selectedDay, setSelectedDay] = useState(todayISO());
 
   const [editingSaleId, setEditingSaleId] = useState(null);
@@ -2137,7 +2107,6 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
     return listaDetalhadaMes.every((s) => s.status === "Pago");
   }, [listaDetalhadaMes]);
 
-  // Lista de vendas por DIA selecionado
   const listaDetalhadaDia = useMemo(() => {
     let list = companySales.filter((s) => s.date === selectedDay);
     if (searchFilter.trim()) {
@@ -2313,7 +2282,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
       head: [["Funcionário / Cliente", "Total Geral", "Total Pago", "Total Pendente", "Status"]],
       body: dadosTabela,
       theme: "grid",
-      headStyles: { fillColor: [109, 92, 231] },
+      headStyles: { fillColor: [83, 82, 237] },
     });
 
     doc.save(`vendas-empresa-${selectedMonth}.pdf`);
@@ -2324,7 +2293,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
-    doc.setTextColor(109, 92, 231);
+    doc.setTextColor(83, 82, 237);
     doc.text("Loove Doceria", 14, 20);
 
     doc.setFontSize(11);
@@ -2337,7 +2306,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
 
     doc.setFontSize(15);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(43, 35, 35);
+    doc.setTextColor(30, 41, 59);
     doc.text(`Cliente: ${item.name}`, 14, 40);
 
     doc.setFontSize(11);
@@ -2359,13 +2328,13 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
       head: [["Data", "Item / Produto Comprado", "Valor", "Status do Item"]],
       body: dadosTabela,
       theme: "grid",
-      headStyles: { fillColor: [109, 92, 231] },
+      headStyles: { fillColor: [83, 82, 237] },
       foot: [
         ["Total do Mês", "", brl(item.sum), ""],
         ["Total Pago", "", brl(item.paidSum), ""],
         ["Total Pendente", "", brl(item.pendingSum), ""],
       ],
-      footStyles: { fillColor: [248, 250, 252], textColor: [43, 35, 35], fontStyle: "bold" },
+      footStyles: { fillColor: [248, 250, 252], textColor: [30, 41, 59], fontStyle: "bold" },
     });
 
     const [ano, mesNum] = selectedMonth.split("-");
@@ -2384,7 +2353,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
             position: "fixed",
             bottom: 24,
             right: 24,
-            background: "#10b981",
+            background: "#00b894",
             color: "#ffffff",
             padding: "12px 20px",
             borderRadius: 12,
@@ -2403,10 +2372,9 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
       )}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#2b2323", margin: 0 }}>Vendas Empresa</h2>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: 0 }}>Vendas Empresa</h2>
         
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          {/* Seletor Toggle: Visão por Mês vs Visão por Dia */}
           <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 10 }}>
             <button
               onClick={() => setViewMode("mes")}
@@ -2414,7 +2382,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                 padding: "8px 14px",
                 borderRadius: 8,
                 border: "none",
-                background: viewMode === "mes" ? "#6d5ce7" : "transparent",
+                background: viewMode === "mes" ? "#5352ed" : "transparent",
                 color: viewMode === "mes" ? "#ffffff" : "#64748b",
                 fontSize: 13,
                 fontWeight: 600,
@@ -2429,7 +2397,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                 padding: "8px 14px",
                 borderRadius: 8,
                 border: "none",
-                background: viewMode === "dia" ? "#6d5ce7" : "transparent",
+                background: viewMode === "dia" ? "#5352ed" : "transparent",
                 color: viewMode === "dia" ? "#ffffff" : "#64748b",
                 fontSize: 13,
                 fontWeight: 600,
@@ -2445,7 +2413,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
               onClick={fecharMesGeral}
               disabled={isMonthClosed || listaDetalhadaMes.length === 0}
               style={{
-                background: isMonthClosed ? "#94a3b8" : "#6d5ce7",
+                background: isMonthClosed ? "#94a3b8" : "#5352ed",
                 color: "#ffffff",
                 border: "none",
                 borderRadius: 10,
@@ -2466,7 +2434,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
       </div>
 
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, marginBottom: 28, opacity: isMonthClosed ? 0.7 : 1 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span>{editingSaleId ? "Editar Lançamento" : "Lançar venda para funcionário / empresa"}</span>
           {editingSaleId && (
             <button
@@ -2476,7 +2444,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
               Cancelar Edição
             </button>
           )}
-          {isMonthClosed && !editingSaleId && viewMode === "mes" && <span style={{ fontSize: 13, color: "#e0687a", fontWeight: 600 }}>Mês Fechado (Lançamentos travados)</span>}
+          {isMonthClosed && !editingSaleId && viewMode === "mes" && <span style={{ fontSize: 13, color: "#e84393", fontWeight: 600 }}>Mês Fechado (Lançamentos travados)</span>}
         </div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -2558,7 +2526,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
               onClick={submit}
               disabled={isMonthClosed && date.slice(0, 7) === selectedMonth}
               style={{
-                background: isMonthClosed && date.slice(0, 7) === selectedMonth ? "#cbd5e1" : "#6d5ce7",
+                background: isMonthClosed && date.slice(0, 7) === selectedMonth ? "#cbd5e1" : "#5352ed",
                 color: "#ffffff",
                 border: "none",
                 borderRadius: 10,
@@ -2576,7 +2544,6 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
       </div>
 
       {viewMode === "mes" ? (
-        /* VISUALIZAÇÃO POR MÊS (Padrão) */
         <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -2602,13 +2569,13 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ background: "#ede9fe", color: "#6d5ce7", padding: "10px 18px", borderRadius: 10, fontSize: 14, fontWeight: 600, border: "1px solid #ddd6fe" }}>
+              <div style={{ background: "#eeeffe", color: "#5352ed", padding: "10px 18px", borderRadius: 10, fontSize: 14, fontWeight: 600, border: "1px solid #dcdde1" }}>
                 Total Pendente: {brl(totalPendenteMes)} <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.8 }}>(Geral: {brl(totalGeralMes)})</span>
               </div>
               {resumoMes.length > 0 && (
                 <button
                   onClick={gerarPDF}
-                  style={{ background: "#6d5ce7", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+                  style={{ background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
                 >
                   Exportar PDF
                 </button>
@@ -2626,9 +2593,9 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                 const isExpanded = !!expandedCards[item.name];
 
                 const badgeStyles = {
-                  Pago: { bg: "#ecfdf5", color: "#10b981", icon: <CheckCircle2 size={12} /> },
-                  Parcial: { bg: "#fffbeb", color: "#d97706", icon: <Clock size={12} /> },
-                  Pendente: { bg: "#fbe0e2", color: "#e0687a", icon: <Clock size={12} /> },
+                  Pago: { bg: "#e8f8f5", color: "#00b894", icon: <CheckCircle2 size={12} /> },
+                  Parcial: { bg: "#fef5e7", color: "#e17055", icon: <Clock size={12} /> },
+                  Pendente: { bg: "#fde8f1", color: "#e84393", icon: <Clock size={12} /> },
                 }[item.statusLabel];
 
                 return (
@@ -2636,7 +2603,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                          <div style={{ fontWeight: 700, color: "#2b2323", fontSize: 16 }}>{item.name}</div>
+                          <div style={{ fontWeight: 700, color: "#1e293b", fontSize: 16 }}>{item.name}</div>
                           <span style={{
                             fontSize: 11,
                             fontWeight: 600,
@@ -2653,10 +2620,10 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                           </span>
                         </div>
                         <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>
-                          Pago: <span style={{ color: "#10b981", fontWeight: 600 }}>{brl(item.paidSum)}</span> | Pendente: <span style={{ color: item.pendingSum > 0 ? "#e0687a" : "#64748b", fontWeight: 600 }}>{brl(item.pendingSum)}</span>
+                          Pago: <span style={{ color: "#00b894", fontWeight: 600 }}>{brl(item.paidSum)}</span> | Pendente: <span style={{ color: item.pendingSum > 0 ? "#e84393" : "#64748b", fontWeight: 600 }}>{brl(item.pendingSum)}</span>
                         </div>
                       </div>
-                      <div style={{ fontWeight: 700, color: "#6d5ce7", fontSize: 18, textAlign: "right" }}>
+                      <div style={{ fontWeight: 800, color: "#5352ed", fontSize: 18, textAlign: "right" }}>
                         {brl(item.sum)}
                       </div>
                     </div>
@@ -2666,9 +2633,9 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                         <button
                           onClick={() => toggleEmployeeStatus(item.name, item.statusLabel)}
                           style={{
-                            background: item.statusLabel === "Pago" ? "#ffffff" : "#10b981",
-                            color: item.statusLabel === "Pago" ? "#10b981" : "#ffffff",
-                            border: "1px solid #10b981",
+                            background: item.statusLabel === "Pago" ? "#ffffff" : "#00b894",
+                            color: item.statusLabel === "Pago" ? "#00b894" : "#ffffff",
+                            border: "1px solid #00b894",
                             borderRadius: 8,
                             padding: "6px 12px",
                             fontSize: 12,
@@ -2682,9 +2649,9 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                         <button
                           onClick={() => gerarPDFIndividual(item)}
                           style={{
-                            background: "#fbe0e2",
-                            color: "#e0687a",
-                            border: "1px solid #f2dede",
+                            background: "#eeeffe",
+                            color: "#5352ed",
+                            border: "1px solid #dcdde1",
                             borderRadius: 8,
                             padding: "6px 12px",
                             fontSize: 12,
@@ -2704,7 +2671,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                         onClick={() => toggleExpand(item.name)}
                         style={{
                           background: "transparent",
-                          color: "#6d5ce7",
+                          color: "#5352ed",
                           border: "none",
                           fontSize: 12,
                           fontWeight: 600,
@@ -2740,14 +2707,14 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                                     padding: 0,
                                     display: "flex",
                                     alignItems: "center",
-                                    color: isItemPaid ? "#10b981" : "#94a3b8",
+                                    color: isItemPaid ? "#00b894" : "#94a3b8",
                                   }}
                                   title={isItemPaid ? "Clique para marcar este item como Pendente" : "Clique para marcar este item como Pago"}
                                 >
                                   {isItemPaid ? <CheckCircle2 size={16} /> : <Clock size={16} />}
                                 </button>
                                 <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                  {formatDatePt(s.date)} — <span style={{ color: "#2b2323", fontWeight: 500 }}>{productLabel}</span> — <b style={{ color: isItemPaid ? "#10b981" : "#2b2323" }}>{brl(s.total)}</b>
+                                  {formatDatePt(s.date)} — <span style={{ color: "#1e293b", fontWeight: 500 }}>{productLabel}</span> — <b style={{ color: isItemPaid ? "#00b894" : "#1e293b" }}>{brl(s.total)}</b>
                                 </span>
                               </div>
 
@@ -2755,7 +2722,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                                 <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
                                   <button
                                     onClick={() => startEditSale(s)}
-                                    style={{ border: "none", background: "transparent", cursor: "pointer", color: "#6d5ce7", padding: 4, display: "flex", alignItems: "center" }}
+                                    style={{ border: "none", background: "transparent", cursor: "pointer", color: "#5352ed", padding: 4, display: "flex", alignItems: "center" }}
                                     title="Editar lançamento"
                                   >
                                     <Pencil size={14} />
@@ -2783,12 +2750,11 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
           </div>
         </div>
       ) : (
-        /* VISUALIZAÇÃO POR DIA */
         <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Calendar size={18} color="#6d5ce7" />
+                <Calendar size={18} color="#5352ed" />
                 <input
                   type="date"
                   style={{ ...inputStyle, width: 180, fontWeight: 600, cursor: "pointer" }}
@@ -2808,7 +2774,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
               </div>
             </div>
 
-            <div style={{ background: "#ede9fe", color: "#6d5ce7", padding: "10px 18px", borderRadius: 10, fontSize: 14, fontWeight: 600, border: "1px solid #ddd6fe" }}>
+            <div style={{ background: "#eeeffe", color: "#5352ed", padding: "10px 18px", borderRadius: 10, fontSize: 14, fontWeight: 600, border: "1px solid #dcdde1" }}>
               Total Vendido no Dia: {brl(totalDia)} ({listaDetalhadaDia.length} lançamentos)
             </div>
           </div>
@@ -2828,14 +2794,14 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                   <div key={s.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 14, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: "#2b2323" }}>{person}</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: "#1e293b" }}>{person}</div>
                         <span style={{
                           fontSize: 11,
                           fontWeight: 600,
                           padding: "2px 8px",
                           borderRadius: 6,
-                          background: isPaid ? "#ecfdf5" : "#fbe0e2",
-                          color: isPaid ? "#10b981" : "#e0687a",
+                          background: isPaid ? "#e8f8f5" : "#fde8f1",
+                          color: isPaid ? "#00b894" : "#e84393",
                         }}>
                           {isPaid ? "Pago" : "Pendente"}
                         </span>
@@ -2846,7 +2812,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <span style={{ fontSize: 16, fontWeight: 700, color: isPaid ? "#10b981" : "#6d5ce7" }}>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: isPaid ? "#00b894" : "#5352ed" }}>
                         {brl(s.total)}
                       </span>
 
@@ -2858,7 +2824,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                             background: "transparent",
                             cursor: "pointer",
                             padding: 6,
-                            color: isPaid ? "#10b981" : "#94a3b8",
+                            color: isPaid ? "#00b894" : "#94a3b8",
                           }}
                           title={isPaid ? "Marcar como Pendente" : "Marcar como Pago"}
                         >
@@ -2866,7 +2832,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                         </button>
                         <button
                           onClick={() => startEditSale(s)}
-                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "#6d5ce7", padding: 6 }}
+                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "#5352ed", padding: 6 }}
                           title="Editar lançamento"
                         >
                           <Pencil size={16} />
@@ -3065,7 +3031,7 @@ function Precificacao({
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(20);
-      doc.setTextColor(109, 92, 231);
+      doc.setTextColor(83, 82, 237);
       doc.text("Loove Doceria", 14, 20);
 
       doc.setFontSize(11);
@@ -3078,7 +3044,7 @@ function Precificacao({
 
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(43, 35, 35);
+      doc.setTextColor(30, 41, 59);
       doc.text(rec.product_name, 14, 40);
 
       doc.setFontSize(11);
@@ -3098,7 +3064,7 @@ function Precificacao({
         head: [["Ingrediente / Insumo", "Quantidade Utilizada", "Custo (R$)"]],
         body: tableBody,
         theme: "grid",
-        headStyles: { fillColor: [109, 92, 231] },
+        headStyles: { fillColor: [83, 82, 237] },
       });
 
       let currentY = doc.lastAutoTable.finalY + 12;
@@ -3106,7 +3072,7 @@ function Precificacao({
       if (rec.preparation_method) {
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(43, 35, 35);
+        doc.setTextColor(30, 41, 59);
         doc.text("Modo de Preparo:", 14, currentY);
 
         doc.setFontSize(10);
@@ -3131,7 +3097,7 @@ function Precificacao({
             position: "fixed",
             bottom: 24,
             right: 24,
-            background: "#10b981",
+            background: "#00b894",
             color: "#ffffff",
             padding: "12px 20px",
             borderRadius: 12,
@@ -3149,7 +3115,7 @@ function Precificacao({
         </div>
       )}
 
-      <h2 style={{ fontSize: 22, fontWeight: 800, color: "#2b2323", margin: "0 0 24px" }}>
+      <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: "0 0 24px" }}>
         Precificação e Ficha Técnica
       </h2>
 
@@ -3165,7 +3131,7 @@ function Precificacao({
       {tab === "ingredientes" ? (
         <div>
           <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, marginBottom: 24 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>{editingIngId ? "Editar Ingrediente" : "Cadastrar Ingrediente ou Embalagem"}</span>
               {editingIngId && (
                 <button
@@ -3198,7 +3164,7 @@ function Precificacao({
                   <option value="un">Unidade (un)</option>
                 </select>
               </div>
-              <button onClick={submitIngredient} style={{ background: "#6d5ce7", color: "#ffffff", border: "none", borderRadius: 10, padding: "12px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", height: 44 }}>
+              <button onClick={submitIngredient} style={{ background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 10, padding: "12px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", height: 44 }}>
                 {editingIngId ? "Salvar Alterações" : "Cadastrar"}
               </button>
             </div>
@@ -3213,13 +3179,13 @@ function Precificacao({
               return (
                 <div key={i.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 14, padding: "18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323" }}>{i.name}</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#1e293b" }}>{i.name}</div>
                     <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
                       Pacote: {i.package_amount}{i.unit} por {brl(i.package_price)} · Custo: {brl(custoUnitario)} por {displayUnit}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => startEditIngredient(i)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#6d5ce7", padding: 6 }} title="Editar ingrediente">
+                    <button onClick={() => startEditIngredient(i)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#5352ed", padding: 6 }} title="Editar ingrediente">
                       <Pencil size={16} />
                     </button>
                     <button onClick={() => requestDelete(i.name, () => onRemoveIng(i.id), "Excluir Ingrediente")} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 6 }} title="Excluir ingrediente">
@@ -3234,7 +3200,7 @@ function Precificacao({
       ) : (
         <div>
           <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, marginBottom: 24 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>{editingRecId ? "Editar Ficha Técnica / Receita" : "Montar Ficha Técnica / Receita"}</span>
               {editingRecId && (
                 <button
@@ -3271,20 +3237,20 @@ function Precificacao({
                 <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Quantidade a usar (g/ml)</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 100" value={usedAmount} onChange={(e) => setUsedAmount(e.target.value)} />
               </div>
-              <button onClick={addIngredientToRecipe} style={{ background: "#6d5ce7", color: "#ffffff", border: "none", borderRadius: 10, padding: "12px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", height: 44 }}>
+              <button onClick={addIngredientToRecipe} style={{ background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 10, padding: "12px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", height: 44 }}>
                 Adicionar na Receita
               </button>
             </div>
 
             {currentRecipeItems.length > 0 && (
               <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16, marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#2b2323", marginBottom: 10 }}>Ingredientes desta receita:</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", marginBottom: 10 }}>Ingredientes desta receita:</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {currentRecipeItems.map((item, idx) => (
                     <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, borderBottom: "1px solid #e2e8f0", paddingBottom: 6 }}>
                       <span>{item.name} — {item.used_amount}{item.unit}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontWeight: 600, color: "#6d5ce7" }}>{brl(item.cost)}</span>
+                        <span style={{ fontWeight: 600, color: "#5352ed" }}>{brl(item.cost)}</span>
                         <button onClick={() => removeItemFromRecipe(idx)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 2 }} title="Remover item">
                           <Trash2 size={14} />
                         </button>
@@ -3294,11 +3260,11 @@ function Precificacao({
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, paddingTop: 8, borderTop: "1px solid #e2e8f0", fontWeight: 600, fontSize: 15 }}>
                   <span>Custo Total da Receita:</span>
-                  <span style={{ color: "#6d5ce7" }}>{brl(recipeTotalCost)}</span>
+                  <span style={{ color: "#5352ed" }}>{brl(recipeTotalCost)}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 13, color: "#64748b" }}>
                   <span>Custo por Unidade (Rendimento: {yieldAmount}):</span>
-                  <span style={{ fontWeight: 600, color: "#10b981" }}>{brl(recipeTotalCost / Number(yieldAmount || 1))}</span>
+                  <span style={{ fontWeight: 600, color: "#00b894" }}>{brl(recipeTotalCost / Number(yieldAmount || 1))}</span>
                 </div>
               </div>
             )}
@@ -3313,7 +3279,7 @@ function Precificacao({
               />
             </div>
 
-            <button onClick={saveRecipe} disabled={currentRecipeItems.length === 0 || !recName} style={{ background: "#2b2323", color: "#ffffff", border: "none", borderRadius: 10, padding: "12px 24px", fontSize: 14, fontWeight: 600, cursor: currentRecipeItems.length === 0 || !recName ? "not-allowed" : "pointer", opacity: currentRecipeItems.length === 0 || !recName ? 0.6 : 1, width: "100%" }}>
+            <button onClick={saveRecipe} disabled={currentRecipeItems.length === 0 || !recName} style={{ background: "#1e293b", color: "#ffffff", border: "none", borderRadius: 10, padding: "12px 24px", fontSize: 14, fontWeight: 600, cursor: currentRecipeItems.length === 0 || !recName ? "not-allowed" : "pointer", opacity: currentRecipeItems.length === 0 || !recName ? 0.6 : 1, width: "100%" }}>
               {editingRecId ? "Salvar Alterações" : "Salvar Ficha Técnica"}
             </button>
           </div>
@@ -3328,19 +3294,19 @@ function Precificacao({
                 <div key={rec.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                     <div>
-                      <div style={{ fontSize: 17, fontWeight: 700, color: "#2b2323" }}>{rec.product_name}</div>
+                      <div style={{ fontSize: 17, fontWeight: 700, color: "#1e293b" }}>{rec.product_name}</div>
                       <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>Rendimento: {rec.yield_amount} unidades/porções</div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                       <div style={{ textAlign: "right" }}>
                         <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>Custo Unitário</div>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: "#10b981" }}>{brl(custoPorUnidade)}</div>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: "#00b894" }}>{brl(custoPorUnidade)}</div>
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button onClick={() => exportRecipePDF(rec)} style={{ border: "none", background: "#fbe0e2", color: "#e0687a", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }} title="Exportar em PDF">
+                        <button onClick={() => exportRecipePDF(rec)} style={{ border: "none", background: "#eeeffe", color: "#5352ed", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }} title="Exportar em PDF">
                           <FileText size={15} /> PDF
                         </button>
-                        <button onClick={() => startEditRecipe(rec)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#6d5ce7", padding: 6 }} title="Editar receita">
+                        <button onClick={() => startEditRecipe(rec)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#5352ed", padding: 6 }} title="Editar receita">
                           <Pencil size={18} />
                         </button>
                         <button onClick={() => requestDelete(rec.product_name, () => onRemoveRec(rec.id), "Excluir Ficha Técnica")} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 6 }} title="Excluir receita">
@@ -3365,7 +3331,7 @@ function Precificacao({
                         style={{
                           background: "transparent",
                           border: "none",
-                          color: "#6d5ce7",
+                          color: "#5352ed",
                           fontSize: 12,
                           fontWeight: 600,
                           cursor: "pointer",
@@ -3381,7 +3347,7 @@ function Precificacao({
 
                       {isPrepShown && (
                         <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 14, marginTop: 8, fontSize: 13, color: "#334155", whiteSpace: "pre-line", lineHeight: 1.5 }}>
-                          <div style={{ fontWeight: 600, color: "#2b2323", marginBottom: 6 }}>Passo a Passo:</div>
+                          <div style={{ fontWeight: 600, color: "#1e293b", marginBottom: 6 }}>Passo a Passo:</div>
                           {rec.preparation_method}
                         </div>
                       )}
@@ -3474,10 +3440,10 @@ function Documentos({ documents, expenses, onAdd, onRemove, requestDelete }) {
 
   return (
     <div>
-      <h2 style={{ fontSize: 22, fontWeight: 800, color: "#2b2323", margin: "0 0 24px" }}>Gerenciador de Documentos</h2>
+      <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: "0 0 24px" }}>Gerenciador de Documentos</h2>
 
       <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, marginBottom: 28, boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#2b2323", marginBottom: 16 }}>Fazer Upload de Documento</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Fazer Upload de Documento</div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12 }}>
@@ -3560,20 +3526,20 @@ function Documentos({ documents, expenses, onAdd, onRemove, requestDelete }) {
                     {isImage ? (
                       <img src={doc.file_data} alt={doc.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     ) : (
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "#6d5ce7" }}>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "#5352ed" }}>
                         <FileText size={36} />
                         <span style={{ fontSize: 11, fontWeight: 700 }}>DOCUMENTO PDF</span>
                       </div>
                     )}
                   </div>
 
-                  <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.name}</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#1e293b", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.name}</div>
                   <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "#fbe0e2", color: "#e0687a" }}>{doc.category}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "#eeeffe", color: "#5352ed" }}>{doc.category}</span>
                     <span style={{ fontSize: 12, color: "#94a3b8" }}>{formatDatePt(doc.date)}</span>
                   </div>
                   {doc.expense_link && (
-                    <div style={{ fontSize: 12, color: "#10b981", fontWeight: 600, background: "#ecfdf5", padding: "3px 8px", borderRadius: 6, display: "inline-block" }}>
+                    <div style={{ fontSize: 12, color: "#00b894", fontWeight: 600, background: "#e8f8f5", padding: "3px 8px", borderRadius: 6, display: "inline-block" }}>
                       Gasto: {doc.expense_link}
                     </div>
                   )}
@@ -3585,7 +3551,7 @@ function Documentos({ documents, expenses, onAdd, onRemove, requestDelete }) {
                       href={doc.file_data}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ background: "#fbe0e2", color: "#e0687a", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
+                      style={{ background: "#eeeffe", color: "#5352ed", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
                       title="Visualizar arquivo"
                     >
                       <Eye size={14} /> Ver
@@ -3593,7 +3559,7 @@ function Documentos({ documents, expenses, onAdd, onRemove, requestDelete }) {
                     <a
                       href={doc.file_data}
                       download={doc.name}
-                      style={{ background: "#6d5ce7", color: "#ffffff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
+                      style={{ background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
                       title="Baixar arquivo"
                     >
                       <Download size={14} /> Baixar
@@ -3620,14 +3586,14 @@ function ListRow({ title, subtitle, value, valueColor, onEdit, onDelete }) {
   return (
     <div className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 14, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "#2b2323", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
         <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>{subtitle}</div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: valueColor || "#2b2323" }}>{value}</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: valueColor || "#1e293b" }}>{value}</span>
         <div style={{ display: "flex", gap: 4 }}>
           {onEdit && (
-            <button onClick={onEdit} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#6d5ce7", display: "flex" }} title="Editar produto">
+            <button onClick={onEdit} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#5352ed", display: "flex" }} title="Editar produto">
               <Pencil size={16} />
             </button>
           )}
@@ -3644,7 +3610,7 @@ function ListRow({ title, subtitle, value, valueColor, onEdit, onDelete }) {
 
 function ToggleButton({ active, onClick, children }) {
   return (
-    <button onClick={onClick} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: active ? "1px solid #e0687a" : "1px solid #e2e8f0", background: active ? "#fbe0e2" : "#ffffff", color: active ? "#e0687a" : "#64748b", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+    <button onClick={onClick} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: active ? "1px solid #5352ed" : "1px solid #e2e8f0", background: active ? "#eeeffe" : "#ffffff", color: active ? "#5352ed" : "#64748b", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
       {children}
     </button>
   );
@@ -3662,7 +3628,7 @@ const inputStyle = {
   padding: "11px 14px",
   fontSize: 14,
   outline: "none",
-  color: "#2b2323",
+  color: "#1e293b",
   background: "#ffffff",
 };
 
@@ -3670,7 +3636,7 @@ const primaryBtnStyle = {
   border: "none",
   borderRadius: 10,
   padding: "12px 0",
-  background: "#6d5ce7",
+  background: "#5352ed",
   color: "#ffffff",
   fontSize: 14,
   fontWeight: 600,
