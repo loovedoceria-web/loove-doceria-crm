@@ -39,11 +39,12 @@ import {
   Store,
   ExternalLink,
   Send,
+  BarChart2,
 } from "lucide-react";
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -66,10 +67,8 @@ const CATEGORIAS_DOC = ["Nota Fiscal", "Comprovante de Gasto", "Contrato", "Outr
 const FORMAS_PAGAMENTO = ["Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito"];
 const STATUS_ENCOMENDA = ["Pendente", "Em Produção", "Entregue", "Finalizado"];
 
-// ⚠️ COLOQUE AQUI O SEU NÚMERO DO WHATSAPP COM DDD (Apenas números)
 const WHATSAPP_DOCERIA = "5511999999999"; 
 
-// Constantes de Spring (Estilo Emil Kowalski)
 const SPRING_TRANSITION = { type: "spring", stiffness: 420, damping: 30 };
 const MODAL_SPRING = { type: "spring", stiffness: 350, damping: 28 };
 
@@ -103,7 +102,7 @@ export default function App() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 🛍️ CARDÁPIO PÚBLICO COM MOTION
+// 🛍️ CARDÁPIO PÚBLICO
 // ══════════════════════════════════════════════════════════════════════════════
 function CardapioPublico() {
   const [products, setProducts] = useState([]);
@@ -229,7 +228,6 @@ function CardapioPublico() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc", fontFamily: "'Inter', sans-serif", paddingBottom: totalCartQty > 0 ? 100 : 40 }}>
-      {/* Header */}
       <div style={{ background: "#ffffff", borderBottom: "1px solid #f1f5f9", padding: "18px 24px", position: "sticky", top: 0, zIndex: 40 }}>
         <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -261,7 +259,7 @@ function CardapioPublico() {
             <motion.button
               whileTap={{ scale: 0.96 }}
               onClick={() => setOrderSent(false)}
-              style={{ background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}
+              style={{ background: "#6C5CE7", color: "#ffffff", border: "none", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}
             >
               Fazer Outro Pedido
             </motion.button>
@@ -290,7 +288,7 @@ function CardapioPublico() {
                       padding: "7px 14px",
                       borderRadius: 10,
                       border: "none",
-                      background: selectedCat === cat ? "#5352ed" : "#ffffff",
+                      background: selectedCat === cat ? "#6C5CE7" : "#ffffff",
                       color: selectedCat === cat ? "#ffffff" : "#64748b",
                       fontSize: 13,
                       fontWeight: 600,
@@ -326,20 +324,20 @@ function CardapioPublico() {
                       <div>
                         <div style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>{p.name}</div>
                         <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{p.category}</div>
-                        <div style={{ fontSize: 16, fontWeight: 800, color: "#5352ed", marginTop: 6 }}>{brl(p.price)}</div>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: "#6C5CE7", marginTop: 6 }}>{brl(p.price)}</div>
                       </div>
 
                       {qtyInCart > 0 ? (
                         <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#eeeffe", padding: "4px 8px", borderRadius: 10 }}>
-                          <motion.button whileTap={{ scale: 0.9 }} onClick={() => removeFromCart(p.id)} style={{ border: "none", background: "#ffffff", borderRadius: 6, width: 28, height: 28, fontWeight: 700, color: "#5352ed", cursor: "pointer" }}>-</motion.button>
-                          <span style={{ fontWeight: 700, color: "#5352ed", fontSize: 14 }}>{qtyInCart}</span>
-                          <motion.button whileTap={{ scale: 0.9 }} onClick={() => addToCart(p)} style={{ border: "none", background: "#5352ed", borderRadius: 6, width: 28, height: 28, fontWeight: 700, color: "#ffffff", cursor: "pointer" }}>+</motion.button>
+                          <motion.button whileTap={{ scale: 0.9 }} onClick={() => removeFromCart(p.id)} style={{ border: "none", background: "#ffffff", borderRadius: 6, width: 28, height: 28, fontWeight: 700, color: "#6C5CE7", cursor: "pointer" }}>-</motion.button>
+                          <span style={{ fontWeight: 700, color: "#6C5CE7", fontSize: 14 }}>{qtyInCart}</span>
+                          <motion.button whileTap={{ scale: 0.9 }} onClick={() => addToCart(p)} style={{ border: "none", background: "#6C5CE7", borderRadius: 6, width: 28, height: 28, fontWeight: 700, color: "#ffffff", cursor: "pointer" }}>+</motion.button>
                         </div>
                       ) : (
                         <motion.button
                           whileTap={{ scale: 0.95 }}
                           onClick={() => addToCart(p)}
-                          style={{ background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+                          style={{ background: "#6C5CE7", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
                         >
                           <Plus size={16} /> Adicionar
                         </motion.button>
@@ -353,7 +351,6 @@ function CardapioPublico() {
         )}
       </div>
 
-      {/* Barra de Sacola com AnimatePresence */}
       <AnimatePresence>
         {totalCartQty > 0 && !isBagOpen && !orderSent && (
           <motion.div
@@ -366,7 +363,7 @@ function CardapioPublico() {
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={() => setIsBagOpen(true)}
-              style={{ width: "100%", background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 16, padding: "16px 20px", fontSize: 15, fontWeight: 800, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 10px 25px -5px rgba(83, 82, 237, 0.4)" }}
+              style={{ width: "100%", background: "#6C5CE7", color: "#ffffff", border: "none", borderRadius: 16, padding: "16px 20px", fontSize: 15, fontWeight: 800, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 10px 25px -5px rgba(108, 92, 231, 0.4)" }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ background: "rgba(255,255,255,0.2)", padding: "4px 10px", borderRadius: 8, fontSize: 13 }}>
@@ -380,7 +377,6 @@ function CardapioPublico() {
         )}
       </AnimatePresence>
 
-      {/* Modal Gaveta com AnimatePresence */}
       <AnimatePresence>
         {isBagOpen && (
           <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
@@ -396,7 +392,7 @@ function CardapioPublico() {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={MODAL_SPRING}
-              style={{ position: "relative", background: "#ffffff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "24px 20px", maxWidth: 680, width: "100%", maxHeight: "85vh", overflowY: "auto" }}
+              style={{ position: "relative", background: "#ffffff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "24px 20px", maxWidth: 680, width: "100%", maxHeight: "85vh", overflowY: "auto", boxShadow: "0 -10px 25px rgba(0,0,0,0.1)" }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <div style={{ fontSize: 18, fontWeight: 800, color: "#1e293b" }}>Sua Sacola</div>
@@ -413,13 +409,13 @@ function CardapioPublico() {
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontWeight: 700, color: "#1e293b", fontSize: 14 }}>{brl(item.product.price * item.qty)}</span>
                       <button onClick={() => removeFromCart(item.product.id)} style={{ border: "none", background: "#f1f5f9", borderRadius: 6, width: 26, height: 26, cursor: "pointer" }}>-</button>
-                      <button onClick={() => addToCart(item.product)} style={{ border: "none", background: "#5352ed", color: "#fff", borderRadius: 6, width: 26, height: 26, cursor: "pointer" }}>+</button>
+                      <button onClick={() => addToCart(item.product)} style={{ border: "none", background: "#6C5CE7", color: "#fff", borderRadius: 6, width: 26, height: 26, cursor: "pointer" }}>+</button>
                     </div>
                   </div>
                 ))}
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 800, color: "#1e293b", paddingTop: 8 }}>
                   <span>Total:</span>
-                  <span style={{ color: "#5352ed" }}>{brl(totalCart)}</span>
+                  <span style={{ color: "#6C5CE7" }}>{brl(totalCart)}</span>
                 </div>
               </div>
 
@@ -429,8 +425,8 @@ function CardapioPublico() {
                   <input required style={inputStyle} placeholder="WhatsApp (DDD)" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} />
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button type="button" onClick={() => setDeliveryType("Entrega")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: deliveryType === "Entrega" ? "1px solid #5352ed" : "1px solid #e2e8f0", background: deliveryType === "Entrega" ? "#eeeffe" : "#fff", color: deliveryType === "Entrega" ? "#5352ed" : "#64748b", fontWeight: 700, cursor: "pointer" }}>🛵 Entrega</button>
-                  <button type="button" onClick={() => setDeliveryType("Retirada")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: deliveryType === "Retirada" ? "1px solid #5352ed" : "1px solid #e2e8f0", background: deliveryType === "Retirada" ? "#eeeffe" : "#fff", color: deliveryType === "Retirada" ? "#5352ed" : "#64748b", fontWeight: 700, cursor: "pointer" }}>🏪 Balcão</button>
+                  <button type="button" onClick={() => setDeliveryType("Entrega")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: deliveryType === "Entrega" ? "1px solid #6C5CE7" : "1px solid #e2e8f0", background: deliveryType === "Entrega" ? "#eeeffe" : "#fff", color: deliveryType === "Entrega" ? "#6C5CE7" : "#64748b", fontWeight: 700, cursor: "pointer" }}>🛵 Entrega</button>
+                  <button type="button" onClick={() => setDeliveryType("Retirada")} style={{ flex: 1, padding: "10px", borderRadius: 10, border: deliveryType === "Retirada" ? "1px solid #6C5CE7" : "1px solid #e2e8f0", background: deliveryType === "Retirada" ? "#eeeffe" : "#fff", color: deliveryType === "Retirada" ? "#6C5CE7" : "#64748b", fontWeight: 700, cursor: "pointer" }}>🏪 Balcão</button>
                 </div>
                 {deliveryType === "Entrega" && <input required style={inputStyle} placeholder="Endereço de entrega" value={address} onChange={(e) => setAddress(e.target.value)} />}
                 <select style={inputStyle} value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
@@ -454,7 +450,7 @@ function CardapioPublico() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 🖥️ CRM COM FRAMER MOTION
+// 🖥️ CRM ADMIN
 // ══════════════════════════════════════════════════════════════════════════════
 function CRMApp() {
   const [view, setView] = useState("dashboard");
@@ -739,18 +735,30 @@ function CRMApp() {
     const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const prevMonthStr = prevDate.toISOString().slice(0, 7);
 
+    // Ontem para comparação diária
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayISO = yesterdayDate.toISOString().slice(0, 10);
+
     const salesNormal = sales.filter((s) => s.payment !== "Empresa (Fiado)");
     const companySales = sales.filter((s) => s.payment === "Empresa (Fiado)");
 
+    // Vendas hoje vs ontem
     const vendasHojeVal = salesNormal.filter((s) => s.date === today).reduce((sum, s) => sum + Number(s.total), 0);
+    const vendasOntemVal = salesNormal.filter((s) => s.date === yesterdayISO).reduce((sum, s) => sum + Number(s.total), 0);
+    const variacaoVendasHoje = vendasOntemVal > 0 ? ((vendasHojeVal - vendasOntemVal) / vendasOntemVal) * 100 : 0;
+
+    // Gastos hoje vs ontem
+    const gastosHojeVal = expenses.filter((g) => g.date === today).reduce((sum, g) => sum + Number(g.value), 0);
+    const gastosOntemVal = expenses.filter((g) => g.date === yesterdayISO).reduce((sum, g) => sum + Number(g.value), 0);
+    const variacaoGastosHoje = gastosOntemVal > 0 ? ((gastosHojeVal - gastosOntemVal) / gastosOntemVal) * 100 : 0;
+
+    // Lucro mês atual vs mês anterior
     const vendasMesAtual = salesNormal.filter((s) => isSameMonth(s.date, today)).reduce((sum, s) => sum + Number(s.total), 0);
     const vendasMesAnterior = salesNormal.filter((s) => isSameMonth(s.date, `${prevMonthStr}-01`)).reduce((sum, s) => sum + Number(s.total), 0);
-    const variacaoVendas = vendasMesAnterior > 0 ? ((vendasMesAtual - vendasMesAnterior) / vendasMesAnterior) * 100 : 0;
 
-    const gastosHojeVal = expenses.filter((g) => g.date === today).reduce((sum, g) => sum + Number(g.value), 0);
     const gastosMesAtual = expenses.filter((g) => isSameMonth(g.date, today)).reduce((sum, g) => sum + Number(g.value), 0);
     const gastosMesAnterior = expenses.filter((g) => isSameMonth(g.date, `${prevMonthStr}-01`)).reduce((sum, g) => sum + Number(g.value), 0);
-    const variacaoGastos = gastosMesAnterior > 0 ? ((gastosMesAtual - gastosMesAnterior) / gastosMesAnterior) * 100 : 0;
 
     const lucroMesAtual = vendasMesAtual - gastosMesAtual;
     const lucroMesAnterior = vendasMesAnterior - gastosMesAnterior;
@@ -772,14 +780,14 @@ function CRMApp() {
 
     return {
       vendasHoje: vendasHojeVal,
+      variacaoVendasHoje,
       gastosHoje: gastosHojeVal,
+      variacaoGastosHoje,
       lucroMes: lucroMesAtual,
+      variacaoLucro,
       maisVendidoNome: topProductName,
       maisVendidoQtd: topProductQty,
       totalEmpresa: totalEmpresaPendente,
-      variacaoVendas,
-      variacaoGastos,
-      variacaoLucro,
     };
   }, [sales, expenses, today]);
 
@@ -826,9 +834,9 @@ function CRMApp() {
         {/* Banner do Cardápio Online */}
         <motion.div
           whileHover={{ scale: 1.005 }}
-          style={{ background: "#eeeffe", border: "1px solid #dcdde1", borderRadius: 12, padding: "10px 16px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}
+          style={{ background: "#f0edff", border: "1px solid #dcd6fa", borderRadius: 12, padding: "10px 16px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#5352ed", fontWeight: 600 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#6C5CE7", fontWeight: 600 }}>
             <Store size={18} />
             <span>Cardápio Digital ativo e pronto para pedidos!</span>
           </div>
@@ -837,7 +845,7 @@ function CRMApp() {
             href="?cardapio=1"
             target="_blank"
             rel="noopener noreferrer"
-            style={{ fontSize: 12, fontWeight: 700, color: "#ffffff", background: "#5352ed", padding: "6px 14px", borderRadius: 8, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
+            style={{ fontSize: 12, fontWeight: 700, color: "#ffffff", background: "#6C5CE7", padding: "6px 14px", borderRadius: 8, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
           >
             Abrir Cardápio <ExternalLink size={13} />
           </motion.a>
@@ -870,7 +878,312 @@ function CRMApp() {
   );
 }
 
-// ─── COMPONENTES AUXILIARES ANIMADOS ───────────────────────────────────────────
+// ─── 4) SIDEBAR COM BORDA LATERAL NO ATIVO E HOVER FLUIDO ──────────────────────
+function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
+  const items = [
+    { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
+    { key: "encomendas", label: "Encomendas", icon: ClipboardList },
+    { key: "produtos", label: "Produtos", icon: Cookie },
+    { key: "vendas", label: "Vendas", icon: ShoppingCart },
+    { key: "gastos", label: "Gastos", icon: Receipt },
+    { key: "empresa", label: "Vendas Empresa", icon: Briefcase },
+    { key: "precificacao", label: "Precificação", icon: Calculator },
+    { key: "documentos", label: "Documentos", icon: FolderOpen },
+  ];
+
+  return (
+    <div style={{ width: isCollapsed ? 80 : 250, background: "#ffffff", borderRight: "1px solid #f1f5f9", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: isCollapsed ? "24px 12px" : "24px 16px", position: "fixed", top: 0, bottom: 0, left: 0, zIndex: 100, transition: "width 0.25s ease" }}>
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: isCollapsed ? "center" : "space-between", marginBottom: 36 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, overflow: "hidden" }}>
+            <img src="/logo.png" alt="Loove" style={{ width: 40, height: 40, borderRadius: 12, objectFit: "cover" }} />
+            {!isCollapsed && (
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: "#1e293b", letterSpacing: "-0.3px" }}>Loove Doceria</div>
+                <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>CRM Seguro</div>
+              </div>
+            )}
+          </div>
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => setIsCollapsed(!isCollapsed)} style={{ background: "#f1f5f9", border: "none", borderRadius: "50%", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6C5CE7" }}>
+            {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          </motion.button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {items.map(({ key, label, icon: Icon }) => {
+            const isActive = view === key;
+            return (
+              <motion.button
+                key={key}
+                whileHover={{ x: 2, backgroundColor: isActive ? "#f0edff" : "#f8fafc" }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setView(key)}
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: isCollapsed ? "center" : "flex-start",
+                  gap: 12,
+                  width: "100%",
+                  padding: isCollapsed ? "12px 0" : "11px 16px",
+                  borderRadius: 12,
+                  border: "none",
+                  borderLeft: isActive ? "3px solid #6C5CE7" : "3px solid transparent",
+                  background: isActive ? "#f0edff" : "transparent",
+                  color: isActive ? "#6C5CE7" : "#475569",
+                  fontSize: 14,
+                  fontWeight: isActive ? 700 : 500,
+                  cursor: "pointer",
+                  transition: "background-color 0.15s ease",
+                }}
+              >
+                <Icon size={18} style={{ color: isActive ? "#6C5CE7" : "#64748b" }} />
+                {!isCollapsed && <span>{label}</span>}
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
+
+      <motion.button whileTap={{ scale: 0.97 }} whileHover={{ backgroundColor: "#f8fafc" }} onClick={onLogout} style={{ display: "flex", alignItems: "center", justifyContent: isCollapsed ? "center" : "flex-start", gap: 10, background: "transparent", border: "none", borderRadius: 10, padding: "11px 16px", color: "#64748b", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+        <LogOut size={16} />
+        {!isCollapsed && <span>Sair da conta</span>}
+      </motion.button>
+    </div>
+  );
+}
+
+// ─── 1) CARDS DE MÉTRICAS MODERNIZADOS COM GRID RESPONSIVO E VARIAÇÃO ──────────
+function Card({ label, value, subValue, tooltip, icon, iconBg, valueColor, comparison }) {
+  return (
+    <motion.div
+      whileHover={{ y: -3, boxShadow: "0 10px 20px -5px rgba(0, 0, 0, 0.06)" }}
+      transition={SPRING_TRANSITION}
+      title={tooltip || ""}
+      style={{
+        background: "#ffffff",
+        border: "1px solid #f1f5f9",
+        borderRadius: 16,
+        padding: "18px 20px",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        minHeight: 110,
+        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.03)",
+        transition: "box-shadow 0.2s ease, transform 0.2s ease",
+      }}
+    >
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.6px" }}>
+            {label}
+          </span>
+          <div style={{ width: 36, height: 36, borderRadius: "50%", background: iconBg || "#f0edff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {icon}
+          </div>
+        </div>
+        <div style={{ fontSize: 24, fontWeight: 800, color: valueColor || "#1e293b", letterSpacing: "-0.5px" }}>
+          {value}
+        </div>
+        {subValue && <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginTop: 2 }}>{subValue}</div>}
+      </div>
+
+      {comparison && (
+        <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 10, fontSize: 12, fontWeight: 600, color: comparison.color }}>
+          {comparison.icon}
+          <span>{comparison.text}</span>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ─── 5) DASHBOARD COM ESCALA TIPOGRÁFICA E GRID REORGANIZADO ───────────────────
+function Dashboard({ dataFormatada, metrics, sales, setView }) {
+  function getComparison(val, refText = "vs ontem") {
+    if (val === 0 || !val) {
+      return { text: `0% ${refText}`, color: "#64748b", icon: null };
+    }
+    const isPositive = val > 0;
+    return {
+      text: `${isPositive ? "+" : ""}${val.toFixed(1)}% ${refText}`,
+      color: isPositive ? "#00b894" : "#e84393",
+      icon: isPositive ? <ArrowUpRight size={14} color="#00b894" /> : <ArrowDownRight size={14} color="#e84393" />,
+    };
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
+        <div>
+          <h1 style={{ fontSize: 32, fontWeight: 900, color: "#0f172a", margin: "0 0 4px 0", letterSpacing: "-0.8px" }}>
+            Dashboard
+          </h1>
+          <div style={{ color: "#475569", fontSize: 14, fontWeight: 500 }}>
+            Visão Geral Do Seu Negócio
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ color: "#475569", fontSize: 13, fontWeight: 500, marginRight: 8 }}>{dataFormatada}</div>
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => setView("vendas")} style={{ background: "#6C5CE7", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+            <Plus size={15} /> Nova Venda
+          </motion.button>
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => setView("gastos")} style={{ background: "#ffffff", color: "#6C5CE7", border: "1px solid #e0e7ff", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+            <Plus size={15} /> Novo Gasto
+          </motion.button>
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => setView("empresa")} style={{ background: "#1e272e", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+            <Plus size={15} /> Venda Empresa
+          </motion.button>
+        </div>
+      </div>
+
+      {/* Grid Reformulado: 3 colunas na 1ª linha e 2 colunas na 2ª linha */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginBottom: 28 }}>
+        <Card
+          label="Vendas hoje"
+          value={brl(metrics.vendasHoje)}
+          icon={<ShoppingCart size={18} color="#6C5CE7" />}
+          iconBg="#f0edff"
+          comparison={getComparison(metrics.variacaoVendasHoje, "vs ontem")}
+        />
+        <Card
+          label="Gastos hoje"
+          value={brl(metrics.gastosHoje)}
+          icon={<Receipt size={18} color="#e84393" />}
+          iconBg="#fde8f1"
+          valueColor="#1e293b"
+          comparison={getComparison(metrics.variacaoGastosHoje, "vs ontem")}
+        />
+        <Card
+          label="Lucro do mês"
+          value={brl(metrics.lucroMes)}
+          icon={<TrendingUp size={18} color="#00b894" />}
+          iconBg="#e8f8f5"
+          valueColor="#00b894"
+          comparison={getComparison(metrics.variacaoLucro, "vs mês passado")}
+        />
+        <Card
+          label="Mais vendido"
+          value={metrics.maisVendidoNome}
+          subValue={metrics.maisVendidoQtd}
+          tooltip={metrics.maisVendidoNome}
+          icon={<Star size={18} color="#f59e0b" />}
+          iconBg="#fef5e7"
+        />
+        <Card
+          label="Total a receber (Empresa)"
+          value={brl(metrics.totalEmpresa)}
+          icon={<Briefcase size={18} color="#0984e3" />}
+          iconBg="#e1f0fa"
+          valueColor="#0984e3"
+        />
+      </div>
+
+      <SalesChart sales={sales} />
+    </div>
+  );
+}
+
+// ─── 3) GRÁFICO COM ÁREA GRADIENTE E ESTADO VAZIO ELABORADO ────────────────────
+function SalesChart({ sales }) {
+  const [chartMode, setChartMode] = useState("vendas");
+  const [periodDays, setPeriodDays] = useState(7);
+
+  const data = useMemo(() => {
+    const days = [];
+    for (let i = periodDays - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const iso = d.toISOString().slice(0, 10);
+      const label = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+
+      const totalVendas = sales.filter((s) => s.date === iso && s.payment !== "Empresa (Fiado)").reduce((sum, s) => sum + Number(s.total), 0);
+      const totalVendasEmpresa = sales.filter((s) => s.date === iso && s.payment === "Empresa (Fiado)").reduce((sum, s) => sum + Number(s.total), 0);
+
+      days.push({ iso, label, Valor: chartMode === "vendas" ? totalVendas : totalVendasEmpresa });
+    }
+    return days;
+  }, [sales, chartMode, periodDays]);
+
+  const hasData = data.some((d) => d.Valor > 0);
+
+  return (
+    <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: "24px 24px 20px", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.03)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>
+          {chartMode === "vendas" ? "Vendas" : "Vendas Empresa"} (últimos {periodDays} dias)
+        </div>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 10, gap: 2 }}>
+            {[7, 14, 30].map((days) => (
+              <motion.button
+                key={days}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setPeriodDays(days)}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: periodDays === days ? "#6C5CE7" : "transparent",
+                  color: periodDays === days ? "#ffffff" : "#64748b",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {days} dias
+              </motion.button>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 10, gap: 2 }}>
+            <motion.button whileTap={{ scale: 0.95 }} onClick={() => setChartMode("vendas")} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: chartMode === "vendas" ? "#6C5CE7" : "transparent", color: chartMode === "vendas" ? "#ffffff" : "#64748b", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              Vendas
+            </motion.button>
+            <motion.button whileTap={{ scale: 0.95 }} onClick={() => setChartMode("empresa")} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: chartMode === "empresa" ? "#6C5CE7" : "transparent", color: chartMode === "empresa" ? "#ffffff" : "#64748b", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              Empresa
+            </motion.button>
+          </div>
+        </div>
+      </div>
+
+      {!hasData ? (
+        <div style={{ height: 280, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", border: "1px dashed #e2e8f0", borderRadius: 12, background: "#f8fafc", padding: 24, textAlign: "center" }}>
+          <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#f0edff", color: "#6C5CE7", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+            <BarChart2 size={24} />
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 4 }}>
+            Ainda não há vendas suficientes para exibir a tendência
+          </div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>
+            As movimentações dos últimos {periodDays} dias aparecerão aqui em formato de curva assim que forem registradas.
+          </div>
+        </div>
+      ) : (
+        <div style={{ width: "100%", height: 290 }}>
+          <ResponsiveContainer>
+            <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="purpleGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#6C5CE7" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#6C5CE7" stopOpacity={0.0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={{ stroke: "#f1f5f9" }} tickLine={false} />
+              <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+              <Tooltip formatter={(v) => brl(v)} />
+              <Area type="monotone" dataKey="Valor" stroke="#6C5CE7" strokeWidth={3} fillOpacity={1} fill="url(#purpleGradient)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── COMPONENTES RESTANTES (SEM ALTERAÇÃO DE LÓGICA) ───────────────────────────
 function ToastContainer({ toasts }) {
   return (
     <div style={{ position: "fixed", bottom: 24, right: 24, display: "flex", flexDirection: "column", gap: 10, zIndex: 99999, pointerEvents: "none" }}>
@@ -984,9 +1297,9 @@ function SkeletonGrid() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <div style={{ height: 32, width: 220, background: "#e2e8f0", borderRadius: 8 }} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} style={{ height: 125, background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16 }} />
+          <div key={i} style={{ height: 110, background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16 }} />
         ))}
       </div>
       <div style={{ height: 300, background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16 }} />
@@ -994,80 +1307,7 @@ function SkeletonGrid() {
   );
 }
 
-function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
-  const items = [
-    { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
-    { key: "encomendas", label: "Encomendas", icon: ClipboardList },
-    { key: "produtos", label: "Produtos", icon: Cookie },
-    { key: "vendas", label: "Vendas", icon: ShoppingCart },
-    { key: "gastos", label: "Gastos", icon: Receipt },
-    { key: "empresa", label: "Vendas Empresa", icon: Briefcase },
-    { key: "precificacao", label: "Precificação", icon: Calculator },
-    { key: "documentos", label: "Documentos", icon: FolderOpen },
-  ];
-
-  return (
-    <div style={{ width: isCollapsed ? 80 : 250, background: "#ffffff", borderRight: "1px solid #f1f5f9", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: isCollapsed ? "24px 12px" : "24px 16px", position: "fixed", top: 0, bottom: 0, left: 0, zIndex: 100, transition: "width 0.25s ease" }}>
-      <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: isCollapsed ? "center" : "space-between", marginBottom: 36 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, overflow: "hidden" }}>
-            <img src="/logo.png" alt="Loove" style={{ width: 40, height: 40, borderRadius: 12, objectFit: "cover" }} />
-            {!isCollapsed && (
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 16, color: "#1e293b" }}>Loove Doceria</div>
-                <div style={{ fontSize: 11, color: "#94a3b8" }}>CRM Seguro</div>
-              </div>
-            )}
-          </div>
-          <motion.button whileTap={{ scale: 0.9 }} onClick={() => setIsCollapsed(!isCollapsed)} style={{ background: "#edf2f7", border: "none", borderRadius: "50%", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5352ed" }}>
-            {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-          </motion.button>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {items.map(({ key, label, icon: Icon }) => {
-            const isActive = view === key;
-            return (
-              <motion.button
-                key={key}
-                whileHover={{ x: 2 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setView(key)}
-                style={{
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: isCollapsed ? "center" : "flex-start",
-                  gap: 12,
-                  width: "100%",
-                  padding: isCollapsed ? "12px 0" : "11px 16px",
-                  borderRadius: 12,
-                  border: "none",
-                  background: isActive ? "#eeeffe" : "transparent",
-                  color: isActive ? "#5352ed" : "#475569",
-                  fontSize: 14,
-                  fontWeight: isActive ? 700 : 500,
-                  cursor: "pointer",
-                }}
-              >
-                <Icon size={18} style={{ color: isActive ? "#5352ed" : "#64748b" }} />
-                {!isCollapsed && <span>{label}</span>}
-              </motion.button>
-            );
-          })}
-        </div>
-      </div>
-
-      <motion.button whileTap={{ scale: 0.97 }} onClick={onLogout} style={{ display: "flex", alignItems: "center", justifyContent: isCollapsed ? "center" : "flex-start", gap: 10, background: "transparent", border: "none", padding: "11px 16px", color: "#64748b", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-        <LogOut size={16} />
-        {!isCollapsed && <span>Sair da conta</span>}
-      </motion.button>
-    </div>
-  );
-}
-
 function AuthScreen({ addToast }) {
-  const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -1109,166 +1349,18 @@ function AuthScreen({ addToast }) {
   );
 }
 
-function Card({ label, value, subValue, tooltip, icon, iconBg, valueColor, comparison }) {
-  return (
-    <motion.div
-      whileHover={{ y: -3 }}
-      transition={SPRING_TRANSITION}
-      title={tooltip || ""}
-      style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: "20px 22px", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 125, boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.03)" }}
-    >
-      <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase" }}>{label}</span>
-          <div style={{ width: 36, height: 36, borderRadius: "50%", background: iconBg || "#f1f2f6", display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</div>
-        </div>
-        <div style={{ fontSize: 24, fontWeight: 800, color: valueColor || "#1e293b" }}>{value}</div>
-        {subValue && <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginTop: 4 }}>{subValue}</div>}
-      </div>
-      {comparison && (
-        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 500, color: comparison.color }}>
-          {comparison.icon}
-          <span>{comparison.text}</span>
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
-function Dashboard({ dataFormatada, metrics, sales, setView }) {
-  function getComparison(val) {
-    if (val === 0) return { text: "Sem alteração", color: "#64748b", icon: null };
-    const isPositive = val > 0;
-    return {
-      text: `${isPositive ? "↑" : "↓"} ${Math.abs(val).toFixed(1)}% vs mês passado`,
-      color: isPositive ? "#00b894" : "#e84393",
-      icon: isPositive ? <ArrowUpRight size={14} color="#00b894" /> : <ArrowDownRight size={14} color="#e84393" />,
-    };
-  }
-
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
-        <div>
-          <h1 style={{ fontSize: 32, fontWeight: 900, color: "#1e293b", margin: "0 0 4px 0" }}>Dashboard</h1>
-          <div style={{ color: "#64748b", fontSize: 14, fontWeight: 500 }}>Visão Geral Do Seu Negócio</div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ color: "#475569", fontSize: 13, fontWeight: 500, marginRight: 8 }}>{dataFormatada}</div>
-          <motion.button whileTap={{ scale: 0.96 }} onClick={() => setView("vendas")} style={{ background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-            <Plus size={15} /> Nova Venda
-          </motion.button>
-          <motion.button whileTap={{ scale: 0.96 }} onClick={() => setView("gastos")} style={{ background: "#ffffff", color: "#5352ed", border: "1px solid #e0e7ff", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-            <Plus size={15} /> Novo Gasto
-          </motion.button>
-          <motion.button whileTap={{ scale: 0.96 }} onClick={() => setView("empresa")} style={{ background: "#1e272e", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-            <Plus size={15} /> Venda Empresa
-          </motion.button>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16, marginBottom: 28 }}>
-        <Card label="Vendas hoje" value={brl(metrics.vendasHoje)} icon={<ShoppingCart size={18} color="#5352ed" />} iconBg="#eeeffe" comparison={getComparison(metrics.variacaoVendas)} />
-        <Card label="Gastos hoje" value={brl(metrics.gastosHoje)} icon={<Receipt size={18} color="#e84393" />} iconBg="#fde8f1" comparison={getComparison(metrics.variacaoGastos)} />
-        <Card label="Lucro do mês" value={brl(metrics.lucroMes)} icon={<TrendingUp size={18} color="#00b894" />} iconBg="#e8f8f5" valueColor="#00b894" comparison={getComparison(metrics.variacaoLucro)} />
-        <Card label="Mais vendido" value={metrics.maisVendidoNome} subValue={metrics.maisVendidoQtd} icon={<Star size={18} color="#e17055" />} iconBg="#fef5e7" />
-        <Card label="Total a receber" value={brl(metrics.totalEmpresa)} icon={<Briefcase size={18} color="#0984e3" />} iconBg="#e1f0fa" valueColor="#0984e3" />
-      </div>
-
-      <SalesChart sales={sales} />
-    </div>
-  );
-}
-
-function SalesChart({ sales }) {
-  const [chartMode, setChartMode] = useState("vendas");
-  const [periodDays, setPeriodDays] = useState(7);
-
-  const data = useMemo(() => {
-    const days = [];
-    for (let i = periodDays - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const iso = d.toISOString().slice(0, 10);
-      const label = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-
-      const totalVendas = sales.filter((s) => s.date === iso && s.payment !== "Empresa (Fiado)").reduce((sum, s) => sum + Number(s.total), 0);
-      const totalVendasEmpresa = sales.filter((s) => s.date === iso && s.payment === "Empresa (Fiado)").reduce((sum, s) => sum + Number(s.total), 0);
-
-      days.push({ iso, label, Valor: chartMode === "vendas" ? totalVendas : totalVendasEmpresa });
-    }
-    return days;
-  }, [sales, chartMode, periodDays]);
-
-  return (
-    <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: "24px 24px 20px", boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.03)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>
-          {chartMode === "vendas" ? "Vendas" : "Vendas Empresa"} (últimos {periodDays} dias)
-        </div>
-
-        <div style={{ display: "flex", gap: 10 }}>
-          <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 10, gap: 2 }}>
-            {[7, 14, 30].map((days) => (
-              <motion.button
-                key={days}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setPeriodDays(days)}
-                style={{
-                  position: "relative",
-                  padding: "6px 12px",
-                  borderRadius: 8,
-                  border: "none",
-                  background: periodDays === days ? "#5352ed" : "transparent",
-                  color: periodDays === days ? "#ffffff" : "#64748b",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                {days} dias
-              </motion.button>
-            ))}
-          </div>
-
-          <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 10, gap: 2 }}>
-            <motion.button whileTap={{ scale: 0.95 }} onClick={() => setChartMode("vendas")} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: chartMode === "vendas" ? "#5352ed" : "transparent", color: chartMode === "vendas" ? "#ffffff" : "#64748b", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-              Vendas
-            </motion.button>
-            <motion.button whileTap={{ scale: 0.95 }} onClick={() => setChartMode("empresa")} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: chartMode === "empresa" ? "#5352ed" : "transparent", color: chartMode === "empresa" ? "#ffffff" : "#64748b", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-              Empresa
-            </motion.button>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ width: "100%", height: 290 }}>
-        <ResponsiveContainer>
-          <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={{ stroke: "#f1f5f9" }} tickLine={false} />
-            <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-            <Tooltip formatter={(v) => brl(v)} />
-            <Bar dataKey="Valor" fill="#5352ed" radius={[6, 6, 0, 0]} maxBarSize={36} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
 function SectionTitleWithBack({ title, onBack, onAction, actionLabel }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        <motion.button whileTap={{ scale: 0.95 }} onClick={onBack} style={{ background: "#eeeffe", border: "none", borderRadius: 10, padding: "8px 14px", color: "#5352ed", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+        <motion.button whileTap={{ scale: 0.95 }} onClick={onBack} style={{ background: "#f0edff", border: "none", borderRadius: 10, padding: "8px 14px", color: "#6C5CE7", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
           <ArrowLeft size={16} /> Voltar
         </motion.button>
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: 0 }}>{title}</h2>
       </div>
 
       {onAction && (
-        <motion.button whileTap={{ scale: 0.96 }} onClick={onAction} style={{ background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+        <motion.button whileTap={{ scale: 0.96 }} onClick={onAction} style={{ background: "#6C5CE7", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
           <Plus size={16} /> {actionLabel || "Novo"}
         </motion.button>
       )}
@@ -1276,11 +1368,6 @@ function SectionTitleWithBack({ title, onBack, onAction, actionLabel }) {
   );
 }
 
-function EmptyState({ text }) {
-  return <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 14, padding: "48px 0", border: "1px dashed #e2e8f0", borderRadius: 16, background: "#ffffff" }}>{text}</div>;
-}
-
-// ─── ENCOMENDAS ───────────────────────────────────────────────────────────────
 function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null);
@@ -1429,10 +1516,10 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
                     <motion.button whileTap={{ scale: 0.85 }} onClick={() => toggleOrderStatus(o)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#00b894" }}>
                       {isDone ? <RotateCcw size={16} /> : <CheckCircle2 size={16} />}
                     </motion.button>
-                    <motion.button whileTap={{ scale: 0.85 }} onClick={() => startEditOrder(o)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#5352ed" }}>
+                    <motion.button whileTap={{ scale: 0.85 }} onClick={() => startEditOrder(o)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#6C5CE7" }}>
                       <Pencil size={16} />
                     </motion.button>
-                    <motion.button whileTap={{ scale: 0.85 }} onClick={() => requestDelete(`Encomenda de ${o.client_name}`, () => onRemove(o.id))} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#cbd5e1" }}>
+                    <motion.button whileTap={{ scale: 0.85 }} onClick={() => requestDelete(`Encomenda de ${o.client_name}`, () => onRemove(o.id))} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1" }}>
                       <Trash2 size={16} />
                     </motion.button>
                   </div>
@@ -1446,7 +1533,6 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
   );
 }
 
-// ─── PRODUTOS ─────────────────────────────────────────────────────────────────
 function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDelete, setView }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
@@ -1520,7 +1606,6 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
   );
 }
 
-// ─── VENDAS ───────────────────────────────────────────────────────────────────
 function Vendas({ products, sales, onAdd, onRemove, requestDelete, setView }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [mode, setMode] = useState("catalogo");
@@ -1590,7 +1675,6 @@ function Vendas({ products, sales, onAdd, onRemove, requestDelete, setView }) {
   );
 }
 
-// ─── GASTOS ───────────────────────────────────────────────────────────────────
 function Gastos({ expenses, onAdd, onRemove, requestDelete, setView }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [description, setDescription] = useState("");
@@ -1634,7 +1718,6 @@ function Gastos({ expenses, onAdd, onRemove, requestDelete, setView }) {
   );
 }
 
-// ─── VENDAS EMPRESA ───────────────────────────────────────────────────────────
 function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDelete }) {
   const [viewMode, setViewMode] = useState("mes");
   const [selectedDay, setSelectedDay] = useState(todayISO());
@@ -1644,7 +1727,6 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
   const [total, setTotal] = useState("");
   const [date, setDate] = useState(todayISO());
   const [selectedMonth, setSelectedMonth] = useState(todayISO().slice(0, 7));
-  const [expandedCards, setExpandedCards] = useState({});
 
   function parseSaleTarget(fullString) {
     if (!fullString) return { person: "Desconhecido", product: "Item Geral" };
@@ -1693,8 +1775,8 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: 0 }}>Vendas Empresa</h2>
         <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 10, gap: 2 }}>
-          <motion.button whileTap={{ scale: 0.95 }} onClick={() => setViewMode("mes")} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: viewMode === "mes" ? "#5352ed" : "transparent", color: viewMode === "mes" ? "#fff" : "#64748b", fontWeight: 600, cursor: "pointer" }}>Mês</motion.button>
-          <motion.button whileTap={{ scale: 0.95 }} onClick={() => setViewMode("dia")} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: viewMode === "dia" ? "#5352ed" : "transparent", color: viewMode === "dia" ? "#fff" : "#64748b", fontWeight: 600, cursor: "pointer" }}>Dia</motion.button>
+          <motion.button whileTap={{ scale: 0.95 }} onClick={() => setViewMode("mes")} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: viewMode === "mes" ? "#6C5CE7" : "transparent", color: viewMode === "mes" ? "#fff" : "#64748b", fontWeight: 600, cursor: "pointer" }}>Mês</motion.button>
+          <motion.button whileTap={{ scale: 0.95 }} onClick={() => setViewMode("dia")} style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: viewMode === "dia" ? "#6C5CE7" : "transparent", color: viewMode === "dia" ? "#fff" : "#64748b", fontWeight: 600, cursor: "pointer" }}>Dia</motion.button>
         </div>
       </div>
 
@@ -1718,7 +1800,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                   <div style={{ fontWeight: 700, color: "#1e293b", fontSize: 16 }}>{item.name}</div>
                   <div style={{ fontSize: 12, color: "#64748b" }}>Pago: <b style={{ color: "#00b894" }}>{brl(item.paidSum)}</b> | Pendente: <b style={{ color: "#e84393" }}>{brl(item.pendingSum)}</b></div>
                 </div>
-                <div style={{ fontWeight: 800, color: "#5352ed", fontSize: 18 }}>{brl(item.sum)}</div>
+                <div style={{ fontWeight: 800, color: "#6C5CE7", fontSize: 18 }}>{brl(item.sum)}</div>
               </div>
             </motion.div>
           ))}
@@ -1728,9 +1810,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
   );
 }
 
-// ─── PRECIFICAÇÃO ─────────────────────────────────────────────────────────────
 function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, onRemoveRec, requestDelete }) {
-  const [tab, setTab] = useState("ingredientes");
   const [ingName, setIngName] = useState("");
   const [pkgPrice, setPkgPrice] = useState("");
   const [pkgAmount, setPkgAmount] = useState("");
@@ -1769,7 +1849,6 @@ function Precificacao({ ingredients, recipes, onAddIng, onRemoveIng, onAddRec, o
   );
 }
 
-// ─── DOCUMENTOS ───────────────────────────────────────────────────────────────
 function Documentos({ documents, onAdd, onRemove, requestDelete }) {
   const [docName, setDocName] = useState("");
   const [category, setCategory] = useState(CATEGORIAS_DOC[0]);
@@ -1836,7 +1915,7 @@ function ListRow({ title, subtitle, value, valueColor, onEdit, onDelete }) {
         <span style={{ fontSize: 15, fontWeight: 700, color: valueColor || "#1e293b" }}>{value}</span>
         <div style={{ display: "flex", gap: 4 }}>
           {onEdit && (
-            <motion.button whileTap={{ scale: 0.85 }} onClick={onEdit} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#5352ed", padding: 6 }}>
+            <motion.button whileTap={{ scale: 0.85 }} onClick={onEdit} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#6C5CE7", padding: 6 }}>
               <Pencil size={16} />
             </motion.button>
           )}
@@ -1860,9 +1939,9 @@ function ToggleButton({ active, onClick, children }) {
         flex: 1,
         padding: "10px 0",
         borderRadius: 10,
-        border: active ? "1px solid #5352ed" : "1px solid #e2e8f0",
-        background: active ? "#eeeffe" : "#ffffff",
-        color: active ? "#5352ed" : "#64748b",
+        border: active ? "1px solid #6C5CE7" : "1px solid #e2e8f0",
+        background: active ? "#f0edff" : "#ffffff",
+        color: active ? "#6C5CE7" : "#64748b",
         fontSize: 14,
         fontWeight: 600,
         cursor: "pointer",
@@ -1893,7 +1972,7 @@ const primaryBtnStyle = {
   border: "none",
   borderRadius: 10,
   padding: "12px 0",
-  background: "#5352ed",
+  background: "#6C5CE7",
   color: "#ffffff",
   fontSize: 14,
   fontWeight: 600,
