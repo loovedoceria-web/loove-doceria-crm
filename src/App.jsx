@@ -36,6 +36,7 @@ import {
   Calendar,
   X,
   ChevronDown,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -78,6 +79,81 @@ function isSameMonth(dateStr, ref) {
   return dateStr.slice(0, 7) === ref.slice(0, 7);
 }
 
+// ─── UTILITÁRIOS PARA O CICLO DE FATURAMENTO CUSTOMIZADO ───────────────────────
+function getLastDayOfMonth(year, monthIndex0) {
+  return new Date(year, monthIndex0 + 1, 0).getDate();
+}
+
+function formatISODate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// Retorna as datas de início e fim [startDateISO, endDateISO] de um ciclo chave "YYYY-MM"
+function getCycleBounds(cycleKey, cycleStartDay) {
+  const [yStr, mStr] = cycleKey.split("-");
+  const year = parseInt(yStr, 10);
+  const monthIdx = parseInt(mStr, 10) - 1; // 0-indexed do mês de fechamento do ciclo
+
+  if (cycleStartDay <= 1) {
+    const maxDay = getLastDayOfMonth(year, monthIdx);
+    const start = `${cycleKey}-01`;
+    const end = `${cycleKey}-${String(maxDay).padStart(2, "0")}`;
+    return { startDate: start, endDate: end };
+  }
+
+  // Se o ciclo fecha no mês M, ele iniciou no mês M-1
+  let prevYear = year;
+  let prevMonthIdx = monthIdx - 1;
+  if (prevMonthIdx < 0) {
+    prevMonthIdx = 11;
+    prevYear -= 1;
+  }
+
+  const maxPrevDays = getLastDayOfMonth(prevYear, prevMonthIdx);
+  const actualStartDay = Math.min(cycleStartDay, maxPrevDays);
+  const startDate = new Date(prevYear, prevMonthIdx, actualStartDay);
+
+  const maxCurrDays = getLastDayOfMonth(year, monthIdx);
+  const targetEndDay = Math.min(cycleStartDay - 1, maxCurrDays);
+  const endDate = new Date(year, monthIdx, targetEndDay);
+
+  return {
+    startDate: formatISODate(startDate),
+    endDate: formatISODate(endDate),
+  };
+}
+
+// Identifica em qual ciclo "YYYY-MM" uma data específica se encaixa
+function getCycleForDate(dateStr, cycleStartDay) {
+  if (!dateStr) return todayISO().slice(0, 7);
+  if (cycleStartDay <= 1) return dateStr.slice(0, 7);
+
+  const [yStr, mStr, dStr] = dateStr.split("-");
+  const year = parseInt(yStr, 10);
+  const monthIdx = parseInt(mStr, 10) - 1;
+  const day = parseInt(dStr, 10);
+
+  const maxDaysThisMonth = getLastDayOfMonth(year, monthIdx);
+  const effectiveStartDay = Math.min(cycleStartDay, maxDaysThisMonth);
+
+  // Se o dia já atingiu o corte do ciclo, ele pertence ao ciclo do mês seguinte
+  if (day >= effectiveStartDay) {
+    let nextMonthIdx = monthIdx + 1;
+    let nextYear = year;
+    if (nextMonthIdx > 11) {
+      nextMonthIdx = 0;
+      nextYear += 1;
+    }
+    return `${nextYear}-${String(nextMonthIdx + 1).padStart(2, "0")}`;
+  }
+
+  // Caso contrário, cai no ciclo do próprio mês
+  return `${year}-${String(monthIdx + 1).padStart(2, "0")}`;
+}
+
 export default function App() {
   const [view, setView] = useState("dashboard");
   const [session, setSession] = useState(null);
@@ -92,6 +168,19 @@ export default function App() {
   const [documents, setDocuments] = useState([]);
   const [orders, setOrders] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
+
+  // Configuração do Dia de Início do Ciclo (Persistente no localStorage)
+  const [cycleStartDay, setCycleStartDay] = useState(() => {
+    const saved = localStorage.getItem("loove_ciclo_start_day");
+    return saved ? Math.min(31, Math.max(1, parseInt(saved, 10) || 1)) : 1;
+  });
+
+  const updateCycleStartDay = (newDay) => {
+    const validDay = Math.min(31, Math.max(1, parseInt(newDay, 10) || 1));
+    setCycleStartDay(validDay);
+    localStorage.setItem("loove_ciclo_start_day", String(validDay));
+    addToast(`Ciclo configurado para iniciar todo dia ${validDay}.`);
+  };
 
   // Sistema de Toasts Modernos
   const [toasts, setToasts] = useState([]);
@@ -492,8 +581,10 @@ export default function App() {
     const topProductName = entries.length > 0 ? entries[0][0] : "—";
     const topProductQty = entries.length > 0 ? `${entries[0][1]} un.` : "";
 
+    // Ciclo atual das vendas empresa
+    const currentCycleKey = getCycleForDate(today, cycleStartDay);
     const totalEmpresaPendente = companySales
-      .filter((s) => isSameMonth(s.date, today) && s.status !== "Pago")
+      .filter((s) => getCycleForDate(s.date, cycleStartDay) === currentCycleKey && s.status !== "Pago")
       .reduce((sum, s) => sum + Number(s.total), 0);
 
     return {
@@ -507,7 +598,7 @@ export default function App() {
       variacaoGastos,
       variacaoLucro,
     };
-  }, [sales, expenses, today]);
+  }, [sales, expenses, today, cycleStartDay]);
 
   const dataFormatada = new Intl.DateTimeFormat("pt-BR", {
     weekday: "long",
@@ -674,6 +765,8 @@ export default function App() {
                 onRemove={removeSale}
                 onUpdate={updateSale}
                 requestDelete={requestDelete}
+                cycleStartDay={cycleStartDay}
+                onUpdateCycleStartDay={updateCycleStartDay}
               />
             )}
             {view === "precificacao" && (
@@ -2162,8 +2255,17 @@ function Gastos({ expenses, onAdd, onRemove, requestDelete, setView }) {
   );
 }
 
-// ─── MÓDULO: VENDAS EMPRESA (COM MENU DE EXPORTAÇÃO POR STATUS) ───────────────
-function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDelete }) {
+// ─── MÓDULO: VENDAS EMPRESA (COM CICLO MENSAL CUSTOMIZÁVEL) ────────────────────
+function VendasEmpresa({
+  sales,
+  products,
+  onAdd,
+  onRemove,
+  onUpdate,
+  requestDelete,
+  cycleStartDay,
+  onUpdateCycleStartDay,
+}) {
   const [viewMode, setViewMode] = useState("mes");
   const [selectedDay, setSelectedDay] = useState(todayISO());
 
@@ -2173,14 +2275,25 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
   const [qty, setQty] = useState("1");
   const [total, setTotal] = useState("");
   const [date, setDate] = useState(todayISO());
-  const [selectedMonth, setSelectedMonth] = useState(todayISO().slice(0, 7));
+
+  // Ciclo selecionado para a visão mensal ("YYYY-MM")
+  const currentInitialCycle = useMemo(() => getCycleForDate(todayISO(), cycleStartDay), [cycleStartDay]);
+  const [selectedCycle, setSelectedCycle] = useState(currentInitialCycle);
   const [searchFilter, setSearchFilter] = useState("");
   
   const [expandedCards, setExpandedCards] = useState({});
 
-  // Controle do Menu Dropdown de Exportação
+  // Dropdowns & Modais
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const exportMenuRef = useRef(null);
+
+  const [isConfigCycleOpen, setIsConfigCycleOpen] = useState(false);
+  const [tempCycleDay, setTempCycleDay] = useState(cycleStartDay);
+
+  // Sincroniza se o ciclo mudar externamente
+  useEffect(() => {
+    setTempCycleDay(cycleStartDay);
+  }, [cycleStartDay]);
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -2251,23 +2364,42 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
     return sales.filter((s) => s.payment === "Empresa (Fiado)");
   }, [sales]);
 
-  const mesesDisponiveis = useMemo(() => {
-    const setMeses = new Set([todayISO().slice(0, 7)]);
+  // Lista dinâmica de ciclos disponíveis baseada nas datas das vendas com o corte configurado
+  const ciclosDisponiveis = useMemo(() => {
+    const setCiclos = new Set([getCycleForDate(todayISO(), cycleStartDay)]);
     companySales.forEach((s) => {
-      if (s.date) setMeses.add(s.date.slice(0, 7));
+      if (s.date) {
+        setCiclos.add(getCycleForDate(s.date, cycleStartDay));
+      }
     });
-    return Array.from(setMeses).sort().reverse();
-  }, [companySales]);
+    return Array.from(setCiclos).sort().reverse();
+  }, [companySales, cycleStartDay]);
 
-  function formatMonthLabel(ym) {
-    const [y, m] = ym.split("-");
+  // Se o ciclo selecionado não constar mais nos ciclos disponíveis após mudar o dia, ajusta
+  useEffect(() => {
+    if (!ciclosDisponiveis.includes(selectedCycle)) {
+      setSelectedCycle(ciclosDisponiveis[0] || currentInitialCycle);
+    }
+  }, [ciclosDisponiveis, selectedCycle, currentInitialCycle]);
+
+  // Retorna texto amigável do ciclo com as datas de início e término legíveis
+  function formatCycleLabel(cycleKey) {
+    const [y, m] = cycleKey.split("-");
     const dataRef = new Date(Number(y), Number(m) - 1, 1);
-    return dataRef.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    const monthName = dataRef.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    
+    if (cycleStartDay <= 1) {
+      return monthName.charAt(0).toUpperCase() + monthName.slice(1);
+    }
+
+    const { startDate, endDate } = getCycleBounds(cycleKey, cycleStartDay);
+    return `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} (${formatDatePt(startDate)} a ${formatDatePt(endDate)})`;
   }
 
+  // Filtragem estrita pelo ciclo
   const listaDetalhadaMes = useMemo(() => {
-    return companySales.filter((s) => s.date && s.date.slice(0, 7) === selectedMonth);
-  }, [companySales, selectedMonth]);
+    return companySales.filter((s) => s.date && getCycleForDate(s.date, cycleStartDay) === selectedCycle);
+  }, [companySales, selectedCycle, cycleStartDay]);
 
   const isMonthClosed = useMemo(() => {
     if (listaDetalhadaMes.length === 0) return false;
@@ -2310,8 +2442,9 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
   }
 
   async function submit() {
-    if (isMonthClosed && date.slice(0, 7) === selectedMonth) {
-      alert("Este mês já está fechado. Não é possível adicionar ou alterar lançamentos.");
+    const saleCycle = getCycleForDate(date, cycleStartDay);
+    if (isMonthClosed && saleCycle === selectedCycle) {
+      alert("Este ciclo mensal já está fechado. Não é possível adicionar ou alterar lançamentos nele.");
       return;
     }
     if (!personName.trim() || !total || !date) return;
@@ -2412,7 +2545,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
 
   async function fecharMesGeral() {
     if (isMonthClosed) {
-      alert("Este mês já está fechado.");
+      alert("Este ciclo já está fechado.");
       return;
     }
     for (const item of listaDetalhadaMes) {
@@ -2422,7 +2555,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
     }
   }
 
-  // Função para exportar Todos, Pagos ou Pendentes
+  // Exportação PDF levando em conta o período de vigência
   function gerarPDF(filtroStatus = "todos") {
     setExportMenuOpen(false);
 
@@ -2445,14 +2578,18 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
       return;
     }
 
+    const { startDate, endDate } = getCycleBounds(selectedCycle, cycleStartDay);
+
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.text(`Relatório - Vendas Empresa (${formatMonthLabel(selectedMonth)})`, 14, 20);
+    doc.text(`Relatório - Vendas Empresa`, 14, 20);
 
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
-    doc.text(`Filtro: ${labelFiltro} | Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 28);
+    doc.text(`Ciclo: ${formatCycleLabel(selectedCycle)}`, 14, 26);
+    doc.text(`Período Vigente: ${formatDatePt(startDate)} até ${formatDatePt(endDate)}`, 14, 32);
+    doc.text(`Filtro: ${labelFiltro} | Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 38);
 
     const dadosTabela = itensParaExportar.map((item) => [
       item.name,
@@ -2467,7 +2604,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
     const totalExportadoPendente = itensParaExportar.reduce((acc, i) => acc + i.pendingSum, 0);
 
     doc.autoTable({
-      startY: 36,
+      startY: 44,
       head: [["Funcionário / Cliente", "Total Geral", "Total Pago", "Total Pendente", "Status"]],
       body: dadosTabela,
       theme: "grid",
@@ -2478,11 +2615,12 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
       footStyles: { fillColor: [248, 250, 252], textColor: [30, 41, 59], fontStyle: "bold" },
     });
 
-    doc.save(`vendas-empresa-${selectedMonth}-${sulfixoArquivo}.pdf`);
+    doc.save(`vendas-empresa-${selectedCycle}-${sulfixoArquivo}.pdf`);
   }
 
   function gerarPDFIndividual(item) {
     const doc = new jsPDF();
+    const { startDate, endDate } = getCycleBounds(selectedCycle, cycleStartDay);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
@@ -2505,9 +2643,9 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(71, 85, 105);
-    doc.text(`Mês de Referência: ${formatMonthLabel(selectedMonth)}`, 14, 47);
-    doc.text(`Situação Geral: ${item.statusLabel}`, 14, 53);
-    doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 59);
+    doc.text(`Ciclo: ${formatCycleLabel(selectedCycle)}`, 14, 47);
+    doc.text(`Período Vigente: ${formatDatePt(startDate)} até ${formatDatePt(endDate)}`, 14, 53);
+    doc.text(`Situação Geral: ${item.statusLabel} | Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 59);
 
     const dadosTabela = (item.items || []).map((s) => {
       const itemQty = s.qty || 1;
@@ -2523,25 +2661,115 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
       theme: "grid",
       headStyles: { fillColor: [83, 82, 237] },
       foot: [
-        ["Total do Mês", "", brl(item.sum), ""],
+        ["Total do Ciclo", "", brl(item.sum), ""],
         ["Total Pago", "", brl(item.paidSum), ""],
         ["Total Pendente", "", brl(item.pendingSum), ""],
       ],
       footStyles: { fillColor: [248, 250, 252], textColor: [30, 41, 59], fontStyle: "bold" },
     });
 
-    const [ano, mesNum] = selectedMonth.split("-");
+    const [ano, mesNum] = selectedCycle.split("-");
     const dataRef = new Date(Number(ano), Number(mesNum) - 1, 1);
     const nomeMes = dataRef.toLocaleDateString("pt-BR", { month: "long" }).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const safeClientName = item.name.toLowerCase().trim().replace(/\s+/g, "-").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     
-    doc.save(`${safeClientName}_${nomeMes}_${ano}.pdf`);
+    doc.save(`${safeClientName}_ciclo_${nomeMes}_${ano}.pdf`);
   }
 
   return (
     <div>
+      {/* Modal de Configuração do Ciclo */}
+      <Modal
+        isOpen={isConfigCycleOpen}
+        onClose={() => setIsConfigCycleOpen(false)}
+        title="Configurar Ciclo Mensal das Vendas Empresa"
+        maxWidth={460}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <p style={{ margin: 0, fontSize: 13, color: "#64748b", lineHeight: 1.5 }}>
+            Defina o <b>dia de início do ciclo</b>. O fechamento irá do dia escolhido até o dia anterior no mês subsequente. Caso selecione um dia inexistente em meses com menos dias (ex: dia 31 em fevereiro ou abril), o sistema ajustará automaticamente para o último dia viável.
+          </p>
+
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 6 }}>
+              Dia de início do ciclo (1 a 31)
+            </div>
+            <input
+              type="number"
+              min="1"
+              max="31"
+              value={tempCycleDay}
+              onChange={(e) => setTempCycleDay(e.target.value)}
+              style={{ ...inputStyle, width: "100%", boxSizing: "border-box", fontSize: 15 }}
+            />
+          </div>
+
+          <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12, color: "#475569" }}>
+            💡 <b>Exemplo Atual:</b> Ciclo começando no dia <b>{Math.min(31, Math.max(1, parseInt(tempCycleDay) || 1))}</b> agrupa as vendas do dia {Math.min(31, Math.max(1, parseInt(tempCycleDay) || 1))} até o dia {(Math.min(31, Math.max(1, parseInt(tempCycleDay) || 1)) - 1) || 31} do mês seguinte.
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 6 }}>
+            <button
+              onClick={() => setIsConfigCycleOpen(false)}
+              style={{
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 10,
+                padding: "9px 16px",
+                fontSize: 13,
+                fontWeight: 600,
+                color: "#475569",
+                cursor: "pointer",
+              }}
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => {
+                onUpdateCycleStartDay(tempCycleDay);
+                setIsConfigCycleOpen(false);
+              }}
+              style={{
+                background: "#5352ed",
+                border: "none",
+                borderRadius: 10,
+                padding: "9px 18px",
+                fontSize: 13,
+                fontWeight: 600,
+                color: "#ffffff",
+                cursor: "pointer",
+              }}
+            >
+              Salvar Configuração
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: 0 }}>Vendas Empresa</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: 0 }}>Vendas Empresa</h2>
+          <button
+            onClick={() => setIsConfigCycleOpen(true)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              background: "#eeeffe",
+              border: "1px solid #dcdde1",
+              color: "#5352ed",
+              padding: "6px 12px",
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+            title="Alterar o dia de corte do ciclo mensal"
+          >
+            <SlidersHorizontal size={14} />
+            <span>Ciclo: Dia {cycleStartDay}</span>
+          </button>
+        </div>
         
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 10 }}>
@@ -2558,7 +2786,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                 cursor: "pointer",
               }}
             >
-              Visão por Mês
+              Visão por Ciclo
             </button>
             <button
               onClick={() => setViewMode("dia")}
@@ -2596,7 +2824,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
               }}
             >
               <LockIcon size={16} />
-              {isMonthClosed ? "Mês Fechado" : "Fechar Mês (Marcar Todos como Pagos)"}
+              {isMonthClosed ? "Ciclo Fechado" : "Fechar Ciclo (Marcar Todos como Pagos)"}
             </button>
           )}
         </div>
@@ -2613,7 +2841,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
               Cancelar Edição
             </button>
           )}
-          {isMonthClosed && !editingSaleId && viewMode === "mes" && <span style={{ fontSize: 13, color: "#e84393", fontWeight: 600 }}>Mês Fechado (Lançamentos travados)</span>}
+          {isMonthClosed && !editingSaleId && viewMode === "mes" && <span style={{ fontSize: 13, color: "#e84393", fontWeight: 600 }}>Ciclo Fechado (Lançamentos travados)</span>}
         </div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -2626,7 +2854,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                 value={personName}
                 onChange={(e) => setPersonName(e.target.value)}
                 list="employees-list"
-                disabled={isMonthClosed && date.slice(0, 7) === selectedMonth}
+                disabled={isMonthClosed && getCycleForDate(date, cycleStartDay) === selectedCycle}
               />
               <datalist id="employees-list">
                 {existingPeople.map((name, idx) => (
@@ -2643,7 +2871,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                 value={productName}
                 onChange={(e) => handleProductChange(e.target.value)}
                 list="products-list"
-                disabled={isMonthClosed && date.slice(0, 7) === selectedMonth}
+                disabled={isMonthClosed && getCycleForDate(date, cycleStartDay) === selectedCycle}
               />
               <datalist id="products-list">
                 {products.map((p) => (
@@ -2663,7 +2891,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                 step="1"
                 value={qty}
                 onChange={(e) => handleQtyChange(e.target.value)}
-                disabled={isMonthClosed && date.slice(0, 7) === selectedMonth}
+                disabled={isMonthClosed && getCycleForDate(date, cycleStartDay) === selectedCycle}
               />
             </div>
 
@@ -2676,7 +2904,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                 placeholder="0,00"
                 value={total}
                 onChange={(e) => setTotal(e.target.value)}
-                disabled={isMonthClosed && date.slice(0, 7) === selectedMonth}
+                disabled={isMonthClosed && getCycleForDate(date, cycleStartDay) === selectedCycle}
               />
             </div>
 
@@ -2687,22 +2915,22 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                disabled={isMonthClosed && date.slice(0, 7) === selectedMonth}
+                disabled={isMonthClosed && getCycleForDate(date, cycleStartDay) === selectedCycle}
               />
             </div>
 
             <button
               onClick={submit}
-              disabled={isMonthClosed && date.slice(0, 7) === selectedMonth}
+              disabled={isMonthClosed && getCycleForDate(date, cycleStartDay) === selectedCycle}
               style={{
-                background: isMonthClosed && date.slice(0, 7) === selectedMonth ? "#cbd5e1" : "#5352ed",
+                background: isMonthClosed && getCycleForDate(date, cycleStartDay) === selectedCycle ? "#cbd5e1" : "#5352ed",
                 color: "#ffffff",
                 border: "none",
                 borderRadius: 10,
                 padding: "12px 24px",
                 fontSize: 14,
                 fontWeight: 600,
-                cursor: isMonthClosed && date.slice(0, 7) === selectedMonth ? "not-allowed" : "pointer",
+                cursor: isMonthClosed && getCycleForDate(date, cycleStartDay) === selectedCycle ? "not-allowed" : "pointer",
                 height: 44,
               }}
             >
@@ -2717,12 +2945,12 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <select
-                style={{ ...inputStyle, width: 200, background: "#ffffff", fontWeight: 600, cursor: "pointer" }}
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
+                style={{ ...inputStyle, minWidth: 260, background: "#ffffff", fontWeight: 600, cursor: "pointer" }}
+                value={selectedCycle}
+                onChange={(e) => setSelectedCycle(e.target.value)}
               >
-                {mesesDisponiveis.map((ym) => (
-                  <option key={ym} value={ym}>{formatMonthLabel(ym)}</option>
+                {ciclosDisponiveis.map((cKey) => (
+                  <option key={cKey} value={cKey}>{formatCycleLabel(cKey)}</option>
                 ))}
               </select>
 
@@ -2863,7 +3091,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
 
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {resumoMes.length === 0 && (
-              <EmptyState text="Nenhuma venda registrada nesse mês ainda ou funcionário não encontrado." />
+              <EmptyState text="Nenhuma venda registrada nesse ciclo mensal ainda ou funcionário não encontrado." />
             )}
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
@@ -2966,7 +3194,7 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
 
                     {isExpanded && (
                       <div style={{ borderTop: "1px dashed #e2e8f0", marginTop: 12, paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase" }}>Lançamentos no mês:</div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase" }}>Lançamentos no ciclo:</div>
                         {item.items.map((s) => {
                           const itemQty = s.qty || 1;
                           const productLabel = itemQty > 1 ? `${itemQty}x ${s.parsedProduct}` : s.parsedProduct;
