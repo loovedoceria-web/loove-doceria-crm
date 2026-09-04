@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   LayoutGrid,
   Cookie,
@@ -35,6 +35,7 @@ import {
   RotateCcw,
   Calendar,
   X,
+  ChevronDown,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -642,7 +643,7 @@ export default function App() {
                 onAdd={addProduct} 
                 onUpdate={updateProduct} 
                 onRemove={removeProduct} 
-                requestDelete={requestDelete}
+                requestDelete={requestDelete} 
                 setView={setView} 
               />
             )}
@@ -1106,7 +1107,7 @@ function AuthScreen({ addToast }) {
   function recordFailedAttempt(userEmail) {
     if (!userEmail) return;
     const key = `login_attempts_${userEmail.toLowerCase().trim()}`;
-    const attemptsData = JSON.parse(localStorage.getItem(key) || "{\"count\": 0}");
+    const attemptsData = JSON.parse(localStorage.getItem(key) || '{"count": 0}');
     const newCount = (attemptsData.count || 0) + 1;
 
     if (newCount >= 5) {
@@ -1309,7 +1310,7 @@ function Card({ label, value, subValue, tooltip, icon, iconBg, valueColor, compa
   return (
     <div 
       className="card-interactive" 
-      title={tooltip || ""}
+      title={tooltip || ""} 
       style={{ 
         background: "#ffffff", 
         border: "1px solid #f1f5f9", 
@@ -1572,7 +1573,7 @@ function EmptyState({ text }) {
   return <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 14, padding: "48px 0", border: "1px dashed #e2e8f0", borderRadius: 16, background: "#ffffff" }}>{text}</div>;
 }
 
-// ─── MÓDULO: ENCOMENDAS (COM MODAL FLUTUANTE) ──────────────────────────────────
+// ─── MÓDULO: ENCOMENDAS ────────────────────────────────────────────────────────
 function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null);
@@ -1865,7 +1866,7 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
   );
 }
 
-// ─── MÓDULO: PRODUTOS (COM MODAL FLUTUANTE) ────────────────────────────────────
+// ─── MÓDULO: PRODUTOS ──────────────────────────────────────────────────────────
 function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDelete, setView }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
@@ -1988,7 +1989,7 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
   );
 }
 
-// ─── MÓDULO: VENDAS (COM MODAL FLUTUANTE) ──────────────────────────────────────
+// ─── MÓDULO: VENDAS ───────────────────────────────────────────────────────────
 function Vendas({ products, sales, onAdd, onRemove, requestDelete, setView }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [mode, setMode] = useState("catalogo");
@@ -2091,7 +2092,7 @@ function Vendas({ products, sales, onAdd, onRemove, requestDelete, setView }) {
   );
 }
 
-// ─── MÓDULO: GASTOS (COM MODAL FLUTUANTE) ──────────────────────────────────────
+// ─── MÓDULO: GASTOS ───────────────────────────────────────────────────────────
 function Gastos({ expenses, onAdd, onRemove, requestDelete, setView }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [description, setDescription] = useState("");
@@ -2161,7 +2162,7 @@ function Gastos({ expenses, onAdd, onRemove, requestDelete, setView }) {
   );
 }
 
-// ─── MÓDULO: VENDAS EMPRESA ───────────────────────────────────────────────────
+// ─── MÓDULO: VENDAS EMPRESA (COM MENU DE EXPORTAÇÃO POR STATUS) ───────────────
 function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDelete }) {
   const [viewMode, setViewMode] = useState("mes");
   const [selectedDay, setSelectedDay] = useState(todayISO());
@@ -2176,6 +2177,20 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
   const [searchFilter, setSearchFilter] = useState("");
   
   const [expandedCards, setExpandedCards] = useState({});
+
+  // Controle do Menu Dropdown de Exportação
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+        setExportMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const toggleExpand = (name) => {
     setExpandedCards((prev) => ({
@@ -2407,7 +2422,29 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
     }
   }
 
-  function gerarPDF() {
+  // Função para exportar Todos, Pagos ou Pendentes
+  function gerarPDF(filtroStatus = "todos") {
+    setExportMenuOpen(false);
+
+    let itensParaExportar = resumoMes;
+    let labelFiltro = "Geral (Todos)";
+    let sulfixoArquivo = "todos";
+
+    if (filtroStatus === "pendentes") {
+      itensParaExportar = resumoMes.filter((item) => item.pendingSum > 0);
+      labelFiltro = "Apenas Pendentes";
+      sulfixoArquivo = "pendentes";
+    } else if (filtroStatus === "pagos") {
+      itensParaExportar = resumoMes.filter((item) => item.statusLabel === "Pago");
+      labelFiltro = "Apenas Pagos";
+      sulfixoArquivo = "pagos";
+    }
+
+    if (itensParaExportar.length === 0) {
+      alert(`Nenhum lançamento encontrado para a opção: ${labelFiltro}.`);
+      return;
+    }
+
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
@@ -2415,9 +2452,9 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
 
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
-    doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 28);
+    doc.text(`Filtro: ${labelFiltro} | Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 28);
 
-    const dadosTabela = resumoMes.map((item) => [
+    const dadosTabela = itensParaExportar.map((item) => [
       item.name,
       brl(item.sum),
       brl(item.paidSum),
@@ -2425,15 +2462,23 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
       item.statusLabel,
     ]);
 
+    const totalExportadoGeral = itensParaExportar.reduce((acc, i) => acc + i.sum, 0);
+    const totalExportadoPago = itensParaExportar.reduce((acc, i) => acc + i.paidSum, 0);
+    const totalExportadoPendente = itensParaExportar.reduce((acc, i) => acc + i.pendingSum, 0);
+
     doc.autoTable({
       startY: 36,
       head: [["Funcionário / Cliente", "Total Geral", "Total Pago", "Total Pendente", "Status"]],
       body: dadosTabela,
       theme: "grid",
       headStyles: { fillColor: [83, 82, 237] },
+      foot: [
+        ["Total", brl(totalExportadoGeral), brl(totalExportadoPago), brl(totalExportadoPendente), ""],
+      ],
+      footStyles: { fillColor: [248, 250, 252], textColor: [30, 41, 59], fontStyle: "bold" },
     });
 
-    doc.save(`vendas-empresa-${selectedMonth}.pdf`);
+    doc.save(`vendas-empresa-${selectedMonth}-${sulfixoArquivo}.pdf`);
   }
 
   function gerarPDFIndividual(item) {
@@ -2696,13 +2741,122 @@ function VendasEmpresa({ sales, products, onAdd, onRemove, onUpdate, requestDele
               <div style={{ background: "#eeeffe", color: "#5352ed", padding: "10px 18px", borderRadius: 10, fontSize: 14, fontWeight: 600, border: "1px solid #dcdde1" }}>
                 Total Pendente: {brl(totalPendenteMes)} <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.8 }}>(Geral: {brl(totalGeralMes)})</span>
               </div>
+              
               {resumoMes.length > 0 && (
-                <button
-                  onClick={gerarPDF}
-                  style={{ background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-                >
-                  Exportar PDF
-                </button>
+                <div style={{ position: "relative" }} ref={exportMenuRef}>
+                  <button
+                    onClick={() => setExportMenuOpen(!exportMenuOpen)}
+                    style={{
+                      background: "#5352ed",
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: 10,
+                      padding: "10px 18px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    Exportar PDF
+                    <ChevronDown size={14} />
+                  </button>
+
+                  {exportMenuOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        right: 0,
+                        top: "100%",
+                        marginTop: 6,
+                        width: 210,
+                        background: "#ffffff",
+                        borderRadius: 12,
+                        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08)",
+                        border: "1px solid #e2e8f0",
+                        padding: "6px",
+                        zIndex: 999,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                      }}
+                    >
+                      <button
+                        onClick={() => gerarPDF("todos")}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "9px 12px",
+                          borderRadius: 8,
+                          border: "none",
+                          background: "transparent",
+                          color: "#1e293b",
+                          fontSize: 13,
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          textAlign: "left",
+                          width: "100%",
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "#f1f5f9"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                      >
+                        <FileText size={15} color="#5352ed" />
+                        <span>Todos os lançamentos</span>
+                      </button>
+
+                      <button
+                        onClick={() => gerarPDF("pendentes")}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "9px 12px",
+                          borderRadius: 8,
+                          border: "none",
+                          background: "transparent",
+                          color: "#e84393",
+                          fontSize: 13,
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          textAlign: "left",
+                          width: "100%",
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "#fde8f1"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                      >
+                        <Clock size={15} color="#e84393" />
+                        <span>Apenas Pendentes</span>
+                      </button>
+
+                      <button
+                        onClick={() => gerarPDF("pagos")}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "9px 12px",
+                          borderRadius: 8,
+                          border: "none",
+                          background: "transparent",
+                          color: "#00b894",
+                          fontSize: 13,
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          textAlign: "left",
+                          width: "100%",
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "#e8f8f5"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                      >
+                        <CheckCircle2 size={15} color="#00b894" />
+                        <span>Apenas Pagos</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
