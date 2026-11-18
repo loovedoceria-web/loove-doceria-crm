@@ -37,6 +37,10 @@ import {
   X,
   ChevronDown,
   SlidersHorizontal,
+  Menu,
+  Wallet,
+  CalendarClock,
+  Users,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -46,6 +50,7 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  Legend,
 } from "recharts";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -71,9 +76,82 @@ function brl(value) {
   });
 }
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+// Data de hoje no fuso do aparelho (Brasil), no formato AAAA-MM-DD.
+// Antes usava toISOString(), que é UTC: depois das 21h a data já virava o dia seguinte.
+function localISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
+
+function todayISO() {
+  return localISO(new Date());
+}
+
+function addDaysISO(iso, delta) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return localISO(new Date(y, m - 1, d + delta));
+}
+
+function addMonthsKey(ym, delta) {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatMonthKey(ym) {
+  const [y, m] = ym.split("-");
+  const label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+const PAGAMENTO_EMPRESA = "Empresa (Fiado)";
+const isEmpresaSale = (s) => s.payment === PAGAMENTO_EMPRESA;
+
+// Separa "Pessoa — Produto" (formato usado nas Vendas Empresa)
+function splitPersonProduct(fullString) {
+  if (!fullString) return { person: "Desconhecido", product: "Item Geral" };
+  const parts = fullString.split("—").map((p) => p.trim());
+  if (parts.length >= 2) return { person: parts[0], product: parts.slice(1).join(" — ") };
+  return { person: parts[0], product: "Venda Empresa" };
+}
+
+// Nome da pessoa normalizado, para "bruno" e "Bruno " contarem como a mesma pessoa
+function personKey(name) {
+  return (name || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+// O Supabase devolve no máximo 1000 linhas por consulta. Esta função busca página por página
+// para nunca "sumir" com vendas quando o histórico passar de 1000 lançamentos.
+async function fetchAllRows(table, orderCol, ascending = false) {
+  const pageSize = 1000;
+  let from = 0;
+  let all = [];
+  for (;;) {
+    const { data, error } = await supabase
+      .from(table)
+      .select("*")
+      .order(orderCol, { ascending })
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) return { data: all.length ? all : null, error };
+    all = all.concat(data || []);
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+  return { data: all, error: null };
+}
+
+// Cores em hexadecimal para gráficos e PDFs (as telas usam as variáveis do theme.css)
+const HEX = {
+  brand: "#c95c70",
+  brandSoft: "#f3d2d8",
+  cocoa: "#8a5a3b",
+  ink: "#3b2a2e",
+  muted: "#8c777b",
+  line: "#f5ebec",
+};
 
 function isSameMonth(dateStr, ref) {
   return dateStr.slice(0, 7) === ref.slice(0, 7);
@@ -175,11 +253,22 @@ export default function App() {
     return saved ? Math.min(31, Math.max(1, parseInt(saved, 10) || 1)) : 1;
   });
 
-  const updateCycleStartDay = (newDay) => {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // O dia de corte agora fica salvo no banco (tabela app_settings), então vale igual
+  // no computador e no celular. O localStorage continua como reserva.
+  const updateCycleStartDay = async (newDay) => {
     const validDay = Math.min(31, Math.max(1, parseInt(newDay, 10) || 1));
     setCycleStartDay(validDay);
     localStorage.setItem("loove_ciclo_start_day", String(validDay));
-    addToast(`Ciclo configurado para iniciar todo dia ${validDay}.`);
+    const { error } = await supabase
+      .from("app_settings")
+      .upsert({ key: "cycle_start_day", value: validDay, updated_at: new Date().toISOString() });
+    if (error) {
+      addToast("Ciclo salvo só neste aparelho (não foi possível salvar no banco).", "error");
+    } else {
+      addToast(`Ciclo configurado para iniciar todo dia ${validDay}.`);
+    }
   };
 
   // Sistema de Toasts Modernos
@@ -262,15 +351,21 @@ export default function App() {
     (async () => {
       setDataLoading(true);
       try {
-        const [p, s, g, ing, rec, doc, ord] = await Promise.all([
+        const [p, s, g, ing, rec, doc, ord, cfg] = await Promise.all([
           supabase.from("products").select("*").order("created_at", { ascending: false }),
-          supabase.from("sales").select("*").order("date", { ascending: false }),
-          supabase.from("expenses").select("*").order("date", { ascending: false }),
+          fetchAllRows("sales", "date", false),
+          fetchAllRows("expenses", "date", false),
           supabase.from("ingredients").select("*").order("name"),
           supabase.from("recipes").select("*").order("created_at", { ascending: false }),
           supabase.from("documents").select("*").order("date", { ascending: false }),
-          supabase.from("orders").select("*").order("delivery_date", { ascending: true }),
+          fetchAllRows("orders", "delivery_date", true),
+          supabase.from("app_settings").select("value").eq("key", "cycle_start_day").maybeSingle(),
         ]);
+        if (cfg && cfg.data && cfg.data.value != null) {
+          const dbDay = Math.min(31, Math.max(1, parseInt(cfg.data.value, 10) || 1));
+          setCycleStartDay(dbDay);
+          localStorage.setItem("loove_ciclo_start_day", String(dbDay));
+        }
         if (p.data) setProducts(p.data);
         if (s.data) setSales(s.data);
         if (g.data) setExpenses(g.data);
@@ -337,7 +432,7 @@ export default function App() {
       return false;
     }
     if (data) {
-      setSales((prev) => [data, ...prev]);
+      setSales((prev) => [data, ...prev].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)));
       addToast("Venda registrada com sucesso!");
       return true;
     }
@@ -368,6 +463,38 @@ export default function App() {
     }
   }
 
+  // Atualiza vários lançamentos de uma vez (usado em "Fechar ciclo" e "Marcar todos como pagos")
+  async function bulkUpdateSales(ids, updates, successMessage) {
+    if (!session || !ids.length) return false;
+    const { data, error } = await supabase.from("sales").update(updates).in("id", ids).select();
+    if (error) {
+      addToast("Erro ao atualizar lançamentos: " + error.message, "error");
+      return false;
+    }
+    const byId = new Map((data || []).map((d) => [d.id, d]));
+    setSales((prev) => prev.map((s) => byId.get(s.id) || s));
+    addToast(successMessage || `${ids.length} lançamento(s) atualizado(s).`);
+    return true;
+  }
+
+  async function updateExpense(id, updates) {
+    if (!session) return false;
+    if (Number(updates.value) < 0) {
+      addToast("Valor de gasto inválido.", "error");
+      return false;
+    }
+    const { data, error } = await supabase.from("expenses").update(updates).eq("id", id).select().single();
+    if (error) {
+      addToast("Erro ao atualizar gasto: " + error.message, "error");
+      return false;
+    }
+    if (data) {
+      setExpenses((prev) => prev.map((g) => (g.id === id ? data : g)).sort((a, b) => (a.date < b.date ? 1 : -1)));
+      addToast("Gasto atualizado!");
+      return true;
+    }
+  }
+
   async function addExpense(expense) {
     if (!session) return false;
     if (Number(expense.value) < 0) {
@@ -380,7 +507,7 @@ export default function App() {
       return false;
     }
     if (data) {
-      setExpenses((prev) => [data, ...prev]);
+      setExpenses((prev) => [data, ...prev].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)));
       addToast("Gasto registrado com sucesso!");
       return true;
     }
@@ -548,55 +675,79 @@ export default function App() {
   const today = todayISO();
 
   const metrics = useMemo(() => {
-    const now = new Date();
-    const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevMonthStr = prevDate.toISOString().slice(0, 7);
+    const sum = (list, field = "total") => list.reduce((acc, x) => acc + Number(x[field] || 0), 0);
+    const pct = (cur, prev) => (prev > 0 ? ((cur - prev) / prev) * 100 : null);
 
-    const salesNormal = sales.filter((s) => s.payment !== "Empresa (Fiado)");
-    const companySales = sales.filter((s) => s.payment === "Empresa (Fiado)");
+    const monthKey = today.slice(0, 7);
+    const prevMonthKey = addMonthsKey(monthKey, -1);
+    const dayOfMonth = Number(today.slice(8, 10));
+    const yesterday = addDaysISO(today, -1);
 
-    const vendasHojeVal = salesNormal.filter((s) => s.date === today).reduce((sum, s) => sum + Number(s.total), 0);
-    const vendasMesAtual = salesNormal.filter((s) => isSameMonth(s.date, today)).reduce((sum, s) => sum + Number(s.total), 0);
-    const vendasMesAnterior = salesNormal.filter((s) => isSameMonth(s.date, `${prevMonthStr}-01`)).reduce((sum, s) => sum + Number(s.total), 0);
-    const variacaoVendas = vendasMesAnterior > 0 ? ((vendasMesAtual - vendasMesAnterior) / vendasMesAnterior) * 100 : 0;
+    // Mesmo período do mês passado (ex.: dia 1 a 18), para a comparação ser justa
+    const inPrevMonthSamePeriod = (d) => d && d.slice(0, 7) === prevMonthKey && Number(d.slice(8, 10)) <= dayOfMonth;
 
-    const gastosHojeVal = expenses.filter((g) => g.date === today).reduce((sum, g) => sum + Number(g.value), 0);
-    const gastosMesAtual = expenses.filter((g) => isSameMonth(g.date, today)).reduce((sum, g) => sum + Number(g.value), 0);
-    const gastosMesAnterior = expenses.filter((g) => isSameMonth(g.date, `${prevMonthStr}-01`)).reduce((sum, g) => sum + Number(g.value), 0);
-    const variacaoGastos = gastosMesAnterior > 0 ? ((gastosMesAtual - gastosMesAnterior) / gastosMesAnterior) * 100 : 0;
+    const vendasHojeList = sales.filter((s) => s.date === today);
+    const vendasHoje = sum(vendasHojeList);
+    const vendasHojeEmpresa = sum(vendasHojeList.filter(isEmpresaSale));
+    const vendasOntem = sum(sales.filter((s) => s.date === yesterday));
 
-    const lucroMesAtual = vendasMesAtual - gastosMesAtual;
-    const lucroMesAnterior = vendasMesAnterior - gastosMesAnterior;
-    const variacaoLucro = lucroMesAnterior !== 0 ? ((lucroMesAtual - lucroMesAnterior) / Math.abs(lucroMesAnterior)) * 100 : 0;
+    const vendasMesList = sales.filter((s) => s.date && s.date.slice(0, 7) === monthKey);
+    const faturamentoMes = sum(vendasMesList);
+    const faturamentoEmpresaMes = sum(vendasMesList.filter(isEmpresaSale));
+    const faturamentoMesAnterior = sum(sales.filter((s) => inPrevMonthSamePeriod(s.date)));
 
+    const gastosMes = sum(expenses.filter((g) => g.date && g.date.slice(0, 7) === monthKey), "value");
+    const gastosMesAnterior = sum(expenses.filter((g) => inPrevMonthSamePeriod(g.date)), "value");
+
+    const lucroMes = faturamentoMes - gastosMes;
+    const lucroMesAnterior = faturamentoMesAnterior - gastosMesAnterior;
+
+    // Produto mais vendido no mês (balcão + empresa)
     const counts = {};
-    salesNormal.forEach((s) => {
-      if (s.product_name) {
-        counts[s.product_name] = (counts[s.product_name] || 0) + Number(s.qty || 1);
-      }
+    vendasMesList.forEach((s) => {
+      const name = isEmpresaSale(s) ? splitPersonProduct(s.product_name).product : s.product_name;
+      if (!name || name === "Venda Empresa" || name === "Item Geral") return;
+      const key = name.trim();
+      counts[key] = (counts[key] || 0) + Number(s.qty || 1);
     });
-    const entries = Object.entries(counts);
-    entries.sort((a, b) => b[1] - a[1]);
-    
-    const topProductName = entries.length > 0 ? entries[0][0] : "—";
-    const topProductQty = entries.length > 0 ? `${entries[0][1]} un.` : "";
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
 
-    // Ciclo atual das vendas empresa
+    // A receber das Vendas Empresa: ciclo atual + ciclos anteriores ainda em aberto
     const currentCycleKey = getCycleForDate(today, cycleStartDay);
-    const totalEmpresaPendente = companySales
-      .filter((s) => getCycleForDate(s.date, cycleStartDay) === currentCycleKey && s.status !== "Pago")
-      .reduce((sum, s) => sum + Number(s.total), 0);
+    const pendentes = sales.filter((s) => isEmpresaSale(s) && s.status !== "Pago");
+    const aReceberCiclo = sum(pendentes.filter((s) => getCycleForDate(s.date, cycleStartDay) === currentCycleKey));
+    const aReceberTotal = sum(pendentes);
+
+    // Quem mais deve (todos os ciclos)
+    const devedoresMap = {};
+    pendentes.forEach((s) => {
+      const { person } = splitPersonProduct(s.product_name);
+      const k = personKey(person);
+      if (!devedoresMap[k]) devedoresMap[k] = { name: person, total: 0, count: 0, oldest: s.date };
+      devedoresMap[k].total += Number(s.total);
+      devedoresMap[k].count += 1;
+      if (s.date < devedoresMap[k].oldest) devedoresMap[k].oldest = s.date;
+    });
+    const devedores = Object.values(devedoresMap).sort((a, b) => b.total - a.total);
 
     return {
-      vendasHoje: vendasHojeVal,
-      gastosHoje: gastosHojeVal,
-      lucroMes: lucroMesAtual,
-      maisVendidoNome: topProductName,
-      maisVendidoQtd: topProductQty,
-      totalEmpresa: totalEmpresaPendente,
-      variacaoVendas,
-      variacaoGastos,
-      variacaoLucro,
+      vendasHoje,
+      vendasHojeEmpresa,
+      variacaoHoje: pct(vendasHoje, vendasOntem),
+      faturamentoMes,
+      faturamentoEmpresaMes,
+      variacaoFaturamento: pct(faturamentoMes, faturamentoMesAnterior),
+      gastosMes,
+      variacaoGastos: pct(gastosMes, gastosMesAnterior),
+      lucroMes,
+      variacaoLucro: lucroMesAnterior > 0 ? ((lucroMes - lucroMesAnterior) / lucroMesAnterior) * 100 : null,
+      maisVendidoNome: top ? top[0] : "—",
+      maisVendidoQtd: top ? `${top[1]} un. no mês` : "Nenhuma venda no mês",
+      aReceberTotal,
+      aReceberCiclo,
+      aReceberAnteriores: aReceberTotal - aReceberCiclo,
+      devedores,
+      monthLabel: formatMonthKey(monthKey),
     };
   }, [sales, expenses, today, cycleStartDay]);
 
@@ -609,19 +760,26 @@ export default function App() {
 
   const shellStyle = {
     minHeight: "100vh",
-    background: "#f8fafc",
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    background: "var(--bg)",
+    fontFamily: "var(--font-body)",
     display: "flex",
+    flexDirection: "column",
   };
 
   const mainContentStyle = {
     flex: 1,
-    marginLeft: isSidebarCollapsed ? 80 : 250,
-    padding: "32px 40px",
-    maxWidth: 1300,
+    marginLeft: isSidebarCollapsed ? 84 : 256,
+    padding: "34px 44px 56px",
+    maxWidth: 1320,
     boxSizing: "border-box",
     transition: "margin-left 0.3s ease-in-out",
   };
+
+  function navigate(nextView) {
+    setView(nextView);
+    setMobileMenuOpen(false);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   if (!authChecked) {
     return <div style={shellStyle} />;
@@ -629,7 +787,7 @@ export default function App() {
 
   if (!session) {
     return (
-      <div style={{ minHeight: "100vh", background: "#f8fafc", display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
+      <div className="auth-shell" style={{ minHeight: "100vh", background: "radial-gradient(900px 500px at 50% -10%, rgba(201,92,112,0.16), transparent 70%), var(--bg)", display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
         <div style={{ width: "100%", maxWidth: 420 }}>
           <AuthScreen addToast={addToast} />
         </div>
@@ -638,7 +796,7 @@ export default function App() {
   }
 
   return (
-    <div style={shellStyle}>
+    <div style={shellStyle} className="app-shell">
       <style>{`
         button, a, .card-interactive, .sidebar-btn {
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
@@ -661,9 +819,13 @@ export default function App() {
           transform: translateY(0);
         }
 
+        .sidebar-btn {
+          background-color: transparent;
+        }
+
         .sidebar-btn:hover {
-          background-color: #f1f5f9 !important;
-          color: #5352ed !important;
+          background-color: var(--line-soft);
+          color: var(--brand) !important;
         }
 
         @keyframes spin {
@@ -695,26 +857,45 @@ export default function App() {
         onCancel={closeDeleteDialog}
       />
 
+      {/* Barra superior que só aparece no celular */}
+      <div className="mobile-topbar">
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <img src="/logo.png" alt="Loove" style={{ width: 34, height: 34, borderRadius: 10, objectFit: "cover" }} />
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "var(--ink)" }}>Loove Doceria</div>
+        </div>
+        <button
+          onClick={() => setMobileMenuOpen(true)}
+          aria-label="Abrir menu"
+          style={{ background: "var(--brand-soft)", border: "none", borderRadius: 12, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--brand)", cursor: "pointer" }}
+        >
+          <Menu size={20} />
+        </button>
+      </div>
+      <div className={`sidebar-backdrop ${mobileMenuOpen ? "is-open" : ""}`} onClick={() => setMobileMenuOpen(false)} />
+
       <Sidebar
         view={view}
-        setView={setView}
+        setView={navigate}
         onLogout={() => supabase.auth.signOut()}
         isCollapsed={isSidebarCollapsed}
         setIsCollapsed={setIsSidebarCollapsed}
+        isMobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
+        pendingCount={metrics.devedores.length}
       />
 
-      <div style={mainContentStyle}>
+      <div style={mainContentStyle} className="app-main">
         {dataLoading ? (
           <SkeletonGrid />
         ) : (
-          <>
+          <div key={view} className="page-enter">
             {view === "dashboard" && (
               <Dashboard
                 dataFormatada={dataFormatada}
                 metrics={metrics}
                 sales={sales}
-                expenses={expenses}
-                setView={setView}
+                orders={orders}
+                setView={navigate}
               />
             )}
             {view === "encomendas" && (
@@ -743,6 +924,7 @@ export default function App() {
                 products={products}
                 sales={sales}
                 onAdd={addSale}
+                onUpdate={updateSale}
                 onRemove={removeSale}
                 requestDelete={requestDelete}
                 setView={setView}
@@ -752,6 +934,7 @@ export default function App() {
               <Gastos
                 expenses={expenses}
                 onAdd={addExpense}
+                onUpdate={updateExpense}
                 onRemove={removeExpense}
                 requestDelete={requestDelete}
                 setView={setView}
@@ -764,6 +947,7 @@ export default function App() {
                 onAdd={addSale}
                 onRemove={removeSale}
                 onUpdate={updateSale}
+                onBulkUpdate={bulkUpdateSales}
                 requestDelete={requestDelete}
                 cycleStartDay={cycleStartDay}
                 onUpdateCycleStartDay={updateCycleStartDay}
@@ -791,7 +975,7 @@ export default function App() {
                 requestDelete={requestDelete}
               />
             )}
-          </>
+          </div>
         )}
       </div>
     </div>
@@ -821,7 +1005,7 @@ function ToastContainer({ toasts }) {
           <div
             key={t.id}
             style={{
-              background: isError ? "#ef4444" : "#10b981",
+              background: isError ? "var(--danger)" : "var(--ok)",
               color: "#ffffff",
               padding: "12px 20px",
               borderRadius: 12,
@@ -849,18 +1033,18 @@ function SkeletonGrid() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }} className="animate-pulse">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ height: 32, width: 220, background: "#e2e8f0", borderRadius: 8 }} />
-        <div style={{ height: 38, width: 140, background: "#e2e8f0", borderRadius: 10 }} />
+        <div style={{ height: 32, width: 220, background: "var(--line)", borderRadius: 8 }} />
+        <div style={{ height: 38, width: 140, background: "var(--line)", borderRadius: 10 }} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} style={{ height: 125, background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 20 }}>
-            <div style={{ height: 12, width: "50%", background: "#f1f5f9", borderRadius: 4, marginBottom: 16 }} />
-            <div style={{ height: 28, width: "80%", background: "#e2e8f0", borderRadius: 6 }} />
+      <div className="grid-2-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div key={i} style={{ height: 125, background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 16, padding: 20 }}>
+            <div style={{ height: 12, width: "50%", background: "var(--line-soft)", borderRadius: 4, marginBottom: 16 }} />
+            <div style={{ height: 28, width: "80%", background: "var(--line)", borderRadius: 6 }} />
           </div>
         ))}
       </div>
-      <div style={{ height: 320, background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }} />
+      <div style={{ height: 320, background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 20, padding: 22, boxShadow: "var(--shadow-sm)" }} />
     </div>
   );
 }
@@ -877,7 +1061,7 @@ function Modal({ isOpen, onClose, title, children, maxWidth = 580 }) {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: "rgba(15, 23, 42, 0.45)",
+        backgroundColor: "rgba(58, 36, 40, 0.42)",
         backdropFilter: "blur(4px)",
         display: "flex",
         alignItems: "center",
@@ -895,15 +1079,15 @@ function Modal({ isOpen, onClose, title, children, maxWidth = 580 }) {
           maxWidth,
           width: "100%",
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)",
-          border: "1px solid #f1f5f9",
+          border: "1px solid var(--line-soft)",
           maxHeight: "90vh",
           overflowY: "auto",
         }}
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#1e293b" }}>{title}</h3>
-          <button onClick={onClose} style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: 4 }}>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "var(--ink)" }}>{title}</h3>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: "var(--muted-2)", cursor: "pointer", padding: 4 }}>
             <X size={20} />
           </button>
         </div>
@@ -924,7 +1108,7 @@ function ConfirmDialog({ isOpen, title, itemName, onConfirm, onCancel }) {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: "rgba(15, 23, 42, 0.45)",
+        backgroundColor: "rgba(58, 36, 40, 0.42)",
         backdropFilter: "blur(3px)",
         display: "flex",
         alignItems: "center",
@@ -942,7 +1126,7 @@ function ConfirmDialog({ isOpen, title, itemName, onConfirm, onCancel }) {
           maxWidth: 420,
           width: "100%",
           boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
-          border: "1px solid #f1f5f9",
+          border: "1px solid var(--line-soft)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -952,21 +1136,21 @@ function ConfirmDialog({ isOpen, title, itemName, onConfirm, onCancel }) {
               width: 40,
               height: 40,
               borderRadius: "50%",
-              backgroundColor: "#fde8f1",
+              backgroundColor: "var(--danger-soft)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#e84393",
+              color: "var(--danger)",
               flexShrink: 0,
             }}
           >
             <AlertTriangle size={20} />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1e293b" }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>
               {title || "Confirmar Exclusão"}
             </h3>
-            <p style={{ margin: "2px 0 0", fontSize: 13, color: "#64748b" }}>
+            <p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--muted)" }}>
               Esta ação é permanente e não poderá ser desfeita.
             </p>
           </div>
@@ -974,18 +1158,18 @@ function ConfirmDialog({ isOpen, title, itemName, onConfirm, onCancel }) {
 
         <div
           style={{
-            background: "#f8fafc",
-            border: "1px solid #e2e8f0",
+            background: "var(--bg)",
+            border: "1px solid var(--line)",
             borderRadius: 10,
             padding: "10px 14px",
             fontSize: 13,
-            color: "#334155",
+            color: "var(--ink-2)",
             fontWeight: 500,
             marginBottom: 20,
             wordBreak: "break-word",
           }}
         >
-          Item: <span style={{ fontWeight: 700, color: "#1e293b" }}>{itemName}</span>
+          Item: <span style={{ fontWeight: 700, color: "var(--ink)" }}>{itemName}</span>
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
@@ -994,12 +1178,12 @@ function ConfirmDialog({ isOpen, title, itemName, onConfirm, onCancel }) {
             onClick={onCancel}
             style={{
               background: "#ffffff",
-              border: "1px solid #e2e8f0",
+              border: "1px solid var(--line)",
               borderRadius: 10,
               padding: "9px 16px",
               fontSize: 13,
               fontWeight: 600,
-              color: "#475569",
+              color: "var(--ink-2)",
               cursor: "pointer",
             }}
           >
@@ -1009,7 +1193,7 @@ function ConfirmDialog({ isOpen, title, itemName, onConfirm, onCancel }) {
             type="button"
             onClick={onConfirm}
             style={{
-              background: "#e84393",
+              background: "var(--danger)",
               border: "none",
               borderRadius: 10,
               padding: "9px 18px",
@@ -1027,34 +1211,52 @@ function ConfirmDialog({ isOpen, title, itemName, onConfirm, onCancel }) {
   );
 }
 
-function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
-  const items = [
-    { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
-    { key: "encomendas", label: "Encomendas", icon: ClipboardList },
-    { key: "produtos", label: "Produtos", icon: Cookie },
-    { key: "vendas", label: "Vendas", icon: ShoppingCart },
-    { key: "gastos", label: "Gastos", icon: Receipt },
-    { key: "empresa", label: "Vendas Empresa", icon: Briefcase },
-    { key: "precificacao", label: "Precificação", icon: Calculator },
-    { key: "documentos", label: "Documentos", icon: FolderOpen },
+function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed, isMobileOpen, onCloseMobile, pendingCount }) {
+  const groups = [
+    {
+      title: "Visão geral",
+      items: [
+        { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
+        { key: "encomendas", label: "Encomendas", icon: ClipboardList },
+      ],
+    },
+    {
+      title: "Vendas",
+      items: [
+        { key: "empresa", label: "Vendas Empresa", icon: Briefcase, badge: pendingCount },
+        { key: "vendas", label: "Vendas Balcão", icon: ShoppingCart },
+        { key: "produtos", label: "Produtos", icon: Cookie },
+      ],
+    },
+    {
+      title: "Financeiro",
+      items: [
+        { key: "gastos", label: "Gastos", icon: Receipt },
+        { key: "precificacao", label: "Precificação", icon: Calculator },
+        { key: "documentos", label: "Documentos", icon: FolderOpen },
+      ],
+    },
   ];
 
   return (
     <div
+      className={`app-sidebar ${isMobileOpen ? "is-open" : ""}`}
       style={{
-        width: isCollapsed ? 80 : 250,
-        background: "#ffffff",
-        borderRight: "1px solid #f1f5f9",
+        width: isCollapsed ? 84 : 256,
+        background: "var(--surface)",
+        borderRight: "1px solid var(--line-soft)",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        padding: isCollapsed ? "24px 12px" : "24px 16px",
+        padding: isCollapsed ? "22px 12px" : "22px 16px",
         position: "fixed",
         top: 0,
         bottom: 0,
         left: 0,
         transition: "width 0.3s ease-in-out, padding 0.3s ease-in-out",
         zIndex: 100,
+        overflowY: "auto",
+        boxSizing: "border-box",
       }}
     >
       <div>
@@ -1063,96 +1265,128 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed }) {
             display: "flex",
             alignItems: "center",
             justifyContent: isCollapsed ? "center" : "space-between",
-            marginBottom: 36,
+            marginBottom: 28,
             position: "relative",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12, overflow: "hidden" }}>
-            <img src="/logo.png" alt="Loove" style={{ width: 40, height: 40, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} />
+            <img src="/logo.png" alt="Loove" style={{ width: 42, height: 42, borderRadius: 14, objectFit: "cover", flexShrink: 0, boxShadow: "0 0 0 3px var(--brand-soft)" }} />
             {!isCollapsed && (
               <div style={{ whiteSpace: "nowrap" }}>
-                <div style={{ fontWeight: 800, fontSize: 16, color: "#1e293b", letterSpacing: "-0.3px" }}>Loove Doceria</div>
-                <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>CRM Seguro</div>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, color: "var(--ink)", letterSpacing: "-0.3px" }}>Loove Doceria</div>
+                <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, letterSpacing: "0.4px", textTransform: "uppercase" }}>Gestão & Vendas</div>
               </div>
             )}
           </div>
 
           <button
+            className="collapse-toggle"
             onClick={() => setIsCollapsed(!isCollapsed)}
             style={{
-              background: "#edf2f7",
+              background: "var(--brand-soft)",
               border: "none",
               borderRadius: "50%",
-              width: 24,
-              height: 24,
+              width: 26,
+              height: 26,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               cursor: "pointer",
-              color: "#5352ed",
+              color: "var(--brand)",
               position: isCollapsed ? "absolute" : "static",
-              right: isCollapsed ? -20 : "auto",
-              top: isCollapsed ? 6 : "auto",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              right: isCollapsed ? -22 : "auto",
+              top: isCollapsed ? 8 : "auto",
               zIndex: 10,
             }}
             title={isCollapsed ? "Expandir menu" : "Recolher menu"}
           >
             {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
           </button>
+
+          {isMobileOpen && (
+            <button
+              onClick={onCloseMobile}
+              aria-label="Fechar menu"
+              style={{ background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer", padding: 4 }}
+            >
+              <X size={20} />
+            </button>
+          )}
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {items.map(({ key, label, icon: Icon }) => {
-            const isActive = view === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setView(key)}
-                className="sidebar-btn"
-                title={isCollapsed ? label : ""}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: isCollapsed ? "center" : "flex-start",
-                  gap: 12,
-                  width: "100%",
-                  padding: isCollapsed ? "12px 0" : "11px 16px",
-                  borderRadius: 12,
-                  border: "none",
-                  background: isActive ? "#eeeffe" : "transparent",
-                  color: isActive ? "#5352ed" : "#475569",
-                  fontSize: 14,
-                  fontWeight: isActive ? 700 : 500,
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
-              >
-                <Icon size={18} style={{ flexShrink: 0, color: isActive ? "#5352ed" : "#64748b" }} />
-                {!isCollapsed && <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>}
-              </button>
-            );
-          })}
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          {groups.map((group) => (
+            <div key={group.title}>
+              {!isCollapsed && (
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "var(--muted-2)", textTransform: "uppercase", letterSpacing: "0.8px", padding: "0 14px", marginBottom: 6 }}>
+                  {group.title}
+                </div>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {group.items.map(({ key, label, icon: Icon, badge }) => {
+                  const isActive = view === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setView(key)}
+                      className="sidebar-btn"
+                      title={isCollapsed ? label : ""}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: isCollapsed ? "center" : "flex-start",
+                        gap: 12,
+                        width: "100%",
+                        padding: isCollapsed ? "12px 0" : "10px 14px",
+                        borderRadius: 12,
+                        border: "none",
+                        background: isActive ? "var(--brand-soft)" : undefined,
+                        color: isActive ? "var(--brand)" : "var(--ink-2)",
+                        fontSize: 14,
+                        fontWeight: isActive ? 700 : 500,
+                        cursor: "pointer",
+                        textAlign: "left",
+                        position: "relative",
+                      }}
+                    >
+                      {isActive && !isCollapsed && (
+                        <span style={{ position: "absolute", left: -16, top: 8, bottom: 8, width: 4, borderRadius: 4, background: "var(--brand)" }} />
+                      )}
+                      <Icon size={18} style={{ flexShrink: 0, color: isActive ? "var(--brand)" : "var(--muted)" }} />
+                      {!isCollapsed && <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{label}</span>}
+                      {!isCollapsed && badge > 0 && (
+                        <span title="Pessoas com valores em aberto" style={{ fontSize: 11, fontWeight: 700, background: isActive ? "var(--brand)" : "var(--brand-soft)", color: isActive ? "#fff" : "var(--brand)", borderRadius: 999, padding: "2px 8px" }}>
+                          {badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
       <button
         onClick={onLogout}
         title={isCollapsed ? "Sair da conta" : ""}
+        className="sidebar-btn"
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: isCollapsed ? "center" : "flex-start",
           gap: 10,
           background: "transparent",
-          border: "none",
+          border: "1px solid var(--line-soft)",
           borderRadius: 12,
-          padding: isCollapsed ? "11px 0" : "11px 16px",
-          color: "#64748b",
+          padding: isCollapsed ? "11px 0" : "11px 14px",
+          color: "var(--muted)",
           fontSize: 13,
           fontWeight: 600,
           cursor: "pointer",
           width: "100%",
+          marginTop: 24,
         }}
       >
         <LogOut size={16} style={{ flexShrink: 0 }} />
@@ -1280,17 +1514,17 @@ function AuthScreen({ addToast }) {
   }
 
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 20, padding: 36, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.05)" }}>
+    <div style={{ background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 20, padding: 36, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.05)" }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
         <img src="/logo.png" alt="Loove Doceria" style={{ width: 60, height: 60, borderRadius: 16, objectFit: "cover", marginBottom: 12 }} />
-        <div style={{ fontWeight: 800, fontSize: 20, color: "#1e293b" }}>Loove Doceria</div>
-        <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>Área Restrita e Protegida</div>
+        <div style={{ fontWeight: 800, fontSize: 20, color: "var(--ink)" }}>Loove Doceria</div>
+        <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>Área Restrita e Protegida</div>
       </div>
 
       {mode === "login" ? (
         <form onSubmit={submitLogin} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ position: "relative" }}>
-            <Mail size={16} color="#94a3b8" style={{ position: "absolute", left: 14, top: 14 }} />
+            <Mail size={16} color="var(--muted-2)" style={{ position: "absolute", left: 14, top: 14 }} />
             <input
               style={{ ...inputStyle, paddingLeft: 40, width: "100%", boxSizing: "border-box" }}
               type="email"
@@ -1302,7 +1536,7 @@ function AuthScreen({ addToast }) {
           </div>
 
           <div style={{ position: "relative" }}>
-            <Lock size={16} color="#94a3b8" style={{ position: "absolute", left: 14, top: 14 }} />
+            <Lock size={16} color="var(--muted-2)" style={{ position: "absolute", left: 14, top: 14 }} />
             <input
               style={{ ...inputStyle, paddingLeft: 40, paddingRight: 40, width: "100%", boxSizing: "border-box" }}
               type={showPassword ? "text" : "password"}
@@ -1314,19 +1548,19 @@ function AuthScreen({ addToast }) {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              style={{ position: "absolute", right: 12, top: 12, background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 2 }}
+              style={{ position: "absolute", right: 12, top: 12, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2 }}
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, color: "#475569", cursor: "pointer" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--ink-2)", cursor: "pointer" }}>
               <input
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                style={{ accentColor: "#5352ed" }}
+                style={{ accentColor: "var(--brand)" }}
               />
               Manter conectado
             </label>
@@ -1334,15 +1568,15 @@ function AuthScreen({ addToast }) {
             <button
               type="button"
               onClick={() => { setError(""); setInfo(""); setMode("reset"); }}
-              style={{ background: "none", border: "none", color: "#5352ed", fontWeight: 600, cursor: "pointer", fontSize: 12 }}
+              style={{ background: "none", border: "none", color: "var(--brand)", fontWeight: 600, cursor: "pointer", fontSize: 12 }}
             >
               Esqueci minha senha
             </button>
           </div>
 
-          {error && <div style={{ color: "#e84393", fontSize: 12.5, textAlign: "center", background: "#fde8f1", padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
+          {error && <div style={{ color: "var(--danger)", fontSize: 12.5, textAlign: "center", background: "var(--danger-soft)", padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
           {lockoutTime > 0 && (
-            <div style={{ color: "#e84393", fontSize: 12, textAlign: "center" }}>
+            <div style={{ color: "var(--danger)", fontSize: 12, textAlign: "center" }}>
               Muitas tentativas. Tente novamente em {Math.floor(lockoutTime / 60)}m {lockoutTime % 60}s.
             </div>
           )}
@@ -1358,12 +1592,12 @@ function AuthScreen({ addToast }) {
         </form>
       ) : (
         <form onSubmit={submitReset} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ fontSize: 13, color: "#64748b", textAlign: "center", marginBottom: 4 }}>
+          <div style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", marginBottom: 4 }}>
             Digite seu e-mail cadastrado para receber o link de redefinição.
           </div>
 
           <div style={{ position: "relative" }}>
-            <Mail size={16} color="#94a3b8" style={{ position: "absolute", left: 14, top: 14 }} />
+            <Mail size={16} color="var(--muted-2)" style={{ position: "absolute", left: 14, top: 14 }} />
             <input
               style={{ ...inputStyle, paddingLeft: 40, width: "100%", boxSizing: "border-box" }}
               type="email"
@@ -1374,8 +1608,8 @@ function AuthScreen({ addToast }) {
             />
           </div>
 
-          {error && <div style={{ color: "#e84393", fontSize: 12.5, textAlign: "center", background: "#fde8f1", padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
-          {info && <div style={{ color: "#00b894", fontSize: 12.5, textAlign: "center", background: "#e8f8f5", padding: "8px 12px", borderRadius: 8 }}>{info}</div>}
+          {error && <div style={{ color: "var(--danger)", fontSize: 12.5, textAlign: "center", background: "var(--danger-soft)", padding: "8px 12px", borderRadius: 8 }}>{error}</div>}
+          {info && <div style={{ color: "var(--ok)", fontSize: 12.5, textAlign: "center", background: "var(--ok-soft)", padding: "8px 12px", borderRadius: 8 }}>{info}</div>}
 
           <button
             style={{ ...primaryBtnStyle, marginTop: 4, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
@@ -1389,7 +1623,7 @@ function AuthScreen({ addToast }) {
           <button
             type="button"
             onClick={() => { setError(""); setInfo(""); setMode("login"); }}
-            style={{ background: "none", border: "none", color: "#64748b", fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "center" }}
+            style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "center" }}
           >
             Voltar para o Login
           </button>
@@ -1399,40 +1633,43 @@ function AuthScreen({ addToast }) {
   );
 }
 
-function Card({ label, value, subValue, tooltip, icon, iconBg, valueColor, comparison }) {
+function Card({ label, value, subValue, tooltip, icon, iconBg, valueColor, comparison, onClick, highlight }) {
   return (
-    <div 
-      className="card-interactive" 
-      title={tooltip || ""} 
-      style={{ 
-        background: "#ffffff", 
-        border: "1px solid #f1f5f9", 
-        borderRadius: 16, 
-        padding: "20px 22px", 
-        display: "flex", 
-        flexDirection: "column", 
-        justifyContent: "space-between", 
-        gap: 12, 
-        minHeight: 125, 
-        boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.03)" 
+    <div
+      className="card-interactive"
+      title={tooltip || ""}
+      onClick={onClick}
+      style={{
+        background: highlight ? "linear-gradient(135deg, var(--brand) 0%, #d97b8c 100%)" : "var(--surface)",
+        border: highlight ? "none" : "1px solid var(--line-soft)",
+        borderRadius: 20,
+        padding: "20px 22px",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        gap: 10,
+        minHeight: 138,
+        cursor: onClick ? "pointer" : "default",
+        color: highlight ? "#fff" : "inherit",
+        minWidth: 0,
       }}
     >
       <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>{label}</span>
-          <div style={{ width: 36, height: 36, borderRadius: "50%", background: iconBg || "#f1f2f6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, gap: 8 }}>
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: highlight ? "rgba(255,255,255,0.85)" : "var(--muted)", textTransform: "uppercase", letterSpacing: "0.6px" }}>{label}</span>
+          <div style={{ width: 36, height: 36, borderRadius: 12, background: highlight ? "rgba(255,255,255,0.2)" : iconBg || "var(--line-soft)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
         </div>
-        <div style={{ fontSize: 24, fontWeight: 800, color: valueColor || "#1e293b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", letterSpacing: "-0.5px" }}>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 27, fontWeight: 700, color: highlight ? "#fff" : valueColor || "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", letterSpacing: "-0.5px" }}>
           {value}
         </div>
         {subValue && (
-          <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginTop: 4 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 500, color: highlight ? "rgba(255,255,255,0.88)" : "var(--muted)", marginTop: 4 }}>
             {subValue}
           </div>
         )}
       </div>
       {comparison && (
-        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 500, color: comparison.color }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: comparison.color }}>
           {comparison.icon}
           <span>{comparison.text}</span>
         </div>
@@ -1441,229 +1678,354 @@ function Card({ label, value, subValue, tooltip, icon, iconBg, valueColor, compa
   );
 }
 
-function Dashboard({ dataFormatada, metrics, sales, expenses, setView }) {
-  function getComparison(val) {
-    if (val === 0) return { text: "Sem alteração vs mês passado", color: "#64748b", icon: null };
-    const isPositive = val > 0;
+function Panel({ title, subtitle, action, children, style }) {
+  return (
+    <div style={{ background: "var(--surface)", border: "1px solid var(--line-soft)", borderRadius: 20, padding: "22px 22px 20px", boxShadow: "var(--shadow-sm)", minWidth: 0, ...style }}>
+      {(title || action) && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
+          <div>
+            {title && <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>{title}</div>}
+            {subtitle && <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>{subtitle}</div>}
+          </div>
+          {action}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+function Dashboard({ dataFormatada, metrics, sales, orders, setView }) {
+  // invert = true para gastos (subir é ruim)
+  function getComparison(val, refText, invert = false) {
+    if (val === null || val === undefined) return { text: `Sem base de comparação ${refText}`, color: "var(--muted-2)", icon: null };
+    if (Math.abs(val) < 0.05) return { text: `Igual ${refText}`, color: "var(--muted)", icon: null };
+    const isUp = val > 0;
+    const good = invert ? !isUp : isUp;
+    const color = good ? "var(--ok)" : "var(--danger)";
     return {
-      text: `${isPositive ? "↑" : "↓"} ${Math.abs(val).toFixed(1)}% vs mês passado`,
-      color: isPositive ? "#00b894" : "#e84393",
-      icon: isPositive ? <ArrowUpRight size={14} color="#00b894" /> : <ArrowDownRight size={14} color="#e84393" />,
+      text: `${Math.abs(val).toFixed(1)}% ${refText}`,
+      color,
+      icon: isUp ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />,
     };
   }
 
-  const maisVendidoFull = metrics.maisVendidoQtd ? `${metrics.maisVendidoNome} (${metrics.maisVendidoQtd})` : metrics.maisVendidoNome;
+  const today = todayISO();
+  const proximasEncomendas = (orders || [])
+    .filter((o) => o.status !== "Finalizado" && o.status !== "Entregue" && o.delivery_date >= addDaysISO(today, -1))
+    .slice(0, 4);
+  const topDevedores = metrics.devedores.slice(0, 6);
+
+  const quickBtn = (primary) => ({
+    background: primary ? "var(--brand)" : "var(--surface)",
+    color: primary ? "#ffffff" : "var(--ink)",
+    border: primary ? "none" : "1px solid var(--line)",
+    borderRadius: 12,
+    padding: "11px 16px",
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    boxShadow: primary ? "0 8px 18px -8px rgba(201,92,112,0.7)" : "none",
+  });
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
+      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 26, gap: 16 }}>
         <div>
-          <h1 style={{ fontSize: 32, fontWeight: 900, color: "#1e293b", margin: "0 0 4px 0", letterSpacing: "-0.8px" }}>Dashboard</h1>
-          <div style={{ color: "#64748b", fontSize: 14, fontWeight: 500 }}>Visão Geral Do Seu Negócio</div>
+          <div style={{ color: "var(--muted)", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{dataFormatada.charAt(0).toUpperCase() + dataFormatada.slice(1)}</div>
+          <h1 style={{ fontSize: 34, color: "var(--ink)", margin: 0 }}>Olá! Aqui está o resumo da Loove</h1>
         </div>
-        
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ color: "#475569", fontSize: 13, fontWeight: 500, marginRight: 8 }}>{dataFormatada}</div>
 
-          <button onClick={() => setView("vendas")} style={{ background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-            <Plus size={15} /> Nova Venda
-          </button>
-          <button onClick={() => setView("gastos")} style={{ background: "#ffffff", color: "#5352ed", border: "1px solid #e0e7ff", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-            <Plus size={15} /> Novo Gasto
-          </button>
-          <button onClick={() => setView("empresa")} style={{ background: "#1e272e", color: "#ffffff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+        <div className="page-header-actions" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={() => setView("empresa")} style={quickBtn(true)}>
             <Plus size={15} /> Venda Empresa
+          </button>
+          <button onClick={() => setView("vendas")} style={quickBtn(false)}>
+            <Plus size={15} /> Venda Balcão
+          </button>
+          <button onClick={() => setView("gastos")} style={quickBtn(false)}>
+            <Plus size={15} /> Gasto
           </button>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16, marginBottom: 28 }}>
+      <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 20 }}>
+        <Card
+          highlight
+          label="A receber (Empresa)"
+          value={brl(metrics.aReceberTotal)}
+          subValue={`Ciclo atual ${brl(metrics.aReceberCiclo)} · Anteriores ${brl(metrics.aReceberAnteriores)}`}
+          icon={<Wallet size={18} color="#ffffff" />}
+          onClick={() => setView("empresa")}
+          tooltip="Tudo que está pendente nas Vendas Empresa, de todos os ciclos"
+        />
+        <Card
+          label={`Faturamento · ${metrics.monthLabel}`}
+          value={brl(metrics.faturamentoMes)}
+          subValue={`Empresa ${brl(metrics.faturamentoEmpresaMes)} · Balcão ${brl(metrics.faturamentoMes - metrics.faturamentoEmpresaMes)}`}
+          icon={<TrendingUp size={18} color="var(--brand)" />}
+          iconBg="var(--brand-soft)"
+          comparison={getComparison(metrics.variacaoFaturamento, "vs mesmo período do mês passado")}
+        />
         <Card
           label="Vendas hoje"
           value={brl(metrics.vendasHoje)}
-          icon={<ShoppingCart size={18} color="#5352ed" />}
-          iconBg="#eeeffe"
-          comparison={getComparison(metrics.variacaoVendas)}
-        />
-        <Card
-          label="Gastos hoje"
-          value={brl(metrics.gastosHoje)}
-          icon={<Receipt size={18} color="#e84393" />}
-          iconBg="#fde8f1"
-          valueColor="#1e293b"
-          comparison={getComparison(metrics.variacaoGastos)}
+          subValue={metrics.vendasHoje > 0 ? `Empresa ${brl(metrics.vendasHojeEmpresa)} · Balcão ${brl(metrics.vendasHoje - metrics.vendasHojeEmpresa)}` : "Nenhuma venda lançada hoje"}
+          icon={<ShoppingCart size={18} color="var(--cocoa)" />}
+          iconBg="var(--cocoa-soft)"
+          comparison={getComparison(metrics.variacaoHoje, "vs ontem")}
         />
         <Card
           label="Lucro do mês"
           value={brl(metrics.lucroMes)}
-          icon={<TrendingUp size={18} color="#00b894" />}
-          iconBg="#e8f8f5"
-          valueColor="#00b894"
-          comparison={getComparison(metrics.variacaoLucro)}
+          valueColor={metrics.lucroMes < 0 ? "var(--danger)" : "var(--ok)"}
+          subValue={metrics.gastosMes > 0 ? `Faturamento − gastos` : "Sem gastos lançados no mês"}
+          icon={<TrendingUp size={18} color="var(--ok)" />}
+          iconBg="var(--ok-soft)"
+          comparison={metrics.gastosMes > 0 ? getComparison(metrics.variacaoLucro, "vs mês passado") : null}
         />
         <Card
-          label="Mais vendido"
+          label="Gastos do mês"
+          value={brl(metrics.gastosMes)}
+          icon={<Receipt size={18} color="var(--danger)" />}
+          iconBg="var(--danger-soft)"
+          comparison={getComparison(metrics.variacaoGastos, "vs mesmo período do mês passado", true)}
+          onClick={() => setView("gastos")}
+        />
+        <Card
+          label="Mais vendido do mês"
           value={metrics.maisVendidoNome}
           subValue={metrics.maisVendidoQtd}
-          tooltip={maisVendidoFull}
-          icon={<Star size={18} color="#e17055" />}
-          iconBg="#fef5e7"
-          valueColor="#1e293b"
-        />
-        <Card
-          label="Total a receber (Empresa)"
-          value={brl(metrics.totalEmpresa)}
-          icon={<Briefcase size={18} color="#0984e3" />}
-          iconBg="#e1f0fa"
-          valueColor="#0984e3"
+          tooltip={metrics.maisVendidoNome}
+          icon={<Star size={18} color="var(--gold)" />}
+          iconBg="var(--gold-soft)"
         />
       </div>
 
-      <SalesChart sales={sales} />
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.7fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
+        <SalesChart sales={sales} />
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <Panel
+            title="Quem está devendo"
+            subtitle={metrics.devedores.length ? `${metrics.devedores.length} pessoa(s) com valores em aberto` : "Ninguém devendo. Tudo em dia!"}
+            action={
+              metrics.devedores.length > 0 && (
+                <button onClick={() => setView("empresa")} style={{ background: "none", border: "none", color: "var(--brand)", fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
+                  Ver tudo →
+                </button>
+              )
+            }
+          >
+            {topDevedores.length === 0 ? (
+              <div style={{ fontSize: 13, color: "var(--muted)" }}>Quando alguém comprar no fiado, aparece aqui.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {topDevedores.map((d, i) => (
+                  <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 0", borderTop: i === 0 ? "none" : "1px solid var(--line-soft)" }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 10, background: "var(--brand-soft)", color: "var(--brand)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, flexShrink: 0 }}>
+                      {d.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.name}</div>
+                      <div style={{ fontSize: 12, color: "var(--muted)" }}>{d.count} compra(s) · desde {formatDatePt(d.oldest)}</div>
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "var(--danger)" }}>{brl(d.total)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          <Panel
+            title="Próximas encomendas"
+            action={
+              <button onClick={() => setView("encomendas")} style={{ background: "none", border: "none", color: "var(--brand)", fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
+                Ver todas →
+              </button>
+            }
+          >
+            {proximasEncomendas.length === 0 ? (
+              <div style={{ fontSize: 13, color: "var(--muted)" }}>Nenhuma encomenda pendente.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {proximasEncomendas.map((o) => {
+                  const isToday = o.delivery_date === today;
+                  const isLate = o.delivery_date < today;
+                  return (
+                    <div key={o.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 46, textAlign: "center", borderRadius: 10, padding: "5px 0", background: isLate ? "var(--danger-soft)" : isToday ? "var(--brand-soft)" : "var(--line-soft)", color: isLate ? "var(--danger)" : isToday ? "var(--brand)" : "var(--ink-2)", flexShrink: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.1 }}>{o.delivery_date.slice(8, 10)}</div>
+                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>
+                          {new Date(o.delivery_date + "T12:00:00").toLocaleDateString("pt-BR", { month: "short" }).replace(".", "")}
+                        </div>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.client_name}</div>
+                        <div style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {(o.qty || 1) > 1 ? `${o.qty}x ` : ""}{o.product || o.description} · {o.status}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Panel>
+        </div>
+      </div>
     </div>
   );
 }
 
 function SalesChart({ sales }) {
-  const [chartMode, setChartMode] = useState("vendas");
+  const [range, setRange] = useState(14);
 
   const data = useMemo(() => {
+    const today = todayISO();
     const days = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const iso = d.toISOString().slice(0, 10);
-      const label = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-
-      const totalVendas = sales
-        .filter((s) => s.date === iso && s.payment !== "Empresa (Fiado)")
-        .reduce((sum, s) => sum + Number(s.total), 0);
-
-      const totalVendasEmpresa = sales
-        .filter((s) => s.date === iso && s.payment === "Empresa (Fiado)")
-        .reduce((sum, s) => sum + Number(s.total), 0);
-
+    for (let i = range - 1; i >= 0; i--) {
+      const iso = addDaysISO(today, -i);
+      const [y, m, d] = iso.split("-");
+      const doDia = sales.filter((s) => s.date === iso);
       days.push({
         iso,
-        label,
-        Valor: chartMode === "vendas" ? totalVendas : totalVendasEmpresa,
+        label: `${d}/${m}`,
+        Empresa: doDia.filter(isEmpresaSale).reduce((sum, s) => sum + Number(s.total), 0),
+        "Balcão": doDia.filter((s) => !isEmpresaSale(s)).reduce((sum, s) => sum + Number(s.total), 0),
       });
     }
     return days;
-  }, [sales, chartMode]);
+  }, [sales, range]);
 
-  const hasData = data.some((d) => d.Valor > 0);
-  const chartTitle = chartMode === "vendas" ? "Vendas (últimos 7 dias)" : "Vendas Empresa (últimos 7 dias)";
+  const total = data.reduce((acc, d) => acc + d.Empresa + d["Balcão"], 0);
+  const hasData = total > 0;
 
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: "24px 24px 20px", boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.03)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>{chartTitle}</div>
-        
-        <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 10 }}>
-          <button
-            onClick={() => setChartMode("vendas")}
-            style={{
-              padding: "6px 14px",
-              borderRadius: 8,
-              border: "none",
-              background: chartMode === "vendas" ? "#5352ed" : "transparent",
-              color: chartMode === "vendas" ? "#ffffff" : "#64748b",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Vendas
-          </button>
-          <button
-            onClick={() => setChartMode("empresa")}
-            style={{
-              padding: "6px 14px",
-              borderRadius: 8,
-              border: "none",
-              background: chartMode === "empresa" ? "#5352ed" : "transparent",
-              color: chartMode === "empresa" ? "#ffffff" : "#64748b",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Vendas Empresa
-          </button>
+    <Panel
+      title={`Vendas dos últimos ${range} dias`}
+      subtitle={hasData ? `Total no período: ${brl(total)}` : null}
+      action={
+        <div style={{ display: "flex", background: "var(--line-soft)", padding: 3, borderRadius: 10 }}>
+          {[7, 14, 30].map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 8,
+                border: "none",
+                background: range === r ? "var(--surface)" : "transparent",
+                color: range === r ? "var(--brand)" : "var(--muted)",
+                boxShadow: range === r ? "var(--shadow-sm)" : "none",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              {r} dias
+            </button>
+          ))}
         </div>
-      </div>
-
+      }
+    >
       {!hasData ? (
-        <EmptyState text="Sem movimentações registradas nos últimos 7 dias." />
+        <EmptyState text={`Sem vendas registradas nos últimos ${range} dias.`} />
       ) : (
         <div style={{ width: "100%", height: 300 }}>
           <ResponsiveContainer>
-            <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={{ stroke: "#f1f5f9" }} tickLine={false} />
-              <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-              <Tooltip formatter={(v) => brl(v)} />
-              <Bar dataKey="Valor" fill="#5352ed" radius={[6, 6, 0, 0]} maxBarSize={36} />
+            <BarChart data={data} margin={{ top: 10, right: 6, left: -14, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={HEX.line} vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: HEX.muted }} axisLine={{ stroke: HEX.line }} tickLine={false} interval="preserveStartEnd" />
+              <YAxis tick={{ fontSize: 11, fill: HEX.muted }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${v}`} />
+              <Tooltip formatter={(v) => brl(v)} cursor={{ fill: "rgba(201,92,112,0.06)" }} contentStyle={{ borderRadius: 12, border: `1px solid ${HEX.brandSoft}`, fontSize: 13 }} />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="Empresa" stackId="v" fill={HEX.brand} maxBarSize={34} />
+              <Bar dataKey="Balcão" stackId="v" fill={HEX.cocoa} radius={[6, 6, 0, 0]} maxBarSize={34} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }
 
-function SectionTitleWithBack({ title, onBack, onAction, actionLabel }) {
+function SectionTitleWithBack({ title, subtitle, onBack, onAction, actionLabel, extra }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        <button
-          onClick={onBack}
-          style={{
-            background: "#eeeffe",
-            border: "none",
-            borderRadius: 10,
-            padding: "8px 14px",
-            color: "#5352ed",
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-          }}
-        >
-          <ArrowLeft size={16} /> Voltar
-        </button>
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: 0 }}>{title}</h2>
+    <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24, gap: 16 }}>
+      <div>
+        {onBack && (
+          <button
+            className="hide-mobile"
+            onClick={onBack}
+            style={{ background: "none", border: "none", padding: 0, color: "var(--muted)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, marginBottom: 8 }}
+          >
+            <ArrowLeft size={14} /> Dashboard
+          </button>
+        )}
+        <h2 style={{ fontSize: 30, color: "var(--ink)", margin: 0 }}>{title}</h2>
+        {subtitle && <div style={{ color: "var(--muted)", fontSize: 14, marginTop: 4 }}>{subtitle}</div>}
       </div>
 
-      {onAction && (
-        <button
-          onClick={onAction}
-          style={{
-            background: "#5352ed",
-            color: "#ffffff",
-            border: "none",
-            borderRadius: 10,
-            padding: "10px 18px",
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-          }}
-        >
-          <Plus size={16} /> {actionLabel || "Novo"}
-        </button>
-      )}
+      <div className="page-header-actions" style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        {extra}
+        {onAction && (
+          <button
+            onClick={onAction}
+            style={{
+              background: "var(--brand)",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: 12,
+              padding: "11px 18px",
+              fontSize: 13.5,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              boxShadow: "0 8px 18px -8px rgba(201,92,112,0.7)",
+            }}
+          >
+            <Plus size={16} /> {actionLabel || "Novo"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
 
 function EmptyState({ text }) {
-  return <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 14, padding: "48px 0", border: "1px dashed #e2e8f0", borderRadius: 16, background: "#ffffff" }}>{text}</div>;
+  return (
+    <div style={{ textAlign: "center", color: "var(--muted)", fontSize: 14, padding: "44px 16px", border: "1.5px dashed var(--line)", borderRadius: 18, background: "var(--bg)" }}>
+      <div style={{ fontSize: 26, marginBottom: 6 }}>🧁</div>
+      {text}
+    </div>
+  );
+}
+
+// Filtro de mês reutilizável (‹ Novembro de 2026 ›)
+function MonthPicker({ value, onChange }) {
+  const btn = { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, width: 34, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--ink-2)" };
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <button style={btn} onClick={() => onChange(addMonthsKey(value, -1))} aria-label="Mês anterior"><ChevronLeft size={16} /></button>
+      <div style={{ minWidth: 150, textAlign: "center", fontWeight: 700, fontSize: 14, color: "var(--ink)" }}>{formatMonthKey(value)}</div>
+      <button style={btn} onClick={() => onChange(addMonthsKey(value, 1))} aria-label="Próximo mês"><ChevronRight size={16} /></button>
+    </div>
+  );
+}
+
+function StatPill({ label, value, color }) {
+  return (
+    <div style={{ background: "var(--surface)", border: "1px solid var(--line-soft)", borderRadius: 14, padding: "10px 16px", minWidth: 0 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>{label}</div>
+      <div style={{ fontSize: 18, fontWeight: 800, color: color || "var(--ink)", marginTop: 2 }}>{value}</div>
+    </div>
+  );
 }
 
 // ─── MÓDULO: ENCOMENDAS ────────────────────────────────────────────────────────
@@ -1783,7 +2145,7 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
       head: [["Entrega", "Cliente", "Produto / Observações", "Total", "Sinal", "Falta", "Status"]],
       body: dadosTabela,
       theme: "grid",
-      headStyles: { fillColor: [83, 82, 237] },
+      headStyles: { fillColor: [201, 92, 112] },
     });
 
     doc.save(`encomendas-${todayISO()}.pdf`);
@@ -1792,7 +2154,8 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
   return (
     <div>
       <SectionTitleWithBack 
-        title="Gerenciador de Encomendas" 
+        title="Encomendas"
+        subtitle="Pedidos com data de entrega, sinal e status" 
         onBack={() => setView("dashboard")} 
         onAction={openCreateModal}
         actionLabel="Nova Encomenda"
@@ -1807,21 +2170,21 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr 110px", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Nome do Cliente</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Nome do Cliente</div>
               <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Maria Silva" value={clientName} onChange={(e) => setClientName(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Produto</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Produto</div>
               <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Bolo de Casamento 3kg" value={product} onChange={(e) => setProduct(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Quantidade</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Quantidade</div>
               <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" min="1" step="1" value={qty} onChange={(e) => setQty(e.target.value)} />
             </div>
           </div>
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Descrição / Observações Adicionais</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Descrição / Observações Adicionais</div>
             <textarea
               style={{ ...inputStyle, width: "100%", boxSizing: "border-box", minHeight: 70, resize: "vertical", fontFamily: "inherit" }}
               placeholder="Ex: Recheio de ninho com morango, sem lactose, topo com nome 'Ana 15 anos'..."
@@ -1832,19 +2195,19 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, alignItems: "end" }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Data de Entrega</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Data de Entrega</div>
               <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Valor Total (R$)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Valor Total (R$)</div>
               <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="0,00" value={totalValue} onChange={(e) => setTotalValue(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Sinal / Pago (R$)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Sinal / Pago (R$)</div>
               <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="0,00" value={advancePayment} onChange={(e) => setAdvancePayment(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Status</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Status</div>
               <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={status} onChange={(e) => setStatus(e.target.value)}>
                 {STATUS_ENCOMENDA.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -1857,9 +2220,9 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
         </div>
       </Modal>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
+      <div style={{ background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 20, padding: 22, boxShadow: "var(--shadow-sm)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>Lista de Encomendas ({filteredOrders.length})</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>Lista de Encomendas ({filteredOrders.length})</div>
           
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <select style={{ ...inputStyle, width: 180, padding: "8px 12px" }} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
@@ -1868,7 +2231,7 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
             </select>
 
             {filteredOrders.length > 0 && (
-              <button onClick={exportOrdersPDF} style={{ background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+              <button onClick={exportOrdersPDF} style={{ background: "var(--brand)", color: "#ffffff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
                 <FileText size={15} /> Exportar PDF
               </button>
             )}
@@ -1889,40 +2252,40 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
             const isDone = o.status === "Finalizado";
 
             const badgeStyles = {
-              "Pendente": { bg: "#fef5e7", color: "#e17055" },
-              "Em Produção": { bg: "#eeeffe", color: "#5352ed" },
-              "Entregue": { bg: "#e8f8f5", color: "#00b894" },
-              "Finalizado": { bg: "#e8f8f5", color: "#00b894" },
-            }[o.status] || { bg: "#f1f5f9", color: "#64748b" };
+              "Pendente": { bg: "var(--gold-soft)", color: "var(--gold)" },
+              "Em Produção": { bg: "var(--brand-soft)", color: "var(--brand)" },
+              "Entregue": { bg: "var(--ok-soft)", color: "var(--ok)" },
+              "Finalizado": { bg: "var(--ok-soft)", color: "var(--ok)" },
+            }[o.status] || { bg: "var(--line-soft)", color: "var(--muted)" };
 
             return (
-              <div key={o.id} className="card-interactive" style={{ background: "#ffffff", border: isDone ? "1px solid #a7f3d0" : "1px solid #f1f5f9", borderRadius: 14, padding: "18px", display: "flex", flexDirection: "column", gap: 12 }}>
+              <div key={o.id} className="card-interactive" style={{ background: "#ffffff", border: isDone ? "1px solid var(--ok-line)" : "1px solid var(--line-soft)", borderRadius: 14, padding: "18px", display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>{o.client_name}</div>
-                    <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>Entrega: <span style={{ fontWeight: 600, color: "#1e293b" }}>{formatDatePt(o.delivery_date)}</span></div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>{o.client_name}</div>
+                    <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>Entrega: <span style={{ fontWeight: 600, color: "var(--ink)" }}>{formatDatePt(o.delivery_date)}</span></div>
                   </div>
                   <span style={{ fontSize: 11, fontWeight: 600, padding: "4px 8px", borderRadius: 6, background: badgeStyles.bg, color: badgeStyles.color }}>
                     {o.status}
                   </span>
                 </div>
 
-                <div style={{ background: "#f8fafc", padding: "12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#1e293b" }}>
+                <div style={{ background: "var(--bg)", padding: "12px", borderRadius: 8, border: "1px solid var(--line)" }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
                     {itemQty > 1 ? `${itemQty}x ` : ""}{productName}
                   </div>
                   {obsText && (
-                    <div style={{ fontSize: 13, color: "#64748b", marginTop: 4, whiteSpace: "pre-line" }}>
+                    <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4, whiteSpace: "pre-line" }}>
                       {obsText}
                     </div>
                   )}
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-                  <div style={{ fontSize: 12, color: "#64748b" }}>
-                    Total: <span style={{ fontWeight: 600, color: "#1e293b" }}>{brl(o.total_value)}</span><br/>
-                    Sinal: <span style={{ fontWeight: 600, color: "#00b894" }}>{brl(o.advance_payment)}</span><br/>
-                    Restante: <span style={{ fontWeight: 600, color: restante > 0 ? "#e84393" : "#64748b" }}>{brl(restante)}</span>
+                  <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                    Total: <span style={{ fontWeight: 600, color: "var(--ink)" }}>{brl(o.total_value)}</span><br/>
+                    Sinal: <span style={{ fontWeight: 600, color: "var(--ok)" }}>{brl(o.advance_payment)}</span><br/>
+                    Restante: <span style={{ fontWeight: 600, color: restante > 0 ? "var(--danger)" : "var(--muted)" }}>{brl(restante)}</span>
                   </div>
                   
                   <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
@@ -1930,10 +2293,10 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
                       onClick={() => toggleOrderStatus(o)}
                       style={{
                         border: "none",
-                        background: isDone ? "#e8f8f5" : "transparent",
+                        background: isDone ? "var(--ok-soft)" : "transparent",
                         cursor: "pointer",
                         padding: 6,
-                        color: "#00b894",
+                        color: "var(--ok)",
                         borderRadius: 8,
                         display: "flex",
                         alignItems: "center",
@@ -1942,10 +2305,10 @@ function Encomendas({ orders, onAdd, onUpdate, onRemove, requestDelete, setView 
                     >
                       {isDone ? <RotateCcw size={16} /> : <CheckCircle2 size={16} />}
                     </button>
-                    <button onClick={() => startEditOrder(o)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#5352ed", display: "flex" }} title="Editar encomenda">
+                    <button onClick={() => startEditOrder(o)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "var(--brand)", display: "flex" }} title="Editar encomenda">
                       <Pencil size={16} />
                     </button>
-                    <button onClick={() => requestDelete(`Encomenda de ${o.client_name}`, () => onRemove(o.id), "Excluir Encomenda")} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#cbd5e1", display: "flex" }} title="Excluir encomenda">
+                    <button onClick={() => requestDelete(`Encomenda de ${o.client_name}`, () => onRemove(o.id), "Excluir Encomenda")} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "var(--line-strong)", display: "flex" }} title="Excluir encomenda">
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -2013,7 +2376,8 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
   return (
     <div>
       <SectionTitleWithBack 
-        title="Produtos" 
+        title="Produtos"
+        subtitle="Cardápio com preços usados nas vendas"
         onBack={() => setView("dashboard")} 
         onAction={openCreateModal}
         actionLabel="Novo Produto"
@@ -2027,17 +2391,17 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Nome do Doce / Produto</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Nome do Doce / Produto</div>
             <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Bolo de Chocolate" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Preço (R$)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Preço (R$)</div>
               <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="0,00" value={price} onChange={(e) => setPrice(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Categoria</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Categoria</div>
               <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
                 {CATEGORIAS_PRODUTO.map((cat) => (
                   <option key={cat} value={cat}>{cat}</option>
@@ -2047,7 +2411,7 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
           </div>
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Vincular Insumo Principal (Opcional)</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Vincular Insumo Principal (Opcional)</div>
             <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={linkedIngredient} onChange={(e) => setLinkedIngredient(e.target.value)}>
               <option value="">Nenhum ingrediente vinculado</option>
               {ingredients.map((ing) => (
@@ -2062,8 +2426,8 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
         </div>
       </Modal>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Produtos Cadastrados ({products.length})</div>
+      <div style={{ background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 20, padding: 22, boxShadow: "var(--shadow-sm)" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)", marginBottom: 16 }}>Produtos Cadastrados ({products.length})</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
           {products.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum produto cadastrado ainda." /></div>}
           {products.map((p) => (
@@ -2082,175 +2446,326 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
   );
 }
 
-// ─── MÓDULO: VENDAS ───────────────────────────────────────────────────────────
-function Vendas({ products, sales, onAdd, onRemove, requestDelete, setView }) {
+// ─── MÓDULO: VENDAS (BALCÃO) ──────────────────────────────────────────────────
+function Vendas({ products, sales, onAdd, onUpdate, onRemove, requestDelete, setView }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [mode, setMode] = useState("catalogo");
   const [productId, setProductId] = useState("");
   const [qty, setQty] = useState(1);
   const [manualDesc, setManualDesc] = useState("");
   const [manualValue, setManualValue] = useState("");
   const [payment, setPayment] = useState(FORMAS_PAGAMENTO[0]);
+  const [date, setDate] = useState(todayISO());
+
+  const [month, setMonth] = useState(todayISO().slice(0, 7));
+  const [search, setSearch] = useState("");
+  const [filterPayment, setFilterPayment] = useState("Todas");
+
+  function resetForm() {
+    setEditingId(null);
+    setMode("catalogo");
+    setProductId("");
+    setQty(1);
+    setManualDesc("");
+    setManualValue("");
+    setPayment(FORMAS_PAGAMENTO[0]);
+    setDate(todayISO());
+  }
+
+  function openNew() {
+    resetForm();
+    setIsModalOpen(true);
+  }
+
+  function startEdit(sale) {
+    setEditingId(sale.id);
+    setMode("manual");
+    setManualDesc(sale.product_name);
+    setManualValue(String(sale.total));
+    setQty(sale.qty || 1);
+    setPayment(sale.payment);
+    setDate(sale.date);
+    setIsModalOpen(true);
+  }
+
+  const selectedProduct = products.find((x) => String(x.id) === String(productId));
+  const previewTotal = mode === "catalogo" && selectedProduct ? selectedProduct.price * (Number(qty) || 1) : Number(manualValue) || 0;
 
   async function submit() {
-    let success = false;
+    let payload;
     if (mode === "catalogo") {
-      const p = products.find((x) => String(x.id) === String(productId));
-      if (!p) return;
-      success = await onAdd({ date: todayISO(), product_name: p.name, qty: Number(qty), total: p.price * Number(qty), payment });
+      if (!selectedProduct) return;
+      payload = { date, product_name: selectedProduct.name, qty: Number(qty) || 1, total: selectedProduct.price * (Number(qty) || 1), payment };
     } else {
       if (!manualDesc || !manualValue) return;
-      success = await onAdd({ date: todayISO(), product_name: manualDesc, qty: Number(qty) || 1, total: Number(manualValue), payment });
+      payload = { date, product_name: manualDesc, qty: Number(qty) || 1, total: Number(manualValue), payment };
     }
+    const success = editingId ? await onUpdate(editingId, payload) : await onAdd(payload);
     if (success !== false) {
-      setProductId(""); setQty(1); setManualDesc(""); setManualValue("");
+      resetForm();
       setIsModalOpen(false);
     }
   }
 
-  const salesNormais = sales.filter((s) => s.payment !== "Empresa (Fiado)");
+  const salesNormais = useMemo(() => sales.filter((s) => !isEmpresaSale(s)), [sales]);
+  const filtered = useMemo(() => {
+    return salesNormais.filter((s) => {
+      if (!s.date || s.date.slice(0, 7) !== month) return false;
+      if (filterPayment !== "Todas" && s.payment !== filterPayment) return false;
+      if (search.trim() && !(s.product_name || "").toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    });
+  }, [salesNormais, month, filterPayment, search]);
+
+  const totalMes = filtered.reduce((acc, s) => acc + Number(s.total), 0);
+  const qtdItens = filtered.reduce((acc, s) => acc + Number(s.qty || 1), 0);
+  const ticket = filtered.length ? totalMes / filtered.length : 0;
 
   return (
     <div>
-      <SectionTitleWithBack 
-        title="Vendas" 
-        onBack={() => setView("dashboard")} 
-        onAction={() => setIsModalOpen(true)}
+      <SectionTitleWithBack
+        title="Vendas Balcão"
+        subtitle="Vendas pagas na hora: dinheiro, PIX e cartão"
+        onBack={() => setView("dashboard")}
+        onAction={openNew}
         actionLabel="Registrar Venda"
       />
 
-      {/* Modal de Nova Venda */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Registrar Nova Venda">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Editar Venda" : "Registrar Nova Venda"}>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ display: "flex", gap: 8 }}>
-            <ToggleButton active={mode === "catalogo"} onClick={() => setMode("catalogo")}>Catálogo</ToggleButton>
-            <ToggleButton active={mode === "manual"} onClick={() => setMode("manual")}>Venda Manual</ToggleButton>
-          </div>
+          {!editingId && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <ToggleButton active={mode === "catalogo"} onClick={() => setMode("catalogo")}>Do catálogo</ToggleButton>
+              <ToggleButton active={mode === "manual"} onClick={() => setMode("manual")}>Valor livre</ToggleButton>
+            </div>
+          )}
 
           {mode === "catalogo" ? (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 130px", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 12 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Produto</div>
-                <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={productId} onChange={(e) => setProductId(e.target.value)}>
+                <FieldLabel>Produto</FieldLabel>
+                <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", cursor: "pointer" }} value={productId} onChange={(e) => setProductId(e.target.value)}>
                   <option value="">Selecione o produto...</option>
                   {products.map((p) => <option key={p.id} value={p.id}>{p.name} — {brl(p.price)}</option>)}
                 </select>
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Quantidade</div>
+                <FieldLabel>Quantidade</FieldLabel>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} />
               </div>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 130px", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 90px 130px", gap: 12 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Descrição da Venda</div>
-                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Encomenda Especial" value={manualDesc} onChange={(e) => setManualDesc(e.target.value)} />
+                <FieldLabel>Descrição</FieldLabel>
+                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Kit festa" value={manualDesc} onChange={(e) => setManualDesc(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Valor Total (R$)</div>
+                <FieldLabel>Qtd.</FieldLabel>
+                <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} />
+              </div>
+              <div>
+                <FieldLabel>Valor total (R$)</FieldLabel>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="0,00" value={manualValue} onChange={(e) => setManualValue(e.target.value)} />
               </div>
             </div>
           )}
 
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Forma de Pagamento</div>
-            <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={payment} onChange={(e) => setPayment(e.target.value)}>
-              {FORMAS_PAGAMENTO.map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <FieldLabel>Forma de pagamento</FieldLabel>
+              <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", cursor: "pointer" }} value={payment} onChange={(e) => setPayment(e.target.value)}>
+                {FORMAS_PAGAMENTO.map((f) => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            <div>
+              <FieldLabel>Data da venda</FieldLabel>
+              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
           </div>
 
-          <button style={primaryBtnStyle} onClick={submit}>Registrar Venda</button>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--brand-soft)", borderRadius: 12, padding: "12px 16px" }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-2)" }}>Total</span>
+            <span style={{ fontSize: 20, fontWeight: 800, color: "var(--brand)" }}>{brl(previewTotal)}</span>
+          </div>
+
+          <button style={primaryBtnStyle} onClick={submit}>{editingId ? "Salvar Alterações" : "Registrar Venda"}</button>
         </div>
       </Modal>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Vendas Recentes ({salesNormais.length})</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
-          {salesNormais.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhuma venda registrada." /></div>}
-          {salesNormais.map((s) => (
+      <div className="grid-2-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
+        <StatPill label="Total no mês" value={brl(totalMes)} color="var(--ok)" />
+        <StatPill label="Vendas / itens" value={`${filtered.length} / ${qtdItens}`} />
+        <StatPill label="Ticket médio" value={brl(ticket)} />
+      </div>
+
+      <Panel>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 10, flexWrap: "wrap" }}>
+          <MonthPicker value={month} onChange={setMonth} />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ position: "relative" }}>
+              <Search size={15} color="var(--muted-2)" style={{ position: "absolute", left: 12, top: 11 }} />
+              <input style={{ ...inputStyle, padding: "9px 12px 9px 34px", width: 190 }} placeholder="Buscar produto..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+            <select style={{ ...inputStyle, padding: "9px 12px", cursor: "pointer" }} value={filterPayment} onChange={(e) => setFilterPayment(e.target.value)}>
+              <option value="Todas">Todas as formas</option>
+              {FORMAS_PAGAMENTO.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
+          {filtered.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhuma venda de balcão neste mês." /></div>}
+          {filtered.map((s) => (
             <ListRow
               key={s.id}
+              icon={<ShoppingCart size={17} />}
               title={s.product_name}
-              subtitle={`${formatDatePt(s.date)} · ${s.payment} ${s.qty > 1 ? `· Qtd: ${s.qty}` : ""}`}
+              subtitle={`${formatDatePt(s.date)} · ${s.payment}${s.qty > 1 ? ` · Qtd: ${s.qty}` : ""}`}
               value={brl(s.total)}
-              valueColor="#00b894"
+              valueColor="var(--ok)"
+              onEdit={() => startEdit(s)}
               onDelete={() => requestDelete(`${s.product_name} (${brl(s.total)})`, () => onRemove(s.id), "Excluir Venda")}
             />
           ))}
         </div>
-      </div>
+      </Panel>
     </div>
   );
 }
 
 // ─── MÓDULO: GASTOS ───────────────────────────────────────────────────────────
-function Gastos({ expenses, onAdd, onRemove, requestDelete, setView }) {
+function Gastos({ expenses, onAdd, onUpdate, onRemove, requestDelete, setView }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState(CATEGORIAS_GASTO[0]);
   const [value, setValue] = useState("");
+  const [date, setDate] = useState(todayISO());
+
+  const [month, setMonth] = useState(todayISO().slice(0, 7));
+  const [filterCat, setFilterCat] = useState("Todas");
+
+  function resetForm() {
+    setEditingId(null);
+    setDescription("");
+    setValue("");
+    setCategory(CATEGORIAS_GASTO[0]);
+    setDate(todayISO());
+  }
+
+  function openNew() {
+    resetForm();
+    setIsModalOpen(true);
+  }
+
+  function startEdit(g) {
+    setEditingId(g.id);
+    setDescription(g.description);
+    setValue(String(g.value));
+    setCategory(g.category);
+    setDate(g.date);
+    setIsModalOpen(true);
+  }
 
   async function submit() {
-    if (!description || !value) return;
-    const success = await onAdd({ date: todayISO(), description, category, value: Number(value) });
+    if (!description || !value || !date) return;
+    const payload = { date, description, category, value: Number(value) };
+    const success = editingId ? await onUpdate(editingId, payload) : await onAdd(payload);
     if (success !== false) {
-      setDescription(""); setValue(""); setCategory(CATEGORIAS_GASTO[0]);
+      resetForm();
       setIsModalOpen(false);
     }
   }
 
+  const doMes = useMemo(() => expenses.filter((g) => g.date && g.date.slice(0, 7) === month), [expenses, month]);
+  const filtered = filterCat === "Todas" ? doMes : doMes.filter((g) => g.category === filterCat);
+  const totalMes = doMes.reduce((acc, g) => acc + Number(g.value), 0);
+
+  const porCategoria = CATEGORIAS_GASTO.map((c) => ({
+    cat: c,
+    total: doMes.filter((g) => g.category === c).reduce((acc, g) => acc + Number(g.value), 0),
+  }))
+    .filter((c) => c.total > 0)
+    .sort((a, b) => b.total - a.total);
+
   return (
     <div>
-      <SectionTitleWithBack 
-        title="Gastos" 
-        onBack={() => setView("dashboard")} 
-        onAction={() => setIsModalOpen(true)}
+      <SectionTitleWithBack
+        title="Gastos"
+        subtitle="Lance as compras e contas para ver o lucro real"
+        onBack={() => setView("dashboard")}
+        onAction={openNew}
         actionLabel="Novo Gasto"
       />
 
-      {/* Modal de Novo Gasto */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Registrar Novo Gasto">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Editar Gasto" : "Registrar Novo Gasto"}>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Descrição do Gasto</div>
-            <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Compra de Leite Condensado" value={description} onChange={(e) => setDescription(e.target.value)} />
+            <FieldLabel>Descrição do gasto</FieldLabel>
+            <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Compra de leite condensado" value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Valor (R$)</div>
+              <FieldLabel>Valor (R$)</FieldLabel>
               <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="0,00" value={value} onChange={(e) => setValue(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Categoria</div>
-              <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
+              <FieldLabel>Categoria</FieldLabel>
+              <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
                 {CATEGORIAS_GASTO.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
+            <div>
+              <FieldLabel>Data</FieldLabel>
+              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
           </div>
 
-          <button style={primaryBtnStyle} onClick={submit}>Registrar Gasto</button>
+          <button style={primaryBtnStyle} onClick={submit}>{editingId ? "Salvar Alterações" : "Registrar Gasto"}</button>
         </div>
       </Modal>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Gastos Recentes ({expenses.length})</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
-          {expenses.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum gasto registrado." /></div>}
-          {expenses.map((g) => (
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 2fr)", gap: 16, marginBottom: 16 }}>
+        <StatPill label={`Total em ${formatMonthKey(month)}`} value={brl(totalMes)} color="var(--danger)" />
+        <div style={{ background: "var(--surface)", border: "1px solid var(--line-soft)", borderRadius: 14, padding: "10px 16px", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {porCategoria.length === 0 ? (
+            <span style={{ fontSize: 13, color: "var(--muted)" }}>Nenhum gasto neste mês.</span>
+          ) : (
+            porCategoria.map((c) => (
+              <span key={c.cat} style={{ fontSize: 12.5, fontWeight: 600, background: "var(--danger-soft)", color: "var(--danger)", borderRadius: 999, padding: "5px 12px" }}>
+                {c.cat}: {brl(c.total)}
+              </span>
+            ))
+          )}
+        </div>
+      </div>
+
+      <Panel>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 10, flexWrap: "wrap" }}>
+          <MonthPicker value={month} onChange={setMonth} />
+          <select style={{ ...inputStyle, padding: "9px 12px", cursor: "pointer" }} value={filterCat} onChange={(e) => setFilterCat(e.target.value)}>
+            <option value="Todas">Todas as categorias</option>
+            {CATEGORIAS_GASTO.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
+          {filtered.length === 0 && <div style={{ gridColumn: "span 2" }}><EmptyState text="Nenhum gasto registrado neste mês." /></div>}
+          {filtered.map((g) => (
             <ListRow
               key={g.id}
+              icon={<Receipt size={17} />}
               title={g.description}
               subtitle={`${formatDatePt(g.date)} · ${g.category}`}
               value={brl(g.value)}
-              valueColor="#e84393"
+              valueColor="var(--danger)"
+              onEdit={() => startEdit(g)}
               onDelete={() => requestDelete(`${g.description} (${brl(g.value)})`, () => onRemove(g.id), "Excluir Gasto")}
             />
           ))}
         </div>
-      </div>
+      </Panel>
     </div>
   );
 }
@@ -2262,6 +2777,7 @@ function VendasEmpresa({
   onAdd,
   onRemove,
   onUpdate,
+  onBulkUpdate,
   requestDelete,
   cycleStartDay,
   onUpdateCycleStartDay,
@@ -2350,14 +2866,15 @@ function VendasEmpresa({
   }
 
   const existingPeople = useMemo(() => {
-    const setNames = new Set();
+    const byKey = new Map();
     sales.forEach((s) => {
       if (s.payment === "Empresa (Fiado)" && s.product_name) {
         const { person } = parseSaleTarget(s.product_name);
-        setNames.add(person);
+        const k = personKey(person);
+        if (k && !byKey.has(k)) byKey.set(k, person.trim());
       }
     });
-    return Array.from(setNames).sort();
+    return Array.from(byKey.values()).sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [sales]);
 
   const companySales = useMemo(() => {
@@ -2480,20 +2997,22 @@ function VendasEmpresa({
     const map = {};
     listaDetalhadaMes.forEach((s) => {
       const { person, product } = parseSaleTarget(s.product_name);
-      if (!map[person]) {
-        map[person] = { sum: 0, paidSum: 0, pendingSum: 0, items: [] };
+      const k = personKey(person);
+      if (!map[k]) {
+        map[k] = { name: person, sum: 0, paidSum: 0, pendingSum: 0, items: [] };
       }
       const itemVal = Number(s.total);
-      map[person].sum += itemVal;
+      map[k].sum += itemVal;
       if (s.status === "Pago") {
-        map[person].paidSum += itemVal;
+        map[k].paidSum += itemVal;
       } else {
-        map[person].pendingSum += itemVal;
+        map[k].pendingSum += itemVal;
       }
-      map[person].items.push({ ...s, parsedProduct: product });
+      map[k].items.push({ ...s, parsedProduct: product });
     });
 
-    let entries = Object.entries(map).map(([name, data]) => {
+    let entries = Object.values(map).map((data) => {
+      const name = data.name;
       const allPaid = data.items.length > 0 && data.items.every((it) => it.status === "Pago");
       const nonePaid = data.items.length > 0 && data.items.every((it) => it.status !== "Pago");
       let statusLabel = "Pendente";
@@ -2532,10 +3051,11 @@ function VendasEmpresa({
 
   async function toggleEmployeeStatus(person, currentStatusLabel) {
     const newStatus = currentStatusLabel === "Pago" ? "Pendente" : "Pago";
-    const itemsToUpdate = listaDetalhadaMes.filter((s) => parseSaleTarget(s.product_name).person === person);
-    for (const item of itemsToUpdate) {
-      await onUpdate(item.id, { status: newStatus });
-    }
+    const ids = listaDetalhadaMes
+      .filter((s) => personKey(parseSaleTarget(s.product_name).person) === personKey(person))
+      .filter((s) => (s.status === "Pago") !== (newStatus === "Pago"))
+      .map((s) => s.id);
+    await onBulkUpdate(ids, { status: newStatus }, newStatus === "Pago" ? `${person}: tudo marcado como pago.` : `${person}: voltou para pendente.`);
   }
 
   async function toggleIndividualItemStatus(saleItem) {
@@ -2548,11 +3068,8 @@ function VendasEmpresa({
       alert("Este ciclo já está fechado.");
       return;
     }
-    for (const item of listaDetalhadaMes) {
-      if (item.status !== "Pago") {
-        await onUpdate(item.id, { status: "Pago" });
-      }
-    }
+    const ids = listaDetalhadaMes.filter((item) => item.status !== "Pago").map((item) => item.id);
+    await onBulkUpdate(ids, { status: "Pago" }, `Ciclo fechado: ${ids.length} lançamento(s) marcados como pagos.`);
   }
 
   // Exportação PDF levando em conta o período de vigência
@@ -2608,7 +3125,7 @@ function VendasEmpresa({
       head: [["Funcionário / Cliente", "Total Geral", "Total Pago", "Total Pendente", "Status"]],
       body: dadosTabela,
       theme: "grid",
-      headStyles: { fillColor: [83, 82, 237] },
+      headStyles: { fillColor: [201, 92, 112] },
       foot: [
         ["Total", brl(totalExportadoGeral), brl(totalExportadoPago), brl(totalExportadoPendente), ""],
       ],
@@ -2659,7 +3176,7 @@ function VendasEmpresa({
       head: [["Data", "Item / Produto Comprado", "Valor", "Status do Item"]],
       body: dadosTabela,
       theme: "grid",
-      headStyles: { fillColor: [83, 82, 237] },
+      headStyles: { fillColor: [201, 92, 112] },
       foot: [
         ["Total do Ciclo", "", brl(item.sum), ""],
         ["Total Pago", "", brl(item.paidSum), ""],
@@ -2686,12 +3203,12 @@ function VendasEmpresa({
         maxWidth={460}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <p style={{ margin: 0, fontSize: 13, color: "#64748b", lineHeight: 1.5 }}>
+          <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
             Defina o <b>dia de início do ciclo</b>. O fechamento irá do dia escolhido até o dia anterior no mês subsequente. Caso selecione um dia inexistente em meses com menos dias (ex: dia 31 em fevereiro ou abril), o sistema ajustará automaticamente para o último dia viável.
           </p>
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 6 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-2)", marginBottom: 6 }}>
               Dia de início do ciclo (1 a 31)
             </div>
             <input
@@ -2704,7 +3221,7 @@ function VendasEmpresa({
             />
           </div>
 
-          <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12, color: "#475569" }}>
+          <div style={{ background: "var(--bg)", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--line)", fontSize: 12, color: "var(--ink-2)" }}>
             💡 <b>Exemplo Atual:</b> Ciclo começando no dia <b>{Math.min(31, Math.max(1, parseInt(tempCycleDay) || 1))}</b> agrupa as vendas do dia {Math.min(31, Math.max(1, parseInt(tempCycleDay) || 1))} até o dia {(Math.min(31, Math.max(1, parseInt(tempCycleDay) || 1)) - 1) || 31} do mês seguinte.
           </div>
 
@@ -2713,12 +3230,12 @@ function VendasEmpresa({
               onClick={() => setIsConfigCycleOpen(false)}
               style={{
                 background: "#ffffff",
-                border: "1px solid #e2e8f0",
+                border: "1px solid var(--line)",
                 borderRadius: 10,
                 padding: "9px 16px",
                 fontSize: 13,
                 fontWeight: 600,
-                color: "#475569",
+                color: "var(--ink-2)",
                 cursor: "pointer",
               }}
             >
@@ -2730,7 +3247,7 @@ function VendasEmpresa({
                 setIsConfigCycleOpen(false);
               }}
               style={{
-                background: "#5352ed",
+                background: "var(--brand)",
                 border: "none",
                 borderRadius: 10,
                 padding: "9px 18px",
@@ -2746,108 +3263,89 @@ function VendasEmpresa({
         </div>
       </Modal>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: 0 }}>Vendas Empresa</h2>
-          <button
-            onClick={() => setIsConfigCycleOpen(true)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              background: "#eeeffe",
-              border: "1px solid #dcdde1",
-              color: "#5352ed",
-              padding: "6px 12px",
-              borderRadius: 8,
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-            title="Alterar o dia de corte do ciclo mensal"
-          >
-            <SlidersHorizontal size={14} />
-            <span>Ciclo: Dia {cycleStartDay}</span>
-          </button>
+      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24, gap: 16 }}>
+        <div>
+          <h2 style={{ fontSize: 30, color: "var(--ink)", margin: 0 }}>Vendas Empresa</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
+            <span style={{ color: "var(--muted)", fontSize: 14 }}>Fiado dos funcionários, cobrado por ciclo</span>
+            <button
+              onClick={() => setIsConfigCycleOpen(true)}
+              style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--brand-soft)", border: "none", color: "var(--brand)", padding: "5px 11px", borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+              title="Alterar o dia de corte do ciclo mensal"
+            >
+              <SlidersHorizontal size={13} />
+              <span>Ciclo começa dia {cycleStartDay}</span>
+            </button>
+          </div>
         </div>
-        
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 10 }}>
-            <button
-              onClick={() => setViewMode("mes")}
-              style={{
-                padding: "8px 14px",
-                borderRadius: 8,
-                border: "none",
-                background: viewMode === "mes" ? "#5352ed" : "transparent",
-                color: viewMode === "mes" ? "#ffffff" : "#64748b",
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Visão por Ciclo
-            </button>
-            <button
-              onClick={() => setViewMode("dia")}
-              style={{
-                padding: "8px 14px",
-                borderRadius: 8,
-                border: "none",
-                background: viewMode === "dia" ? "#5352ed" : "transparent",
-                color: viewMode === "dia" ? "#ffffff" : "#64748b",
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Visão por Dia
-            </button>
+
+        <div className="page-header-actions" style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ display: "flex", background: "var(--line-soft)", padding: 3, borderRadius: 12 }}>
+            {[["mes", "Por ciclo"], ["dia", "Por dia"]].map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setViewMode(key)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 9,
+                  border: "none",
+                  background: viewMode === key ? "var(--surface)" : "transparent",
+                  color: viewMode === key ? "var(--brand)" : "var(--muted)",
+                  boxShadow: viewMode === key ? "var(--shadow-sm)" : "none",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           {viewMode === "mes" && (
             <button
               onClick={fecharMesGeral}
               disabled={isMonthClosed || listaDetalhadaMes.length === 0}
+              title="Marca todos os lançamentos do ciclo selecionado como pagos"
               style={{
-                background: isMonthClosed ? "#94a3b8" : "#5352ed",
-                color: "#ffffff",
+                background: isMonthClosed ? "var(--ok-soft)" : "var(--ink)",
+                color: isMonthClosed ? "var(--ok)" : "#ffffff",
                 border: "none",
-                borderRadius: 10,
-                padding: "10px 18px",
+                borderRadius: 12,
+                padding: "11px 16px",
                 fontSize: 13,
-                fontWeight: 600,
-                cursor: isMonthClosed ? "not-allowed" : "pointer",
+                fontWeight: 700,
+                cursor: isMonthClosed ? "default" : "pointer",
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
               }}
             >
-              <LockIcon size={16} />
-              {isMonthClosed ? "Ciclo Fechado" : "Fechar Ciclo (Marcar Todos como Pagos)"}
+              {isMonthClosed ? <CheckCircle2 size={16} /> : <LockIcon size={15} />}
+              {isMonthClosed ? "Ciclo fechado" : "Fechar ciclo"}
             </button>
           )}
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, marginBottom: 28, opacity: isMonthClosed ? 0.7 : 1 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span>{editingSaleId ? "Editar Lançamento" : "Lançar venda para funcionário / empresa"}</span>
+      <div style={{ background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 20, padding: 22, marginBottom: 20, opacity: isMonthClosed ? 0.7 : 1, boxShadow: "var(--shadow-sm)" }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span>{editingSaleId ? "Editar lançamento" : "Novo lançamento no fiado"}</span>
           {editingSaleId && (
             <button
               onClick={cancelEditSale}
-              style={{ background: "transparent", border: "1px solid #cbd5e1", color: "#64748b", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+              style={{ background: "transparent", border: "1px solid var(--line-strong)", color: "var(--muted)", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
             >
               Cancelar Edição
             </button>
           )}
-          {isMonthClosed && !editingSaleId && viewMode === "mes" && <span style={{ fontSize: 13, color: "#e84393", fontWeight: 600 }}>Ciclo Fechado (Lançamentos travados)</span>}
+          {isMonthClosed && !editingSaleId && viewMode === "mes" && <span style={{ fontSize: 13, color: "var(--danger)", fontWeight: 600 }}>Ciclo Fechado (Lançamentos travados)</span>}
         </div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Nome da Pessoa (Autocomplete)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Pessoa</div>
               <input
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
                 placeholder="Ex: Fabi, Débora, Duda"
@@ -2864,7 +3362,7 @@ function VendasEmpresa({
             </div>
 
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Produto Vendido (Opcional)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Produto (opcional)</div>
               <input
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
                 placeholder="Ex: Pão Recheado, Cookie, Bolo"
@@ -2883,7 +3381,7 @@ function VendasEmpresa({
 
           <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 180px auto", gap: 12, alignItems: "end" }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Quantidade</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Quantidade</div>
               <input
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
                 type="number"
@@ -2896,7 +3394,7 @@ function VendasEmpresa({
             </div>
 
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Valor Total (R$)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Valor Total (R$)</div>
               <input
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
                 type="number"
@@ -2909,7 +3407,7 @@ function VendasEmpresa({
             </div>
 
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Data</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Data</div>
               <input
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
                 type="date"
@@ -2923,7 +3421,7 @@ function VendasEmpresa({
               onClick={submit}
               disabled={isMonthClosed && getCycleForDate(date, cycleStartDay) === selectedCycle}
               style={{
-                background: isMonthClosed && getCycleForDate(date, cycleStartDay) === selectedCycle ? "#cbd5e1" : "#5352ed",
+                background: isMonthClosed && getCycleForDate(date, cycleStartDay) === selectedCycle ? "var(--line-strong)" : "var(--brand)",
                 color: "#ffffff",
                 border: "none",
                 borderRadius: 10,
@@ -2941,9 +3439,9 @@ function VendasEmpresa({
       </div>
 
       {viewMode === "mes" ? (
-        <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
+        <div style={{ background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 20, padding: 22, boxShadow: "var(--shadow-sm)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <div className="filter-row" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <select
                 style={{ ...inputStyle, minWidth: 260, background: "#ffffff", fontWeight: 600, cursor: "pointer" }}
                 value={selectedCycle}
@@ -2955,7 +3453,7 @@ function VendasEmpresa({
               </select>
 
               <div style={{ position: "relative" }}>
-                <Search size={16} color="#94a3b8" style={{ position: "absolute", left: 12, top: 14 }} />
+                <Search size={16} color="var(--muted-2)" style={{ position: "absolute", left: 12, top: 14 }} />
                 <input
                   style={{ ...inputStyle, paddingLeft: 36, width: 220, boxSizing: "border-box" }}
                   placeholder="Buscar funcionário..."
@@ -2965,8 +3463,8 @@ function VendasEmpresa({
               </div>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ background: "#eeeffe", color: "#5352ed", padding: "10px 18px", borderRadius: 10, fontSize: 14, fontWeight: 600, border: "1px solid #dcdde1" }}>
+            <div className="filter-row" style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <div style={{ background: "var(--brand-soft)", color: "var(--brand)", padding: "10px 18px", borderRadius: 10, fontSize: 14, fontWeight: 600, border: "1px solid var(--line)" }}>
                 Total Pendente: {brl(totalPendenteMes)} <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.8 }}>(Geral: {brl(totalGeralMes)})</span>
               </div>
               
@@ -2975,7 +3473,7 @@ function VendasEmpresa({
                   <button
                     onClick={() => setExportMenuOpen(!exportMenuOpen)}
                     style={{
-                      background: "#5352ed",
+                      background: "var(--brand)",
                       color: "#ffffff",
                       border: "none",
                       borderRadius: 10,
@@ -3003,7 +3501,7 @@ function VendasEmpresa({
                         background: "#ffffff",
                         borderRadius: 12,
                         boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08)",
-                        border: "1px solid #e2e8f0",
+                        border: "1px solid var(--line)",
                         padding: "6px",
                         zIndex: 999,
                         display: "flex",
@@ -3021,17 +3519,17 @@ function VendasEmpresa({
                           borderRadius: 8,
                           border: "none",
                           background: "transparent",
-                          color: "#1e293b",
+                          color: "var(--ink)",
                           fontSize: 13,
                           fontWeight: 500,
                           cursor: "pointer",
                           textAlign: "left",
                           width: "100%",
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = "#f1f5f9"}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "var(--line-soft)"}
                         onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                       >
-                        <FileText size={15} color="#5352ed" />
+                        <FileText size={15} color="var(--brand)" />
                         <span>Todos os lançamentos</span>
                       </button>
 
@@ -3045,17 +3543,17 @@ function VendasEmpresa({
                           borderRadius: 8,
                           border: "none",
                           background: "transparent",
-                          color: "#e84393",
+                          color: "var(--danger)",
                           fontSize: 13,
                           fontWeight: 500,
                           cursor: "pointer",
                           textAlign: "left",
                           width: "100%",
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = "#fde8f1"}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "var(--danger-soft)"}
                         onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                       >
-                        <Clock size={15} color="#e84393" />
+                        <Clock size={15} color="var(--danger)" />
                         <span>Apenas Pendentes</span>
                       </button>
 
@@ -3069,17 +3567,17 @@ function VendasEmpresa({
                           borderRadius: 8,
                           border: "none",
                           background: "transparent",
-                          color: "#00b894",
+                          color: "var(--ok)",
                           fontSize: 13,
                           fontWeight: 500,
                           cursor: "pointer",
                           textAlign: "left",
                           width: "100%",
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = "#e8f8f5"}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "var(--ok-soft)"}
                         onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                       >
-                        <CheckCircle2 size={15} color="#00b894" />
+                        <CheckCircle2 size={15} color="var(--ok)" />
                         <span>Apenas Pagos</span>
                       </button>
                     </div>
@@ -3099,17 +3597,17 @@ function VendasEmpresa({
                 const isExpanded = !!expandedCards[item.name];
 
                 const badgeStyles = {
-                  Pago: { bg: "#e8f8f5", color: "#00b894", icon: <CheckCircle2 size={12} /> },
-                  Parcial: { bg: "#fef5e7", color: "#e17055", icon: <Clock size={12} /> },
-                  Pendente: { bg: "#fde8f1", color: "#e84393", icon: <Clock size={12} /> },
+                  Pago: { bg: "var(--ok-soft)", color: "var(--ok)", icon: <CheckCircle2 size={12} /> },
+                  Parcial: { bg: "var(--gold-soft)", color: "var(--gold)", icon: <Clock size={12} /> },
+                  Pendente: { bg: "var(--danger-soft)", color: "var(--danger)", icon: <Clock size={12} /> },
                 }[item.statusLabel];
 
                 return (
-                  <div key={index} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 14, padding: "18px" }}>
+                  <div key={index} className="card-interactive" style={{ background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 14, padding: "18px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                          <div style={{ fontWeight: 700, color: "#1e293b", fontSize: 16 }}>{item.name}</div>
+                          <div style={{ fontWeight: 700, color: "var(--ink)", fontSize: 16 }}>{item.name}</div>
                           <span style={{
                             fontSize: 11,
                             fontWeight: 600,
@@ -3125,11 +3623,11 @@ function VendasEmpresa({
                             {item.statusLabel}
                           </span>
                         </div>
-                        <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>
-                          Pago: <span style={{ color: "#00b894", fontWeight: 600 }}>{brl(item.paidSum)}</span> | Pendente: <span style={{ color: item.pendingSum > 0 ? "#e84393" : "#64748b", fontWeight: 600 }}>{brl(item.pendingSum)}</span>
+                        <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 500 }}>
+                          Pago: <span style={{ color: "var(--ok)", fontWeight: 600 }}>{brl(item.paidSum)}</span> | Pendente: <span style={{ color: item.pendingSum > 0 ? "var(--danger)" : "var(--muted)", fontWeight: 600 }}>{brl(item.pendingSum)}</span>
                         </div>
                       </div>
-                      <div style={{ fontWeight: 800, color: "#5352ed", fontSize: 18, textAlign: "right" }}>
+                      <div style={{ fontWeight: 800, color: "var(--brand)", fontSize: 18, textAlign: "right" }}>
                         {brl(item.sum)}
                       </div>
                     </div>
@@ -3139,25 +3637,25 @@ function VendasEmpresa({
                         <button
                           onClick={() => toggleEmployeeStatus(item.name, item.statusLabel)}
                           style={{
-                            background: item.statusLabel === "Pago" ? "#ffffff" : "#00b894",
-                            color: item.statusLabel === "Pago" ? "#00b894" : "#ffffff",
-                            border: "1px solid #00b894",
-                            borderRadius: 8,
+                            background: item.statusLabel === "Pago" ? "#ffffff" : "var(--ok-soft)",
+                            color: item.statusLabel === "Pago" ? "var(--muted)" : "var(--ok)",
+                            border: item.statusLabel === "Pago" ? "1px solid var(--line)" : "1px solid var(--ok-line)",
+                            borderRadius: 10,
                             padding: "6px 12px",
                             fontSize: 12,
                             fontWeight: 600,
                             cursor: "pointer",
                           }}
                         >
-                          {item.statusLabel === "Pago" ? "Marcar todos como pendentes" : "Marcar todos como pagos"}
+                          {item.statusLabel === "Pago" ? "Desfazer pagamento" : "✓ Recebi tudo"}
                         </button>
 
                         <button
                           onClick={() => gerarPDFIndividual(item)}
                           style={{
-                            background: "#eeeffe",
-                            color: "#5352ed",
-                            border: "1px solid #dcdde1",
+                            background: "var(--brand-soft)",
+                            color: "var(--brand)",
+                            border: "1px solid var(--line)",
                             borderRadius: 8,
                             padding: "6px 12px",
                             fontSize: 12,
@@ -3177,7 +3675,7 @@ function VendasEmpresa({
                         onClick={() => toggleExpand(item.name)}
                         style={{
                           background: "transparent",
-                          color: "#5352ed",
+                          color: "var(--brand)",
                           border: "none",
                           fontSize: 12,
                           fontWeight: 600,
@@ -3193,15 +3691,15 @@ function VendasEmpresa({
                     </div>
 
                     {isExpanded && (
-                      <div style={{ borderTop: "1px dashed #e2e8f0", marginTop: 12, paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase" }}>Lançamentos no ciclo:</div>
+                      <div style={{ borderTop: "1px dashed var(--line)", marginTop: 12, paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted-2)", textTransform: "uppercase" }}>Lançamentos no ciclo:</div>
                         {item.items.map((s) => {
                           const itemQty = s.qty || 1;
                           const productLabel = itemQty > 1 ? `${itemQty}x ${s.parsedProduct}` : s.parsedProduct;
                           const isItemPaid = s.status === "Pago";
 
                           return (
-                            <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "#475569", background: isItemPaid ? "#f8fafc" : "transparent", padding: "4px 6px", borderRadius: 8 }}>
+                            <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, color: "var(--ink-2)", background: isItemPaid ? "var(--bg)" : "transparent", padding: "4px 6px", borderRadius: 8 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
                                 <button
                                   onClick={() => toggleIndividualItemStatus(s)}
@@ -3213,14 +3711,14 @@ function VendasEmpresa({
                                     padding: 0,
                                     display: "flex",
                                     alignItems: "center",
-                                    color: isItemPaid ? "#00b894" : "#94a3b8",
+                                    color: isItemPaid ? "var(--ok)" : "var(--muted-2)",
                                   }}
                                   title={isItemPaid ? "Clique para marcar este item como Pendente" : "Clique para marcar este item como Pago"}
                                 >
                                   {isItemPaid ? <CheckCircle2 size={16} /> : <Clock size={16} />}
                                 </button>
                                 <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                  {formatDatePt(s.date)} — <span style={{ color: "#1e293b", fontWeight: 500 }}>{productLabel}</span> — <b style={{ color: isItemPaid ? "#00b894" : "#1e293b" }}>{brl(s.total)}</b>
+                                  {formatDatePt(s.date)} — <span style={{ color: "var(--ink)", fontWeight: 500 }}>{productLabel}</span> — <b style={{ color: isItemPaid ? "var(--ok)" : "var(--ink)" }}>{brl(s.total)}</b>
                                 </span>
                               </div>
 
@@ -3228,21 +3726,21 @@ function VendasEmpresa({
                                 <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
                                   <button
                                     onClick={() => startEditSale(s)}
-                                    style={{ border: "none", background: "transparent", cursor: "pointer", color: "#5352ed", padding: 4, display: "flex", alignItems: "center" }}
+                                    style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--brand)", padding: 4, display: "flex", alignItems: "center" }}
                                     title="Editar lançamento"
                                   >
                                     <Pencil size={14} />
                                   </button>
                                   <button
                                     onClick={() => requestDelete(`${productLabel} (${brl(s.total)})`, () => onRemove(s.id), "Excluir Lançamento")}
-                                    style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 4, display: "flex", alignItems: "center" }}
+                                    style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--line-strong)", padding: 4, display: "flex", alignItems: "center" }}
                                     title="Excluir lançamento"
                                   >
                                     <Trash2 size={14} />
                                   </button>
                                 </div>
                               ) : (
-                                <span style={{ fontSize: 11, color: "#94a3b8" }}>Bloqueado</span>
+                                <span style={{ fontSize: 11, color: "var(--muted-2)" }}>Bloqueado</span>
                               )}
                             </div>
                           );
@@ -3256,11 +3754,11 @@ function VendasEmpresa({
           </div>
         </div>
       ) : (
-        <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
+        <div style={{ background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 20, padding: 22, boxShadow: "var(--shadow-sm)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Calendar size={18} color="#5352ed" />
+                <Calendar size={18} color="var(--brand)" />
                 <input
                   type="date"
                   style={{ ...inputStyle, width: 180, fontWeight: 600, cursor: "pointer" }}
@@ -3270,7 +3768,7 @@ function VendasEmpresa({
               </div>
 
               <div style={{ position: "relative" }}>
-                <Search size={16} color="#94a3b8" style={{ position: "absolute", left: 12, top: 14 }} />
+                <Search size={16} color="var(--muted-2)" style={{ position: "absolute", left: 12, top: 14 }} />
                 <input
                   style={{ ...inputStyle, paddingLeft: 36, width: 220, boxSizing: "border-box" }}
                   placeholder="Buscar funcionário..."
@@ -3280,7 +3778,7 @@ function VendasEmpresa({
               </div>
             </div>
 
-            <div style={{ background: "#eeeffe", color: "#5352ed", padding: "10px 18px", borderRadius: 10, fontSize: 14, fontWeight: 600, border: "1px solid #dcdde1" }}>
+            <div style={{ background: "var(--brand-soft)", color: "var(--brand)", padding: "10px 18px", borderRadius: 10, fontSize: 14, fontWeight: 600, border: "1px solid var(--line)" }}>
               Total Vendido no Dia: {brl(totalDia)} ({listaDetalhadaDia.length} lançamentos)
             </div>
           </div>
@@ -3297,28 +3795,28 @@ function VendasEmpresa({
                 const isPaid = s.status === "Pago";
 
                 return (
-                  <div key={s.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 14, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                  <div key={s.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 14, padding: "16px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: "#1e293b" }}>{person}</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}>{person}</div>
                         <span style={{
                           fontSize: 11,
                           fontWeight: 600,
                           padding: "2px 8px",
                           borderRadius: 6,
-                          background: isPaid ? "#e8f8f5" : "#fde8f1",
-                          color: isPaid ? "#00b894" : "#e84393",
+                          background: isPaid ? "var(--ok-soft)" : "var(--danger-soft)",
+                          color: isPaid ? "var(--ok)" : "var(--danger)",
                         }}>
                           {isPaid ? "Pago" : "Pendente"}
                         </span>
                       </div>
-                      <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                      <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
                         {itemQty > 1 ? `${itemQty}x ` : ""}{product}
                       </div>
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <span style={{ fontSize: 16, fontWeight: 700, color: isPaid ? "#00b894" : "#5352ed" }}>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: isPaid ? "var(--ok)" : "var(--brand)" }}>
                         {brl(s.total)}
                       </span>
 
@@ -3330,7 +3828,7 @@ function VendasEmpresa({
                             background: "transparent",
                             cursor: "pointer",
                             padding: 6,
-                            color: isPaid ? "#00b894" : "#94a3b8",
+                            color: isPaid ? "var(--ok)" : "var(--muted-2)",
                           }}
                           title={isPaid ? "Marcar como Pendente" : "Marcar como Pago"}
                         >
@@ -3338,14 +3836,14 @@ function VendasEmpresa({
                         </button>
                         <button
                           onClick={() => startEditSale(s)}
-                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "#5352ed", padding: 6 }}
+                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--brand)", padding: 6 }}
                           title="Editar lançamento"
                         >
                           <Pencil size={16} />
                         </button>
                         <button
                           onClick={() => requestDelete(`Lançamento de ${person} (${brl(s.total)})`, () => onRemove(s.id), "Excluir Lançamento")}
-                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 6 }}
+                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--line-strong)", padding: 6 }}
                           title="Excluir lançamento"
                         >
                           <Trash2 size={16} />
@@ -3551,7 +4049,7 @@ function Precificacao({
         head: [["Ingrediente / Insumo", "Quantidade Utilizada", "Custo (R$)"]],
         body: tableBody,
         theme: "grid",
-        headStyles: { fillColor: [83, 82, 237] },
+        headStyles: { fillColor: [201, 92, 112] },
       });
 
       let currentY = doc.lastAutoTable.finalY + 12;
@@ -3578,9 +4076,7 @@ function Precificacao({
 
   return (
     <div>
-      <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: "0 0 24px" }}>
-        Precificação e Ficha Técnica
-      </h2>
+      <SectionTitleWithBack title="Precificação" subtitle="Custo dos ingredientes e fichas técnicas das receitas" />
 
       <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
         <ToggleButton active={tab === "ingredientes"} onClick={() => setTab("ingredientes")}>
@@ -3593,13 +4089,13 @@ function Precificacao({
 
       {tab === "ingredientes" ? (
         <div>
-          <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, marginBottom: 24 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 20, padding: 22, boxShadow: "var(--shadow-sm)", marginBottom: 24 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>{editingIngId ? "Editar Ingrediente" : "Cadastrar Ingrediente ou Embalagem"}</span>
               {editingIngId && (
                 <button
                   onClick={cancelEditIngredient}
-                  style={{ background: "transparent", border: "1px solid #cbd5e1", color: "#64748b", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                  style={{ background: "transparent", border: "1px solid var(--line-strong)", color: "var(--muted)", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
                 >
                   Cancelar Edição
                 </button>
@@ -3607,19 +4103,19 @@ function Precificacao({
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 140px 120px auto", gap: 12, alignItems: "end" }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Nome</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Nome</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Farinha de Trigo" value={ingName} onChange={(e) => setIngName(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Preço Pago (R$)</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Preço Pago (R$)</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="0.01" placeholder="Ex: 10.00" value={pkgPrice} onChange={(e) => setPkgPrice(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Qtd Embalagem</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Qtd Embalagem</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 1 ou 1000" value={pkgAmount} onChange={(e) => setPkgAmount(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Unidade do Pacote</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Unidade do Pacote</div>
                 <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={unit} onChange={(e) => setUnit(e.target.value)}>
                   <option value="g">Gramas (g)</option>
                   <option value="kg">Quilos (kg)</option>
@@ -3627,7 +4123,7 @@ function Precificacao({
                   <option value="un">Unidade (un)</option>
                 </select>
               </div>
-              <button onClick={submitIngredient} style={{ background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 10, padding: "12px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", height: 44 }}>
+              <button onClick={submitIngredient} style={{ background: "var(--brand)", color: "#ffffff", border: "none", borderRadius: 10, padding: "12px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", height: 44 }}>
                 {editingIngId ? "Salvar Alterações" : "Cadastrar"}
               </button>
             </div>
@@ -3640,18 +4136,18 @@ function Precificacao({
               const displayUnit = i.unit === "kg" ? "g" : i.unit;
               const custoUnitario = Number(i.package_price) / totalAmount;
               return (
-                <div key={i.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 14, padding: "18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div key={i.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 14, padding: "18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "#1e293b" }}>{i.name}</div>
-                    <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>{i.name}</div>
+                    <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
                       Pacote: {i.package_amount}{i.unit} por {brl(i.package_price)} · Custo: {brl(custoUnitario)} por {displayUnit}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => startEditIngredient(i)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#5352ed", padding: 6 }} title="Editar ingrediente">
+                    <button onClick={() => startEditIngredient(i)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--brand)", padding: 6 }} title="Editar ingrediente">
                       <Pencil size={16} />
                     </button>
-                    <button onClick={() => requestDelete(i.name, () => onRemoveIng(i.id), "Excluir Ingrediente")} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 6 }} title="Excluir ingrediente">
+                    <button onClick={() => requestDelete(i.name, () => onRemoveIng(i.id), "Excluir Ingrediente")} style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--line-strong)", padding: 6 }} title="Excluir ingrediente">
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -3662,13 +4158,13 @@ function Precificacao({
         </div>
       ) : (
         <div>
-          <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, marginBottom: 24 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 20, padding: 22, boxShadow: "var(--shadow-sm)", marginBottom: 24 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>{editingRecId ? "Editar Ficha Técnica / Receita" : "Montar Ficha Técnica / Receita"}</span>
               {editingRecId && (
                 <button
                   onClick={cancelEditRecipe}
-                  style={{ background: "transparent", border: "1px solid #cbd5e1", color: "#64748b", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                  style={{ background: "transparent", border: "1px solid var(--line-strong)", color: "var(--muted)", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
                 >
                   Cancelar Edição
                 </button>
@@ -3677,18 +4173,18 @@ function Precificacao({
             
             <div style={{ display: "grid", gridTemplateColumns: "1fr 180px", gap: 12, marginBottom: 16 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Nome do Produto / Receita</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Nome do Produto / Receita</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Pão Caseiro / Massa de Brigadeiro" value={recName} onChange={(e) => setRecName(e.target.value)} />
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Rendimento (unidades)</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Rendimento (unidades)</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" min="1" value={yieldAmount} onChange={(e) => setYieldAmount(e.target.value)} />
               </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 180px auto", gap: 12, alignItems: "end", marginBottom: 16 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Selecionar Ingrediente</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Selecionar Ingrediente</div>
                 <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff" }} value={selectedIngId} onChange={(e) => setSelectedIngId(e.target.value)}>
                   <option value="">Selecione o ingrediente...</option>
                   {ingredients.map((ing) => (
@@ -3697,43 +4193,43 @@ function Precificacao({
                 </select>
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Quantidade a usar (g/ml)</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Quantidade a usar (g/ml)</div>
                 <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="number" step="any" placeholder="Ex: 100" value={usedAmount} onChange={(e) => setUsedAmount(e.target.value)} />
               </div>
-              <button onClick={addIngredientToRecipe} style={{ background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 10, padding: "12px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", height: 44 }}>
+              <button onClick={addIngredientToRecipe} style={{ background: "var(--brand)", color: "#ffffff", border: "none", borderRadius: 10, padding: "12px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", height: 44 }}>
                 Adicionar na Receita
               </button>
             </div>
 
             {currentRecipeItems.length > 0 && (
-              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: 16, marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", marginBottom: 10 }}>Ingredientes desta receita:</div>
+              <div style={{ background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 10 }}>Ingredientes desta receita:</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {currentRecipeItems.map((item, idx) => (
-                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, borderBottom: "1px solid #e2e8f0", paddingBottom: 6 }}>
+                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 14, borderBottom: "1px solid var(--line)", paddingBottom: 6 }}>
                       <span>{item.name} — {item.used_amount}{item.unit}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontWeight: 600, color: "#5352ed" }}>{brl(item.cost)}</span>
-                        <button onClick={() => removeItemFromRecipe(idx)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 2 }} title="Remover item">
+                        <span style={{ fontWeight: 600, color: "var(--brand)" }}>{brl(item.cost)}</span>
+                        <button onClick={() => removeItemFromRecipe(idx)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--line-strong)", padding: 2 }} title="Remover item">
                           <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, paddingTop: 8, borderTop: "1px solid #e2e8f0", fontWeight: 600, fontSize: 15 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, paddingTop: 8, borderTop: "1px solid var(--line)", fontWeight: 600, fontSize: 15 }}>
                   <span>Custo Total da Receita:</span>
-                  <span style={{ color: "#5352ed" }}>{brl(recipeTotalCost)}</span>
+                  <span style={{ color: "var(--brand)" }}>{brl(recipeTotalCost)}</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 13, color: "#64748b" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 13, color: "var(--muted)" }}>
                   <span>Custo por Unidade (Rendimento: {yieldAmount}):</span>
-                  <span style={{ fontWeight: 600, color: "#00b894" }}>{brl(recipeTotalCost / Number(yieldAmount || 1))}</span>
+                  <span style={{ fontWeight: 600, color: "var(--ok)" }}>{brl(recipeTotalCost / Number(yieldAmount || 1))}</span>
                 </div>
               </div>
             )}
 
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Modo de Preparo (Passo a Passo)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Modo de Preparo (Passo a Passo)</div>
               <textarea
                 style={{ ...inputStyle, width: "100%", boxSizing: "border-box", minHeight: 90, resize: "vertical", fontFamily: "inherit" }}
                 placeholder="Descreva o modo de preparo ex: 1. Misture os ingredientes secos... 2. Leve ao forno por 30 minutos..."
@@ -3742,7 +4238,7 @@ function Precificacao({
               />
             </div>
 
-            <button onClick={saveRecipe} disabled={currentRecipeItems.length === 0 || !recName} style={{ background: "#1e293b", color: "#ffffff", border: "none", borderRadius: 10, padding: "12px 24px", fontSize: 14, fontWeight: 600, cursor: currentRecipeItems.length === 0 || !recName ? "not-allowed" : "pointer", opacity: currentRecipeItems.length === 0 || !recName ? 0.6 : 1, width: "100%" }}>
+            <button onClick={saveRecipe} disabled={currentRecipeItems.length === 0 || !recName} style={{ background: "var(--ink)", color: "#ffffff", border: "none", borderRadius: 10, padding: "12px 24px", fontSize: 14, fontWeight: 600, cursor: currentRecipeItems.length === 0 || !recName ? "not-allowed" : "pointer", opacity: currentRecipeItems.length === 0 || !recName ? 0.6 : 1, width: "100%" }}>
               {editingRecId ? "Salvar Alterações" : "Salvar Ficha Técnica"}
             </button>
           </div>
@@ -3754,34 +4250,34 @@ function Precificacao({
               const isPrepShown = !!expandedPrep[rec.id];
 
               return (
-                <div key={rec.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 20 }}>
+                <div key={rec.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 16, padding: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                     <div>
-                      <div style={{ fontSize: 17, fontWeight: 700, color: "#1e293b" }}>{rec.product_name}</div>
-                      <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>Rendimento: {rec.yield_amount} unidades/porções</div>
+                      <div style={{ fontSize: 17, fontWeight: 700, color: "var(--ink)" }}>{rec.product_name}</div>
+                      <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>Rendimento: {rec.yield_amount} unidades/porções</div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>Custo Unitário</div>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: "#00b894" }}>{brl(custoPorUnidade)}</div>
+                        <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 500 }}>Custo Unitário</div>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ok)" }}>{brl(custoPorUnidade)}</div>
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button onClick={() => exportRecipePDF(rec)} style={{ border: "none", background: "#eeeffe", color: "#5352ed", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }} title="Exportar em PDF">
+                        <button onClick={() => exportRecipePDF(rec)} style={{ border: "none", background: "var(--brand-soft)", color: "var(--brand)", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }} title="Exportar em PDF">
                           <FileText size={15} /> PDF
                         </button>
-                        <button onClick={() => startEditRecipe(rec)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#5352ed", padding: 6 }} title="Editar receita">
+                        <button onClick={() => startEditRecipe(rec)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--brand)", padding: 6 }} title="Editar receita">
                           <Pencil size={18} />
                         </button>
-                        <button onClick={() => requestDelete(rec.product_name, () => onRemoveRec(rec.id), "Excluir Ficha Técnica")} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 6 }} title="Excluir receita">
+                        <button onClick={() => requestDelete(rec.product_name, () => onRemoveRec(rec.id), "Excluir Ficha Técnica")} style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--line-strong)", padding: 6 }} title="Excluir receita">
                           <Trash2 size={18} />
                         </button>
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ background: "#f8fafc", borderRadius: 10, padding: 12, display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                  <div style={{ background: "var(--bg)", borderRadius: 10, padding: 12, display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
                     {rec.ingredients_used?.map((ing, idx) => (
-                      <span key={idx} style={{ background: "#ffffff", border: "1px solid #e2e8f0", padding: "4px 10px", borderRadius: 8, fontSize: 12, color: "#475569" }}>
+                      <span key={idx} style={{ background: "#ffffff", border: "1px solid var(--line)", padding: "4px 10px", borderRadius: 8, fontSize: 12, color: "var(--ink-2)" }}>
                         {ing.name}: <b>{ing.used_amount}{ing.unit}</b> ({brl(ing.cost)})
                       </span>
                     ))}
@@ -3794,7 +4290,7 @@ function Precificacao({
                         style={{
                           background: "transparent",
                           border: "none",
-                          color: "#5352ed",
+                          color: "var(--brand)",
                           fontSize: 12,
                           fontWeight: 600,
                           cursor: "pointer",
@@ -3809,8 +4305,8 @@ function Precificacao({
                       </button>
 
                       {isPrepShown && (
-                        <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 14, marginTop: 8, fontSize: 13, color: "#334155", whiteSpace: "pre-line", lineHeight: 1.5 }}>
-                          <div style={{ fontWeight: 600, color: "#1e293b", marginBottom: 6 }}>Passo a Passo:</div>
+                        <div style={{ background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 10, padding: 14, marginTop: 8, fontSize: 13, color: "var(--ink-2)", whiteSpace: "pre-line", lineHeight: 1.5 }}>
+                          <div style={{ fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>Passo a Passo:</div>
                           {rec.preparation_method}
                         </div>
                       )}
@@ -3904,32 +4400,32 @@ function Documentos({ documents, expenses, onAdd, onRemove, requestDelete }) {
 
   return (
     <div>
-      <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", margin: "0 0 24px" }}>Gerenciador de Documentos</h2>
+      <SectionTitleWithBack title="Documentos" subtitle="Notas fiscais, comprovantes e contratos" />
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24, marginBottom: 28, boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b", marginBottom: 16 }}>Fazer Upload de Documento</div>
+      <div style={{ background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 20, padding: 22, boxShadow: "var(--shadow-sm)", marginBottom: 24 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)", marginBottom: 16 }}>Fazer Upload de Documento</div>
         
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Nome / Descrição</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Nome / Descrição</div>
               <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} placeholder="Ex: Nota fiscal farinha julho" value={docName} onChange={(e) => setDocName(e.target.value)} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Categoria</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Categoria</div>
               <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={category} onChange={(e) => setCategory(e.target.value)}>
                 {CATEGORIAS_DOC.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Data</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Data</div>
               <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "end" }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Vincular a um Gasto (Opcional)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Vincular a um Gasto (Opcional)</div>
               <select style={{ ...inputStyle, width: "100%", boxSizing: "border-box", background: "#ffffff", cursor: "pointer" }} value={expenseLink} onChange={(e) => setExpenseLink(e.target.value)}>
                 <option value="">Nenhum gasto vinculado</option>
                 {expenses.map((g) => (
@@ -3938,7 +4434,7 @@ function Documentos({ documents, expenses, onAdd, onRemove, requestDelete }) {
               </select>
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#64748b", marginBottom: 6 }}>Arquivo (PDF, JPG, PNG - máx 2MB)</div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Arquivo (PDF, JPG, PNG - máx 2MB)</div>
               <input id="file-input" style={{ ...inputStyle, width: "100%", boxSizing: "border-box", padding: "9px 12px", background: "#ffffff" }} type="file" accept=".pdf, .jpg, .jpeg, .png" onChange={handleFileChange} />
             </div>
           </div>
@@ -3947,7 +4443,7 @@ function Documentos({ documents, expenses, onAdd, onRemove, requestDelete }) {
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: 24 }}>
+      <div style={{ background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 20, padding: 22, boxShadow: "var(--shadow-sm)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <select
@@ -3970,7 +4466,7 @@ function Documentos({ documents, expenses, onAdd, onRemove, requestDelete }) {
             </select>
           </div>
 
-          <div style={{ fontSize: 13, fontWeight: 500, color: "#64748b" }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)" }}>
             Total de documentos: {filteredDocs.length}
           </div>
         </div>
@@ -3984,38 +4480,38 @@ function Documentos({ documents, expenses, onAdd, onRemove, requestDelete }) {
           {filteredDocs.map((doc) => {
             const isImage = doc.file_type && doc.file_type.startsWith("image/");
             return (
-              <div key={doc.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 14, padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12 }}>
+              <div key={doc.id} className="card-interactive" style={{ background: "#ffffff", border: "1px solid var(--line-soft)", borderRadius: 14, padding: 18, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12 }}>
                 <div>
-                  <div style={{ width: "100%", height: 130, background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 12, position: "relative" }}>
+                  <div style={{ width: "100%", height: 130, background: "var(--bg)", borderRadius: 10, border: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 12, position: "relative" }}>
                     {isImage ? (
                       <img src={doc.file_data} alt={doc.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     ) : (
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "#5352ed" }}>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "var(--brand)" }}>
                         <FileText size={36} />
                         <span style={{ fontSize: 11, fontWeight: 700 }}>DOCUMENTO PDF</span>
                       </div>
                     )}
                   </div>
 
-                  <div style={{ fontSize: 15, fontWeight: 600, color: "#1e293b", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.name}</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{doc.name}</div>
                   <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "#eeeffe", color: "#5352ed" }}>{doc.category}</span>
-                    <span style={{ fontSize: 12, color: "#94a3b8" }}>{formatDatePt(doc.date)}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 6, background: "var(--brand-soft)", color: "var(--brand)" }}>{doc.category}</span>
+                    <span style={{ fontSize: 12, color: "var(--muted-2)" }}>{formatDatePt(doc.date)}</span>
                   </div>
                   {doc.expense_link && (
-                    <div style={{ fontSize: 12, color: "#00b894", fontWeight: 600, background: "#e8f8f5", padding: "3px 8px", borderRadius: 6, display: "inline-block" }}>
+                    <div style={{ fontSize: 12, color: "var(--ok)", fontWeight: 600, background: "var(--ok-soft)", padding: "3px 8px", borderRadius: 6, display: "inline-block" }}>
                       Gasto: {doc.expense_link}
                     </div>
                   )}
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f1f5f9", paddingTop: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--line-soft)", paddingTop: 10 }}>
                   <div style={{ display: "flex", gap: 8 }}>
                     <a
                       href={doc.file_data}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ background: "#eeeffe", color: "#5352ed", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
+                      style={{ background: "var(--brand-soft)", color: "var(--brand)", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
                       title="Visualizar arquivo"
                     >
                       <Eye size={14} /> Ver
@@ -4023,7 +4519,7 @@ function Documentos({ documents, expenses, onAdd, onRemove, requestDelete }) {
                     <a
                       href={doc.file_data}
                       download={doc.name}
-                      style={{ background: "#5352ed", color: "#ffffff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
+                      style={{ background: "var(--brand)", color: "#ffffff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
                       title="Baixar arquivo"
                     >
                       <Download size={14} /> Baixar
@@ -4031,7 +4527,7 @@ function Documentos({ documents, expenses, onAdd, onRemove, requestDelete }) {
                   </div>
                   <button
                     onClick={() => requestDelete(doc.name, () => onRemove(doc.id), "Excluir Documento")}
-                    style={{ border: "none", background: "transparent", cursor: "pointer", color: "#cbd5e1", padding: 4, display: "flex" }}
+                    style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--line-strong)", padding: 4, display: "flex" }}
                     title="Excluir documento"
                   >
                     <Trash2 size={16} />
@@ -4046,24 +4542,29 @@ function Documentos({ documents, expenses, onAdd, onRemove, requestDelete }) {
   );
 }
 
-function ListRow({ title, subtitle, value, valueColor, onEdit, onDelete }) {
+function ListRow({ title, subtitle, value, valueColor, onEdit, onDelete, icon }) {
   return (
-    <div className="card-interactive" style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 14, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
-        <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>{subtitle}</div>
+    <div className="card-interactive" style={{ background: "var(--surface)", border: "1px solid var(--line-soft)", borderRadius: 16, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+        {icon && (
+          <div style={{ width: 38, height: 38, borderRadius: 12, background: "var(--brand-soft)", color: "var(--brand)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
+        )}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
+          <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3 }}>{subtitle}</div>
+        </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: valueColor || "#1e293b" }}>{value}</span>
-        <div style={{ display: "flex", gap: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: valueColor || "var(--ink)" }}>{value}</span>
+        <div style={{ display: "flex", gap: 2 }}>
           {onEdit && (
-            <button onClick={onEdit} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#5352ed", display: "flex" }} title="Editar produto">
-              <Pencil size={16} />
+            <button onClick={onEdit} style={iconBtnStyle("var(--brand)")} title="Editar">
+              <Pencil size={15} />
             </button>
           )}
           {onDelete && (
-            <button onClick={onDelete} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#cbd5e1", display: "flex" }} title="Excluir produto">
-              <Trash2 size={16} />
+            <button onClick={onDelete} style={iconBtnStyle("var(--muted-2)")} title="Excluir">
+              <Trash2 size={15} />
             </button>
           )}
         </div>
@@ -4072,12 +4573,20 @@ function ListRow({ title, subtitle, value, valueColor, onEdit, onDelete }) {
   );
 }
 
+function iconBtnStyle(color) {
+  return { border: "none", background: "transparent", cursor: "pointer", padding: 7, color, display: "flex", borderRadius: 8 };
+}
+
 function ToggleButton({ active, onClick, children }) {
   return (
-    <button onClick={onClick} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: active ? "1px solid #5352ed" : "1px solid #e2e8f0", background: active ? "#eeeffe" : "#ffffff", color: active ? "#5352ed" : "#64748b", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+    <button onClick={onClick} style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: active ? "1.5px solid var(--brand)" : "1px solid var(--line)", background: active ? "var(--brand-soft)" : "var(--surface)", color: active ? "var(--brand)" : "var(--muted)", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
       {children}
     </button>
   );
+}
+
+function FieldLabel({ children }) {
+  return <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-2)", marginBottom: 6 }}>{children}</div>;
 }
 
 function formatDatePt(dateStr) {
@@ -4087,23 +4596,25 @@ function formatDatePt(dateStr) {
 }
 
 const inputStyle = {
-  border: "1px solid #e2e8f0",
-  borderRadius: 10,
+  border: "1px solid var(--line)",
+  borderRadius: 12,
   padding: "11px 14px",
   fontSize: 14,
   outline: "none",
-  color: "#1e293b",
+  color: "var(--ink)",
   background: "#ffffff",
+  transition: "border-color 0.15s, box-shadow 0.15s",
 };
 
 const primaryBtnStyle = {
   border: "none",
-  borderRadius: 10,
-  padding: "12px 0",
-  background: "#5352ed",
+  borderRadius: 12,
+  padding: "13px 0",
+  background: "var(--brand)",
   color: "#ffffff",
   fontSize: 14,
-  fontWeight: 600,
+  fontWeight: 700,
   cursor: "pointer",
   marginTop: 4,
+  boxShadow: "0 8px 18px -8px rgba(201,92,112,0.7)",
 };

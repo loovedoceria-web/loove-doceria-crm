@@ -42,3 +42,14 @@ create policy "Users manage own sales" on sales
 
 create policy "Users manage own expenses" on expenses
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Configurações gerais do CRM (ex.: dia de corte do ciclo das Vendas Empresa)
+create table if not exists public.app_settings (
+  key text primary key,
+  value jsonb not null,
+  updated_at timestamptz not null default now()
+);
+alter table public.app_settings enable row level security;
+create policy "Autenticados leem configuracoes" on public.app_settings for select to authenticated using (true);
+create policy "Autenticados gravam configuracoes" on public.app_settings for insert to authenticated with check (true);
+create policy "Autenticados atualizam configuracoes" on public.app_settings for update to authenticated using (true) with check (true);
