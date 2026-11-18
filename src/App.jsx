@@ -41,6 +41,8 @@ import {
   Wallet,
   CalendarClock,
   Users,
+  QrCode,
+  MessageCircle,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -54,6 +56,7 @@ import {
 } from "recharts";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import QRCode from "qrcode";
 import { supabase } from "./supabaseClient";
 
 const CATEGORIAS_PRODUTO = ["Doces", "Bolos", "Salgados", "Bebidas", "Outros"];
@@ -245,6 +248,7 @@ export default function App() {
   const [recipes, setRecipes] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
 
   // Configuração do Dia de Início do Ciclo (Persistente no localStorage)
@@ -346,12 +350,13 @@ export default function App() {
       setRecipes([]);
       setDocuments([]);
       setOrders([]);
+      setCustomers([]);
       return;
     }
     (async () => {
       setDataLoading(true);
       try {
-        const [p, s, g, ing, rec, doc, ord, cfg] = await Promise.all([
+        const [p, s, g, ing, rec, doc, ord, cfg, cus] = await Promise.all([
           supabase.from("products").select("*").order("created_at", { ascending: false }),
           fetchAllRows("sales", "date", false),
           fetchAllRows("expenses", "date", false),
@@ -360,7 +365,9 @@ export default function App() {
           supabase.from("documents").select("*").order("date", { ascending: false }),
           fetchAllRows("orders", "delivery_date", true),
           supabase.from("app_settings").select("value").eq("key", "cycle_start_day").maybeSingle(),
+          supabase.from("customers").select("*").order("full_name"),
         ]);
+        if (cus && cus.data) setCustomers(cus.data);
         if (cfg && cfg.data && cfg.data.value != null) {
           const dbDay = Math.min(31, Math.max(1, parseInt(cfg.data.value, 10) || 1));
           setCycleStartDay(dbDay);
@@ -380,6 +387,49 @@ export default function App() {
       setDataLoading(false);
     })();
   }, [session]);
+
+  // Tempo real: quando alguém registra pelo QR, a venda aparece sem recarregar a página
+  useEffect(() => {
+    if (!session) return;
+    const channel = supabase
+      .channel("vendas-qr")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "sales" }, (payload) => {
+        const nova = payload.new;
+        if (!nova || !nova.id) return;
+        setSales((prev) => (prev.some((x) => x.id === nova.id) ? prev : [nova, ...prev].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))));
+        if (nova.source === "qr") {
+          const { person, product } = splitPersonProduct(nova.product_name);
+          addToast(`Nova compra pelo QR: ${person.split(" ")[0]} — ${nova.qty > 1 ? nova.qty + "x " : ""}${product}`);
+        }
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "customers" }, (payload) => {
+        const c = payload.new;
+        if (c && c.id) setCustomers((prev) => (prev.some((x) => x.id === c.id) ? prev : [...prev, c].sort((a, b) => a.full_name.localeCompare(b.full_name, "pt-BR"))));
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session]);
+
+  async function saveCustomer(id, payload) {
+    if (!session) return false;
+    const query = id
+      ? supabase.from("customers").update(payload).eq("id", id).select().single()
+      : supabase.from("customers").insert({ ...payload, source: "crm" }).select().single();
+    const { data, error } = await query;
+    if (error) {
+      const msg = error.message.includes("customers_phone_key") ? "Já existe um cliente com esse telefone." : error.message;
+      addToast("Erro ao salvar cliente: " + msg, "error");
+      return false;
+    }
+    setCustomers((prev) => {
+      const list = id ? prev.map((c) => (c.id === id ? data : c)) : [...prev, data];
+      return list.sort((a, b) => a.full_name.localeCompare(b.full_name, "pt-BR"));
+    });
+    addToast(id ? "Cliente atualizado!" : "Cliente cadastrado!");
+    return true;
+  }
 
   async function addProduct(product) {
     if (!session) return false;
@@ -722,7 +772,7 @@ export default function App() {
     const devedoresMap = {};
     pendentes.forEach((s) => {
       const { person } = splitPersonProduct(s.product_name);
-      const k = personKey(person);
+      const k = s.customer_id || personKey(person);
       if (!devedoresMap[k]) devedoresMap[k] = { name: person, total: 0, count: 0, oldest: s.date };
       devedoresMap[k].total += Number(s.total);
       devedoresMap[k].count += 1;
@@ -948,6 +998,7 @@ export default function App() {
                 onRemove={removeSale}
                 onUpdate={updateSale}
                 onBulkUpdate={bulkUpdateSales}
+                customers={customers}
                 requestDelete={requestDelete}
                 cycleStartDay={cycleStartDay}
                 onUpdateCycleStartDay={updateCycleStartDay}
@@ -964,6 +1015,15 @@ export default function App() {
                 onRemoveRec={removeRecipe}
                 onUpdateRec={updateRecipe}
                 requestDelete={requestDelete}
+              />
+            )}
+            {view === "clientes" && (
+              <Clientes
+                customers={customers}
+                sales={sales}
+                cycleStartDay={cycleStartDay}
+                onSave={saveCustomer}
+                setView={navigate}
               />
             )}
             {view === "documentos" && (
@@ -1224,6 +1284,7 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed, isMobil
       title: "Vendas",
       items: [
         { key: "empresa", label: "Vendas Empresa", icon: Briefcase, badge: pendingCount },
+        { key: "clientes", label: "Clientes & QR", icon: Users },
         { key: "vendas", label: "Vendas Balcão", icon: ShoppingCart },
         { key: "produtos", label: "Produtos", icon: Cookie },
       ],
@@ -2330,6 +2391,7 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState(CATEGORIAS_PRODUTO[0]);
   const [linkedIngredient, setLinkedIngredient] = useState("");
+  const [showInQr, setShowInQr] = useState(true);
 
   function openCreateModal() {
     cancelEditProduct();
@@ -2342,6 +2404,7 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
     setPrice(product.price);
     setCategory(product.category);
     setLinkedIngredient(product.linked_ingredient || "");
+    setShowInQr(product.show_in_qr !== false);
     setIsModalOpen(true);
   }
 
@@ -2351,6 +2414,7 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
     setPrice("");
     setCategory(CATEGORIAS_PRODUTO[0]);
     setLinkedIngredient("");
+    setShowInQr(true);
     setIsModalOpen(false);
   }
 
@@ -2362,6 +2426,7 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
       price: parseFloat(price),
       category,
       linked_ingredient: linkedIngredient || null,
+      show_in_qr: showInQr,
     };
 
     if (editingProductId) {
@@ -2420,6 +2485,11 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
             </select>
           </div>
 
+          <label style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--brand-soft)", borderRadius: 12, padding: "12px 14px", cursor: "pointer", fontSize: 14, color: "var(--ink)", fontWeight: 600 }}>
+            <input type="checkbox" checked={showInQr} onChange={(e) => setShowInQr(e.target.checked)} style={{ width: 18, height: 18, accentColor: "var(--brand)" }} />
+            Aparece na página do QR Code (autoatendimento)
+          </label>
+
           <button style={{ ...primaryBtnStyle }} onClick={submit}>
             {editingProductId ? "Salvar Alterações" : "Salvar Produto"}
           </button>
@@ -2434,7 +2504,7 @@ function Produtos({ products, ingredients, onAdd, onUpdate, onRemove, requestDel
             <ListRow
               key={p.id}
               title={p.name}
-              subtitle={`${p.category} ${p.linked_ingredient ? `· Insumo: ${p.linked_ingredient}` : ""}`}
+              subtitle={`${p.category}${p.linked_ingredient ? ` · Insumo: ${p.linked_ingredient}` : ""}${p.show_in_qr === false ? " · Fora do QR" : " · No QR"}`}
               value={brl(p.price)}
               onEdit={() => startEditProduct(p)}
               onDelete={() => requestDelete(p.name, () => onRemove(p.id), "Excluir Produto")}
@@ -2770,6 +2840,286 @@ function Gastos({ expenses, onAdd, onUpdate, onRemove, requestDelete, setView })
   );
 }
 
+// ─── MÓDULO: CLIENTES & QR CODE ───────────────────────────────────────────────
+const PUBLIC_SITE_URL = "https://loove-doceria-crm.vercel.app";
+
+function formatPhone(d) {
+  const v = String(d || "").replace(/\D/g, "");
+  if (v.length === 11) return `(${v.slice(0, 2)}) ${v.slice(2, 7)}-${v.slice(7)}`;
+  if (v.length === 10) return `(${v.slice(0, 2)}) ${v.slice(2, 6)}-${v.slice(6)}`;
+  return v;
+}
+
+function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
+  const [search, setSearch] = useState("");
+  const [onlyOpen, setOnlyOpen] = useState(false);
+  const [editing, setEditing] = useState(null); // null fechado | {} novo | cliente
+  const [form, setForm] = useState({ full_name: "", phone: "", sector: "", active: true });
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState("");
+
+  // Endereço público (sem a proteção de login da Vercel), para funcionar no celular de qualquer pessoa
+  const pedidoUrl = `${PUBLIC_SITE_URL}/pedido`;
+  const currentCycle = getCycleForDate(todayISO(), cycleStartDay);
+
+  useEffect(() => {
+    if (!qrOpen || qrDataUrl) return;
+    QRCode.toDataURL(pedidoUrl, { width: 900, margin: 1, color: { dark: "#3b2a2e", light: "#ffffff" } })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(""));
+  }, [qrOpen, qrDataUrl, pedidoUrl]);
+
+  const resumo = useMemo(() => {
+    const map = {};
+    sales.forEach((s) => {
+      if (!s.customer_id) return;
+      const r = (map[s.customer_id] = map[s.customer_id] || { aberto: 0, abertoItens: [], ciclo: 0, ultima: null, qr: 0 });
+      if (s.status !== "Pago") {
+        r.aberto += Number(s.total);
+        r.abertoItens.push(s);
+      }
+      if (s.date && getCycleForDate(s.date, cycleStartDay) === currentCycle) r.ciclo += Number(s.total);
+      if (!r.ultima || s.date > r.ultima) r.ultima = s.date;
+      if (s.source === "qr") r.qr += 1;
+    });
+    return map;
+  }, [sales, cycleStartDay, currentCycle]);
+
+  const lista = customers.filter((c) => {
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      if (!c.full_name.toLowerCase().includes(q) && !String(c.phone).includes(q.replace(/\D/g, "") || "§") && !(c.sector || "").toLowerCase().includes(q)) return false;
+    }
+    if (onlyOpen && !(resumo[c.id] && resumo[c.id].aberto > 0)) return false;
+    return true;
+  });
+
+  const totalAberto = customers.reduce((acc, c) => acc + (resumo[c.id] ? resumo[c.id].aberto : 0), 0);
+  const viaQr = customers.filter((c) => c.source === "qr").length;
+
+  function openNew() {
+    setForm({ full_name: "", phone: "", sector: "", active: true });
+    setEditing({});
+  }
+
+  function openEdit(c) {
+    setForm({ full_name: c.full_name, phone: formatPhone(c.phone), sector: c.sector || "", active: c.active });
+    setEditing(c);
+  }
+
+  async function submit() {
+    const phone = form.phone.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
+    if (form.full_name.trim().split(/\s+/).length < 2) {
+      alert("Digite o nome completo (nome e sobrenome).");
+      return;
+    }
+    if (!/^\d{10,11}$/.test(phone)) {
+      alert("Telefone inválido. Use DDD + número.");
+      return;
+    }
+    const ok = await onSave(editing && editing.id ? editing.id : null, {
+      full_name: form.full_name.trim().replace(/\s+/g, " "),
+      phone,
+      sector: form.sector.trim() || null,
+      active: form.active,
+    });
+    if (ok) setEditing(null);
+  }
+
+  function whatsappLink(c) {
+    const r = resumo[c.id];
+    const primeiro = c.full_name.split(" ")[0];
+    const itens = (r ? r.abertoItens : [])
+      .slice()
+      .sort((a, b) => (a.date < b.date ? -1 : 1))
+      .slice(-25)
+      .map((s) => {
+        const { product } = splitPersonProduct(s.product_name);
+        return `• ${formatDatePt(s.date).slice(0, 5)} — ${s.qty > 1 ? s.qty + "x " : ""}${product} — ${brl(s.total)}`;
+      });
+    const texto = [
+      `Oi, ${primeiro}! Aqui é da Loove Doceria 🧁`,
+      "",
+      itens.length ? "Segue seu extrato em aberto:" : "Você não tem nada em aberto com a gente. Obrigada! 💕",
+      ...itens,
+      ...(itens.length ? ["", `*Total: ${brl(r.aberto)}*`, "", "Qualquer dúvida é só chamar. Obrigada! 💕"] : []),
+    ].join("\n");
+    return `https://wa.me/55${c.phone}?text=${encodeURIComponent(texto)}`;
+  }
+
+  function imprimirCartaz() {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Cartaz QR — Loove Doceria</title>
+      <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+      <style>
+        @page { size: A4; margin: 0; }
+        body { margin: 0; font-family: "Plus Jakarta Sans", sans-serif; color: #3b2a2e; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .poster { width: 210mm; height: 297mm; box-sizing: border-box; padding: 18mm 16mm; display: flex; flex-direction: column; align-items: center; text-align: center;
+          background: radial-gradient(160mm 90mm at 50% -10mm, #f6d5db, transparent 70%), #fcf7f5; }
+        .logo { width: 30mm; height: 30mm; border-radius: 9mm; object-fit: cover; box-shadow: 0 0 0 2.5mm #fbecee; }
+        h1 { font-family: "Fraunces", serif; font-size: 34pt; margin: 9mm 0 2mm; line-height: 1.05; }
+        .sub { font-size: 15pt; color: #8c777b; margin: 0 0 9mm; }
+        .qr { background: #fff; border-radius: 9mm; padding: 8mm; box-shadow: 0 6mm 14mm -8mm rgba(91,52,60,.35); border: 1.2mm solid #c95c70; }
+        .qr img { width: 96mm; height: 96mm; display: block; }
+        .steps { display: flex; gap: 6mm; margin-top: 11mm; width: 100%; }
+        .step { flex: 1; background: #fff; border-radius: 6mm; padding: 6mm 4mm; border: 0.4mm solid #eedfe1; }
+        .n { width: 10mm; height: 10mm; border-radius: 50%; background: #c95c70; color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; margin: 0 auto 3mm; font-size: 13pt; }
+        .step b { display: block; font-size: 13pt; margin-bottom: 1mm; }
+        .step span { font-size: 10.5pt; color: #8c777b; }
+        .url { margin-top: auto; font-size: 10pt; color: #8c777b; }
+      </style></head><body>
+      <div class="poster">
+        <img class="logo" src="${PUBLIC_SITE_URL}/logo.png" />
+        <h1>Pegou um docinho?<br/>Registra aqui! 💕</h1>
+        <p class="sub">Aponte a câmera do celular para o QR Code</p>
+        <div class="qr"><img src="${qrDataUrl}" /></div>
+        <div class="steps">
+          <div class="step"><div class="n">1</div><b>Escaneie</b><span>No 1º acesso, nome e WhatsApp</span></div>
+          <div class="step"><div class="n">2</div><b>Escolha</b><span>Toque no que você pegou</span></div>
+          <div class="step"><div class="n">3</div><b>Confirme</b><span>Pronto! Vai para a sua conta</span></div>
+        </div>
+        <div class="url">${pedidoUrl}</div>
+      </div>
+      <script>window.onload = () => setTimeout(() => window.print(), 600);</script>
+      </body></html>`);
+    w.document.close();
+  }
+
+  return (
+    <div>
+      <SectionTitleWithBack
+        title="Clientes & QR"
+        subtitle="Quem compra no fiado, com WhatsApp para cobrança"
+        onBack={() => setView("dashboard")}
+        onAction={openNew}
+        actionLabel="Novo cliente"
+        extra={
+          <button
+            onClick={() => setQrOpen(true)}
+            style={{ background: "var(--ink)", color: "#fff", border: "none", borderRadius: 12, padding: "11px 16px", fontSize: 13.5, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+          >
+            <QrCode size={16} /> QR Code / Cartaz
+          </button>
+        }
+      />
+
+      <Modal isOpen={qrOpen} onClose={() => setQrOpen(false)} title="QR Code de autoatendimento" maxWidth={460}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, textAlign: "center" }}>
+          <div style={{ background: "#fff", border: "2px solid var(--brand)", borderRadius: 20, padding: 14 }}>
+            {qrDataUrl ? <img src={qrDataUrl} alt="QR Code do pedido" style={{ width: 230, height: 230, display: "block" }} /> : <div style={{ width: 230, height: 230, display: "flex", alignItems: "center", justifyContent: "center" }}><Loader2 className="spin" /></div>}
+          </div>
+          <div style={{ fontSize: 13, color: "var(--muted)", wordBreak: "break-all" }}>{pedidoUrl}</div>
+          <div style={{ display: "flex", gap: 10, width: "100%" }}>
+            <button style={{ ...primaryBtnStyle, flex: 1, marginTop: 0 }} onClick={imprimirCartaz} disabled={!qrDataUrl}>Imprimir cartaz A4</button>
+            <button
+              style={{ flex: 1, border: "1px solid var(--line)", background: "#fff", borderRadius: 12, fontWeight: 700, fontSize: 14, color: "var(--ink)", cursor: "pointer" }}
+              onClick={() => window.open(pedidoUrl, "_blank")}
+            >
+              Abrir página
+            </button>
+          </div>
+          <div style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5 }}>
+            Dica: abra a página no seu celular e faça um teste. Para tirar um produto do QR, edite o produto e desmarque "Aparece na página do QR Code".
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={editing !== null} onClose={() => setEditing(null)} title={editing && editing.id ? "Editar cliente" : "Novo cliente"} maxWidth={480}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div>
+            <FieldLabel>Nome completo</FieldLabel>
+            <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="Ex: Leonardo dos Santos" />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <FieldLabel>WhatsApp</FieldLabel>
+              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(11) 99999-9999" />
+            </div>
+            <div>
+              <FieldLabel>Setor</FieldLabel>
+              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} value={form.sector} onChange={(e) => setForm({ ...form, sector: e.target.value })} placeholder="Opcional" />
+            </div>
+          </div>
+          {editing && editing.id && (
+            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "var(--ink-2)", cursor: "pointer" }}>
+              <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} style={{ width: 18, height: 18, accentColor: "var(--brand)" }} />
+              Cliente ativo (desmarque para bloquear o uso do QR)
+            </label>
+          )}
+          <button style={primaryBtnStyle} onClick={submit}>Salvar</button>
+        </div>
+      </Modal>
+
+      <div className="grid-2-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
+        <StatPill label="Clientes cadastrados" value={customers.length} />
+        <StatPill label="Cadastrados pelo QR" value={viaQr} color="var(--cocoa)" />
+        <StatPill label="Em aberto (cadastrados)" value={brl(totalAberto)} color="var(--danger)" />
+      </div>
+
+      <Panel>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 10, flexWrap: "wrap" }}>
+          <div style={{ position: "relative" }}>
+            <Search size={15} color="var(--muted-2)" style={{ position: "absolute", left: 12, top: 11 }} />
+            <input style={{ ...inputStyle, padding: "9px 12px 9px 34px", width: 260 }} placeholder="Buscar nome, telefone ou setor..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, fontWeight: 600, color: "var(--ink-2)", cursor: "pointer" }}>
+            <input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} style={{ width: 16, height: 16, accentColor: "var(--brand)" }} />
+            Só quem tem valor em aberto
+          </label>
+        </div>
+
+        {customers.length === 0 ? (
+          <EmptyState text="Nenhum cliente ainda. Eles aparecem aqui quando se cadastram pelo QR Code, ou você pode cadastrar manualmente." />
+        ) : lista.length === 0 ? (
+          <EmptyState text="Nenhum cliente encontrado com esse filtro." />
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
+            {lista.map((c) => {
+              const r = resumo[c.id] || { aberto: 0, ciclo: 0, ultima: null };
+              return (
+                <div key={c.id} className="card-interactive" style={{ background: "var(--surface)", border: "1px solid var(--line-soft)", borderRadius: 16, padding: "14px 16px", opacity: c.active ? 1 : 0.55, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 12, background: "var(--brand-soft)", color: "var(--brand)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, flexShrink: 0 }}>
+                      {c.full_name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {c.full_name}
+                        {c.source === "qr" && <QrBadge />}
+                        {!c.active && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, color: "var(--muted)" }}>INATIVO</span>}
+                      </div>
+                      <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
+                        {formatPhone(c.phone)}{c.sector ? ` · ${c.sector}` : ""}{r.ultima ? ` · última compra ${formatDatePt(r.ultima).slice(0, 5)}` : ""}
+                      </div>
+                    </div>
+                    <button onClick={() => openEdit(c)} style={iconBtnStyle("var(--brand)")} title="Editar cliente"><Pencil size={15} /></button>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12, gap: 10 }}>
+                    <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
+                      Em aberto <b style={{ color: r.aberto > 0 ? "var(--danger)" : "var(--ok)", fontSize: 15 }}>{brl(r.aberto)}</b>
+                      <span style={{ marginLeft: 8 }}>· ciclo {brl(r.ciclo)}</span>
+                    </div>
+                    <a
+                      href={whatsappLink(c)}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ display: "flex", alignItems: "center", gap: 6, background: "#e7f7ee", color: "#1f8f55", borderRadius: 10, padding: "7px 12px", fontSize: 12.5, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}
+                      title="Abrir o WhatsApp com o extrato pronto para enviar"
+                    >
+                      <MessageCircle size={14} /> Cobrar
+                    </a>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Panel>
+    </div>
+  );
+}
+
 // ─── MÓDULO: VENDAS EMPRESA (COM CICLO MENSAL CUSTOMIZÁVEL) ────────────────────
 function VendasEmpresa({
   sales,
@@ -2778,6 +3128,7 @@ function VendasEmpresa({
   onRemove,
   onUpdate,
   onBulkUpdate,
+  customers = [],
   requestDelete,
   cycleStartDay,
   onUpdateCycleStartDay,
@@ -2874,8 +3225,10 @@ function VendasEmpresa({
         if (k && !byKey.has(k)) byKey.set(k, person.trim());
       }
     });
+    // Clientes cadastrados entram na lista com o nome completo
+    customers.filter((c) => c.active).forEach((c) => byKey.set(personKey(c.full_name), c.full_name));
     return Array.from(byKey.values()).sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [sales]);
+  }, [sales, customers]);
 
   const companySales = useMemo(() => {
     return sales.filter((s) => s.payment === "Empresa (Fiado)");
@@ -2971,6 +3324,9 @@ function VendasEmpresa({
       : personName.trim();
 
     const finalQty = Math.max(1, parseInt(qty) || 1);
+    // Se o nome bate com um cliente cadastrado, a venda fica ligada ao cadastro dele
+    const matched = customers.find((c) => personKey(c.full_name) === personKey(personName));
+    const customerId = matched ? matched.id : null;
 
     if (editingSaleId) {
       const success = await onUpdate(editingSaleId, {
@@ -2978,6 +3334,7 @@ function VendasEmpresa({
         product_name: storedProductName,
         qty: finalQty,
         total: parseFloat(total),
+        customer_id: customerId,
       });
       if (success !== false) cancelEditSale();
     } else {
@@ -2988,6 +3345,7 @@ function VendasEmpresa({
         total: parseFloat(total),
         payment: "Empresa (Fiado)",
         status: "Pendente",
+        customer_id: customerId,
       });
       cancelEditSale();
     }
@@ -2997,10 +3355,11 @@ function VendasEmpresa({
     const map = {};
     listaDetalhadaMes.forEach((s) => {
       const { person, product } = parseSaleTarget(s.product_name);
-      const k = personKey(person);
+      const k = s.customer_id || personKey(person);
       if (!map[k]) {
-        map[k] = { name: person, sum: 0, paidSum: 0, pendingSum: 0, items: [] };
+        map[k] = { name: person, sum: 0, paidSum: 0, pendingSum: 0, items: [], viaQr: false };
       }
+      if (s.source === "qr") map[k].viaQr = true;
       const itemVal = Number(s.total);
       map[k].sum += itemVal;
       if (s.status === "Pago") {
@@ -3013,6 +3372,7 @@ function VendasEmpresa({
 
     let entries = Object.values(map).map((data) => {
       const name = data.name;
+      const viaQr = data.viaQr;
       const allPaid = data.items.length > 0 && data.items.every((it) => it.status === "Pago");
       const nonePaid = data.items.length > 0 && data.items.every((it) => it.status !== "Pago");
       let statusLabel = "Pendente";
@@ -3029,6 +3389,7 @@ function VendasEmpresa({
         pendingSum: data.pendingSum,
         items: data.items,
         statusLabel,
+        viaQr,
       };
     });
 
@@ -3049,10 +3410,10 @@ function VendasEmpresa({
       .reduce((acc, item) => acc + Number(item.total), 0);
   }, [listaDetalhadaMes]);
 
-  async function toggleEmployeeStatus(person, currentStatusLabel) {
-    const newStatus = currentStatusLabel === "Pago" ? "Pendente" : "Pago";
-    const ids = listaDetalhadaMes
-      .filter((s) => personKey(parseSaleTarget(s.product_name).person) === personKey(person))
+  async function toggleEmployeeStatus(entry) {
+    const person = entry.name;
+    const newStatus = entry.statusLabel === "Pago" ? "Pendente" : "Pago";
+    const ids = entry.items
       .filter((s) => (s.status === "Pago") !== (newStatus === "Pago"))
       .map((s) => s.id);
     await onBulkUpdate(ids, { status: newStatus }, newStatus === "Pago" ? `${person}: tudo marcado como pago.` : `${person}: voltou para pendente.`);
@@ -3607,7 +3968,7 @@ function VendasEmpresa({
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                          <div style={{ fontWeight: 700, color: "var(--ink)", fontSize: 16 }}>{item.name}</div>
+                          <div style={{ fontWeight: 700, color: "var(--ink)", fontSize: 16 }}>{item.name}{item.viaQr && <QrBadge />}</div>
                           <span style={{
                             fontSize: 11,
                             fontWeight: 600,
@@ -3635,7 +3996,7 @@ function VendasEmpresa({
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <button
-                          onClick={() => toggleEmployeeStatus(item.name, item.statusLabel)}
+                          onClick={() => toggleEmployeeStatus(item)}
                           style={{
                             background: item.statusLabel === "Pago" ? "#ffffff" : "var(--ok-soft)",
                             color: item.statusLabel === "Pago" ? "var(--muted)" : "var(--ok)",
@@ -3718,7 +4079,7 @@ function VendasEmpresa({
                                   {isItemPaid ? <CheckCircle2 size={16} /> : <Clock size={16} />}
                                 </button>
                                 <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                  {formatDatePt(s.date)} — <span style={{ color: "var(--ink)", fontWeight: 500 }}>{productLabel}</span> — <b style={{ color: isItemPaid ? "var(--ok)" : "var(--ink)" }}>{brl(s.total)}</b>
+                                  {formatDatePt(s.date)} — <span style={{ color: "var(--ink)", fontWeight: 500 }}>{productLabel}</span> — <b style={{ color: isItemPaid ? "var(--ok)" : "var(--ink)" }}>{brl(s.total)}</b>{s.source === "qr" && <QrBadge />}
                                 </span>
                               </div>
 
@@ -3809,6 +4170,7 @@ function VendasEmpresa({
                         }}>
                           {isPaid ? "Pago" : "Pendente"}
                         </span>
+                        {s.source === "qr" && <QrBadge />}
                       </div>
                       <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
                         {itemQty > 1 ? `${itemQty}x ` : ""}{product}
@@ -4570,6 +4932,14 @@ function ListRow({ title, subtitle, value, valueColor, onEdit, onDelete, icon })
         </div>
       </div>
     </div>
+  );
+}
+
+function QrBadge() {
+  return (
+    <span title="Registrado pela própria pessoa no QR Code" style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, letterSpacing: "0.4px", padding: "2px 6px", borderRadius: 6, background: "var(--cocoa-soft)", color: "var(--cocoa)", verticalAlign: "middle" }}>
+      QR
+    </span>
   );
 }
 

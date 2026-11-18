@@ -53,3 +53,7 @@ alter table public.app_settings enable row level security;
 create policy "Autenticados leem configuracoes" on public.app_settings for select to authenticated using (true);
 create policy "Autenticados gravam configuracoes" on public.app_settings for insert to authenticated with check (true);
 create policy "Autenticados atualizam configuracoes" on public.app_settings for update to authenticated using (true) with check (true);
+
+-- Autoatendimento por QR Code (/pedido): tabela customers, colunas sales.customer_id/source,
+-- products.show_in_qr/sort_order e funções public.qr_* (security definer, liberadas para anon).
+-- Aplicado no projeto pela migration "qr_pedidos_clientes" (veja o histórico de migrations no Supabase).
