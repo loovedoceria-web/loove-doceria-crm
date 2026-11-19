@@ -3165,10 +3165,9 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
     return `https://wa.me/55${c.phone}?text=${encodeURIComponent(texto)}`;
   }
 
-  function imprimirCartaz() {
-    const w = window.open("", "_blank");
-    if (!w) return;
-    w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Cartaz QR — Loove Doceria</title>
+  // HTML do cartaz A4 (usado na prévia e na impressão)
+  const posterHtml = qrDataUrl
+    ? `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Cartaz QR — Loove Doceria</title>
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
       <style>
         @page { size: A4; margin: 0; }
@@ -3203,9 +3202,17 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
         </div>
         <div class="url">${pedidoUrl}</div>
       </div>
-      <script>window.onload = () => setTimeout(() => window.print(), 600);</script>
-      </body></html>`);
-    w.document.close();
+      </body></html>`
+    : "";
+
+  const posterFrameRef = useRef(null);
+
+  function imprimirCartaz() {
+    const frame = posterFrameRef.current;
+    if (frame && frame.contentWindow) {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+    }
   }
 
   return (
@@ -3221,28 +3228,37 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
             onClick={() => setQrOpen(true)}
             style={{ background: "var(--ink)", color: "#fff", border: "none", borderRadius: 12, padding: "11px 16px", fontSize: 13.5, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
           >
-            <QrCode size={16} /> QR Code / Cartaz
+            <QrCode size={16} /> Cartaz do QR
           </button>
         }
       />
 
-      <Modal isOpen={qrOpen} onClose={() => setQrOpen(false)} title="QR Code de autoatendimento" maxWidth={460}>
+      <Modal isOpen={qrOpen} onClose={() => setQrOpen(false)} title="Cartaz do QR Code" maxWidth={520}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, textAlign: "center" }}>
-          <div style={{ background: "#fff", border: "2px solid var(--brand)", borderRadius: 20, padding: 14 }}>
-            {qrDataUrl ? <img src={qrDataUrl} alt="QR Code do pedido" style={{ width: 230, height: 230, display: "block" }} /> : <div style={{ width: 230, height: 230, display: "flex", alignItems: "center", justifyContent: "center" }}><Loader2 className="spin" /></div>}
+          <div style={{ width: 318, maxWidth: "100%", aspectRatio: "210 / 297", borderRadius: 14, overflow: "hidden", border: "1px solid var(--line)", boxShadow: "var(--shadow-md)", background: "#fff", position: "relative" }}>
+            {posterHtml ? (
+              <iframe
+                ref={posterFrameRef}
+                title="Prévia do cartaz"
+                srcDoc={posterHtml}
+                style={{ width: 794, height: 1123, border: "none", transform: "scale(0.4)", transformOrigin: "top left", position: "absolute", top: 0, left: 0 }}
+              />
+            ) : (
+              <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><Loader2 className="spin" /></div>
+            )}
           </div>
-          <div style={{ fontSize: 13, color: "var(--muted)", wordBreak: "break-all" }}>{pedidoUrl}</div>
+          <div style={{ fontSize: 12.5, color: "var(--muted)", wordBreak: "break-all" }}>{pedidoUrl}</div>
           <div style={{ display: "flex", gap: 10, width: "100%" }}>
-            <button style={{ ...primaryBtnStyle, flex: 1, marginTop: 0 }} onClick={imprimirCartaz} disabled={!qrDataUrl}>Imprimir cartaz A4</button>
+            <button style={{ ...primaryBtnStyle, flex: 1, marginTop: 0 }} onClick={imprimirCartaz} disabled={!posterHtml}>Imprimir / salvar PDF</button>
             <button
               style={{ flex: 1, border: "1px solid var(--line)", background: "#fff", borderRadius: 12, fontWeight: 700, fontSize: 14, color: "var(--ink)", cursor: "pointer" }}
               onClick={() => window.open(pedidoUrl, "_blank")}
             >
-              Abrir página
+              Abrir página do QR
             </button>
           </div>
           <div style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5 }}>
-            Dica: abra a página no seu celular e faça um teste. Para tirar um produto do QR, edite o produto e desmarque "Aparece na página do QR Code".
+            Na janela de impressão, escolha a impressora ou "Salvar como PDF". Para mudar o que aparece no QR, use o Cardápio do dia.
           </div>
         </div>
       </Modal>
