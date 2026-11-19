@@ -43,6 +43,7 @@ import {
   Users,
   QrCode,
   MessageCircle,
+  Check,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -945,6 +946,7 @@ export default function App() {
                 metrics={metrics}
                 sales={sales}
                 orders={orders}
+                products={products}
                 setView={navigate}
               />
             )}
@@ -1017,6 +1019,7 @@ export default function App() {
                 requestDelete={requestDelete}
               />
             )}
+            {view === "cardapio" && <CardapioDia products={products} setView={navigate} addToast={addToast} />}
             {view === "clientes" && (
               <Clientes
                 customers={customers}
@@ -1284,6 +1287,7 @@ function Sidebar({ view, setView, onLogout, isCollapsed, setIsCollapsed, isMobil
       title: "Vendas",
       items: [
         { key: "empresa", label: "Vendas Empresa", icon: Briefcase, badge: pendingCount },
+        { key: "cardapio", label: "Cardápio do dia", icon: CalendarClock },
         { key: "clientes", label: "Clientes & QR", icon: Users },
         { key: "vendas", label: "Vendas Balcão", icon: ShoppingCart },
         { key: "produtos", label: "Produtos", icon: Cookie },
@@ -1756,7 +1760,7 @@ function Panel({ title, subtitle, action, children, style }) {
   );
 }
 
-function Dashboard({ dataFormatada, metrics, sales, orders, setView }) {
+function Dashboard({ dataFormatada, metrics, sales, orders, products, setView }) {
   // invert = true para gastos (subir é ruim)
   function getComparison(val, refText, invert = false) {
     if (val === null || val === undefined) return { text: `Sem base de comparação ${refText}`, color: "var(--muted-2)", icon: null };
@@ -1870,6 +1874,7 @@ function Dashboard({ dataFormatada, metrics, sales, orders, setView }) {
         <SalesChart sales={sales} />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <CardapioHojeResumo products={products || []} setView={setView} />
           <Panel
             title="Quem está devendo"
             subtitle={metrics.devedores.length ? `${metrics.devedores.length} pessoa(s) com valores em aberto` : "Ninguém devendo. Tudo em dia!"}
@@ -2837,6 +2842,219 @@ function Gastos({ expenses, onAdd, onUpdate, onRemove, requestDelete, setView })
         </div>
       </Panel>
     </div>
+  );
+}
+
+// ─── MÓDULO: CARDÁPIO DO DIA ─────────────────────────────────────────────────
+// Define quais produtos aparecem na página do QR em cada data.
+// Sem cardápio na data, o QR mostra todos os produtos marcados "Aparece no QR".
+function CardapioDia({ products, setView, addToast }) {
+  const [date, setDate] = useState(todayISO());
+  const [selected, setSelected] = useState(new Set());
+  const [savedSet, setSavedSet] = useState(new Set());
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancel = false;
+    setLoading(true);
+    supabase
+      .from("daily_menu")
+      .select("product_id")
+      .eq("menu_date", date)
+      .then(({ data, error }) => {
+        if (cancel) return;
+        if (error) addToast("Erro ao carregar o cardápio: " + error.message, "error");
+        const set = new Set((data || []).map((r) => r.product_id));
+        setSelected(new Set(set));
+        setSavedSet(set);
+        setLoading(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [date]);
+
+  const changed = selected.size !== savedSet.size || [...selected].some((id) => !savedSet.has(id));
+
+  function toggle(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function repetirUltimo() {
+    const { data, error } = await supabase
+      .from("daily_menu")
+      .select("menu_date, product_id")
+      .lt("menu_date", date)
+      .order("menu_date", { ascending: false })
+      .limit(200);
+    if (error || !data || data.length === 0) {
+      addToast("Ainda não há um cardápio anterior para repetir.", "error");
+      return;
+    }
+    const ultimaData = data[0].menu_date;
+    setSelected(new Set(data.filter((r) => r.menu_date === ultimaData).map((r) => r.product_id)));
+    addToast(`Copiado o cardápio de ${formatDatePt(ultimaData)}. Confira e salve.`);
+  }
+
+  async function salvar() {
+    setSaving(true);
+    const { error: delErr } = await supabase.from("daily_menu").delete().eq("menu_date", date);
+    let error = delErr;
+    if (!error && selected.size > 0) {
+      const rows = [...selected].map((product_id) => ({ menu_date: date, product_id }));
+      ({ error } = await supabase.from("daily_menu").insert(rows));
+    }
+    setSaving(false);
+    if (error) {
+      addToast("Erro ao salvar o cardápio: " + error.message, "error");
+      return;
+    }
+    setSavedSet(new Set(selected));
+    addToast(selected.size ? `Cardápio salvo: ${selected.size} produto(s) no QR.` : "Cardápio limpo: o QR volta a mostrar todos os produtos.");
+  }
+
+  const isToday = date === todayISO();
+  const dateLabel = isToday ? "hoje" : date === addDaysISO(todayISO(), 1) ? "amanhã" : formatDatePt(date);
+  const grupos = useMemo(() => {
+    const g = {};
+    products.forEach((p) => {
+      const cat = p.category || "Outros";
+      (g[cat] = g[cat] || []).push(p);
+    });
+    const ordem = ["Salgados", "Doces", "Bolos", "Bebidas", "Outros"];
+    const pos = (c) => (ordem.indexOf(c) === -1 ? 99 : ordem.indexOf(c));
+    return Object.entries(g).sort((a, b) => pos(a[0]) - pos(b[0]));
+  }, [products]);
+
+  const qrPadrao = products.filter((p) => p.show_in_qr !== false).length;
+  const chipBtn = (active) => ({
+    padding: "8px 14px",
+    borderRadius: 10,
+    border: active ? "1.5px solid var(--brand)" : "1px solid var(--line)",
+    background: active ? "var(--brand-soft)" : "var(--surface)",
+    color: active ? "var(--brand)" : "var(--ink-2)",
+    fontWeight: 700,
+    fontSize: 13,
+    cursor: "pointer",
+  });
+
+  return (
+    <div>
+      <SectionTitleWithBack
+        title="Cardápio do dia"
+        subtitle="Marque o que você levou: só isso aparece no QR Code"
+        onBack={() => setView("dashboard")}
+      />
+
+      <Panel style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button style={chipBtn(isToday)} onClick={() => setDate(todayISO())}>Hoje</button>
+            <button style={chipBtn(date === addDaysISO(todayISO(), 1))} onClick={() => setDate(addDaysISO(todayISO(), 1))}>Amanhã</button>
+            <input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} style={{ ...inputStyle, padding: "8px 12px" }} />
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button style={chipBtn(false)} onClick={repetirUltimo}>Repetir o último</button>
+            <button style={chipBtn(false)} onClick={() => setSelected(new Set(products.map((p) => p.id)))}>Marcar todos</button>
+            <button style={chipBtn(false)} onClick={() => setSelected(new Set())}>Limpar</button>
+          </div>
+        </div>
+        <div style={{ marginTop: 14, padding: "12px 14px", borderRadius: 12, background: selected.size ? "var(--ok-soft)" : "var(--gold-soft)", color: selected.size ? "var(--ok)" : "var(--gold)", fontSize: 13.5, fontWeight: 600 }}>
+          {loading
+            ? "Carregando..."
+            : selected.size
+            ? `No QR de ${dateLabel} vão aparecer ${selected.size} produto(s).`
+            : `Sem cardápio para ${dateLabel}: o QR mostra todos os ${qrPadrao} produtos marcados como "Aparece no QR".`}
+          {changed && !loading && <span style={{ color: "var(--danger)", marginLeft: 8 }}>• Alterações não salvas</span>}
+        </div>
+      </Panel>
+
+      {grupos.map(([cat, lista]) => (
+        <div key={cat} style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.8px", margin: "0 2px 8px" }}>{cat}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }} className="cardapio-grid">
+            {lista.map((p) => {
+              const on = selected.has(p.id);
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => toggle(p.id)}
+                  style={{
+                    textAlign: "left",
+                    background: on ? "var(--brand-soft)" : "var(--surface)",
+                    border: on ? "2px solid var(--brand)" : "1px solid var(--line-soft)",
+                    borderRadius: 16,
+                    padding: on ? "13px 14px" : "14px 15px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    minWidth: 0,
+                    boxShadow: "var(--shadow-sm)",
+                  }}
+                >
+                  <div style={{ width: 24, height: 24, borderRadius: 8, border: on ? "none" : "1.5px solid var(--line-strong)", background: on ? "var(--brand)" : "#fff", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    {on && <Check size={15} strokeWidth={3} />}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                    <div style={{ fontSize: 12.5, color: "var(--muted)" }}>{brl(p.price)}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+
+      <div style={{ position: changed ? "sticky" : "static", bottom: 16, display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+        <button
+          onClick={salvar}
+          disabled={saving || loading || !changed}
+          style={{ ...primaryBtnStyle, padding: "14px 26px", marginTop: 0, opacity: saving || loading || !changed ? 0.55 : 1, cursor: changed ? "pointer" : "default" }}
+        >
+          {saving ? "Salvando..." : `Salvar cardápio de ${dateLabel}`}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Resumo do cardápio de hoje para o Dashboard
+function CardapioHojeResumo({ products, setView }) {
+  const [ids, setIds] = useState(null);
+  useEffect(() => {
+    supabase
+      .from("daily_menu")
+      .select("product_id")
+      .eq("menu_date", todayISO())
+      .then(({ data }) => setIds((data || []).map((r) => r.product_id)));
+  }, []);
+  const nomes = (ids || []).map((id) => (products.find((p) => p.id === id) || {}).name).filter(Boolean);
+  return (
+    <Panel
+      title="Cardápio de hoje no QR"
+      subtitle={ids === null ? "Carregando..." : nomes.length ? `${nomes.length} produto(s) aparecendo para os clientes` : "Nada marcado: o QR mostra todos os produtos"}
+      action={
+        <button onClick={() => setView("cardapio")} style={{ background: "none", border: "none", color: "var(--brand)", fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
+          {nomes.length ? "Editar →" : "Montar →"}
+        </button>
+      }
+    >
+      {nomes.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {nomes.map((n) => (
+            <span key={n} style={{ fontSize: 12.5, fontWeight: 600, background: "var(--brand-soft)", color: "var(--brand)", borderRadius: 999, padding: "4px 10px" }}>{n}</span>
+          ))}
+        </div>
+      )}
+    </Panel>
   );
 }
 
