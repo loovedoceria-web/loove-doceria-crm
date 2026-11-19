@@ -2958,20 +2958,24 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
         .poster { width: 210mm; height: 297mm; box-sizing: border-box; padding: 18mm 16mm; display: flex; flex-direction: column; align-items: center; text-align: center;
           background: radial-gradient(160mm 90mm at 50% -10mm, #f6d5db, transparent 70%), #fcf7f5; }
         .logo { width: 30mm; height: 30mm; border-radius: 9mm; object-fit: cover; box-shadow: 0 0 0 2.5mm #fbecee; }
-        h1 { font-family: "Fraunces", serif; font-size: 34pt; margin: 9mm 0 2mm; line-height: 1.05; }
-        .sub { font-size: 15pt; color: #8c777b; margin: 0 0 9mm; }
+        h1 { font-family: "Fraunces", serif; font-size: 32pt; margin: 7mm 0 2mm; line-height: 1.05; }
+        .sub { font-size: 15pt; color: #8c777b; margin: 0 0 7mm; }
+        .aviso { margin-top: 7mm; background: #c95c70; color: #fff; border-radius: 6mm; padding: 4.5mm 7mm; font-size: 14.5pt; line-height: 1.35; max-width: 160mm; }
+        .aviso b { font-weight: 800; }
+        .aviso small { display: block; font-size: 10.5pt; opacity: .9; margin-top: 1mm; }
         .qr { background: #fff; border-radius: 9mm; padding: 8mm; box-shadow: 0 6mm 14mm -8mm rgba(91,52,60,.35); border: 1.2mm solid #c95c70; }
-        .qr img { width: 96mm; height: 96mm; display: block; }
-        .steps { display: flex; gap: 6mm; margin-top: 11mm; width: 100%; }
+        .qr img { width: 88mm; height: 88mm; display: block; }
+        .steps { display: flex; gap: 6mm; margin-top: 9mm; width: 100%; }
         .step { flex: 1; background: #fff; border-radius: 6mm; padding: 6mm 4mm; border: 0.4mm solid #eedfe1; }
         .n { width: 10mm; height: 10mm; border-radius: 50%; background: #c95c70; color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; margin: 0 auto 3mm; font-size: 13pt; }
         .step b { display: block; font-size: 13pt; margin-bottom: 1mm; }
         .step span { font-size: 10.5pt; color: #8c777b; }
-        .url { margin-top: auto; font-size: 10pt; color: #8c777b; }
+        .url { margin-top: auto; padding-top: 6mm; font-size: 10pt; color: #8c777b; }
       </style></head><body>
       <div class="poster">
         <img class="logo" src="${PUBLIC_SITE_URL}/logo.png" />
-        <h1>Pegou um docinho?<br/>Registra aqui! 💕</h1>
+        <div class="aviso">📢 <b>A partir de agora</b>, para anotar sua compra<br/>das <b>comidinhas da Ju</b>, é pelo <b>QR Code</b>!<small>Nada de caderno: é só escanear, escolher e confirmar 💕</small></div>
+        <h1>Pegou uma comidinha?<br/>Registra aqui!</h1>
         <p class="sub">Aponte a câmera do celular para o QR Code</p>
         <div class="qr"><img src="${qrDataUrl}" /></div>
         <div class="steps">
