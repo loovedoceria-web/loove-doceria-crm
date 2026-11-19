@@ -3171,7 +3171,7 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
       <style>
         @page { size: A4; margin: 0; }
-        body { margin: 0; font-family: "Plus Jakarta Sans", sans-serif; color: #3b2a2e; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        html, body { overflow: hidden; } body { margin: 0; font-family: "Plus Jakarta Sans", sans-serif; color: #3b2a2e; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .poster { width: 210mm; height: 297mm; box-sizing: border-box; padding: 18mm 16mm; display: flex; flex-direction: column; align-items: center; text-align: center;
           background: radial-gradient(160mm 90mm at 50% -10mm, #f6d5db, transparent 70%), #fcf7f5; }
         .logo { width: 30mm; height: 30mm; border-radius: 9mm; object-fit: cover; box-shadow: 0 0 0 2.5mm #fbecee; }
@@ -3240,6 +3240,7 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
               <iframe
                 ref={posterFrameRef}
                 title="Prévia do cartaz"
+                scrolling="no"
                 srcDoc={posterHtml}
                 style={{ width: 794, height: 1123, border: "none", transform: "scale(0.4)", transformOrigin: "top left", position: "absolute", top: 0, left: 0 }}
               />
