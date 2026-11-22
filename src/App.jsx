@@ -2955,6 +2955,25 @@ function CardapioDia({ products, setView, addToast }) {
     addToast(selected.size ? `Cardápio salvo: ${selected.size} produto(s) no QR.` : "Cardápio limpo: o QR volta a mostrar todos os produtos.");
   }
 
+  // Quanto dá se vender tudo o que foi levado (só produtos com quantidade preenchida)
+  const totais = useMemo(() => {
+    let potencial = 0, itens = 0, vendido = 0, semLimite = 0;
+    selected.forEach((q, id) => {
+      const p = products.find((x) => x.id === id);
+      if (!p) return;
+      if (q === "") {
+        semLimite += 1;
+        return;
+      }
+      const levou = parseInt(q, 10) || 0;
+      const saiu = Math.min(levou, vendidos[(p.name || "").trim().toLowerCase()] || 0);
+      potencial += levou * Number(p.price || 0);
+      vendido += saiu * Number(p.price || 0);
+      itens += levou;
+    });
+    return { potencial, itens, vendido, semLimite };
+  }, [selected, products, vendidos]);
+
   const isToday = date === todayISO();
   const dateLabel = isToday ? "hoje" : date === addDaysISO(todayISO(), 1) ? "amanhã" : formatDatePt(date);
   const grupos = useMemo(() => {
@@ -3087,7 +3106,20 @@ function CardapioDia({ products, setView, addToast }) {
         </div>
       ))}
 
-      <div style={{ position: changed ? "sticky" : "static", bottom: 16, display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+      <div style={{ position: changed || totais.itens > 0 ? "sticky" : "static", bottom: 16, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+        {totais.itens > 0 && (
+          <div style={{ flex: 1, minWidth: 240, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 14, padding: "10px 16px", boxShadow: "var(--shadow-md)", display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Se vender tudo</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "var(--ok)" }}>{brl(totais.potencial)}</div>
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5 }}>
+              {totais.itens} {totais.itens === 1 ? "unidade" : "unidades"} levadas
+              {totais.vendido > 0 && <> · já vendido <b style={{ color: "var(--ink)" }}>{brl(totais.vendido)}</b></>}
+              {totais.semLimite > 0 && <div>{totais.semLimite} produto(s) sem quantidade não entram na conta</div>}
+            </div>
+          </div>
+        )}
         <button
           onClick={salvar}
           disabled={saving || loading || !changed}
