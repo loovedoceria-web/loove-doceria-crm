@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { PIX_TIPOS, buildPixPayload, validatePixConfig, normalizePixKey } from "./pix";
 import {
+  Banknote,
   LayoutGrid,
   Cookie,
   ShoppingCart,
@@ -3075,6 +3077,48 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
   const [form, setForm] = useState({ full_name: "", phone: "", sector: "", active: true });
   const [qrOpen, setQrOpen] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
+  const [pixOpen, setPixOpen] = useState(false);
+  const [pixCfg, setPixCfg] = useState(null); // config salva no banco
+  const [pixForm, setPixForm] = useState({ tipo: "celular", chave: "", nome: "Loove Doceria", cidade: "" });
+  const [pixSaving, setPixSaving] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "pix")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data && data.value && data.value.chave) {
+          setPixCfg(data.value);
+          setPixForm({ ...data.value });
+        }
+      });
+  }, []);
+
+  async function salvarPix() {
+    const erroPix = validatePixConfig(pixForm);
+    if (erroPix) {
+      alert(erroPix);
+      return;
+    }
+    const value = {
+      tipo: pixForm.tipo,
+      chave: normalizePixKey(pixForm.tipo, pixForm.chave),
+      nome: pixForm.nome.trim(),
+      cidade: pixForm.cidade.trim(),
+    };
+    setPixSaving(true);
+    const { error } = await supabase.from("app_settings").upsert({ key: "pix", value, updated_at: new Date().toISOString() });
+    setPixSaving(false);
+    if (error) {
+      alert("Não foi possível salvar o Pix. Tente de novo.");
+      return;
+    }
+    setPixCfg(value);
+    setPixForm(value);
+    setPixOpen(false);
+  }
 
   // Endereço público (sem a proteção de login da Vercel), para funcionar no celular de qualquer pessoa
   const pedidoUrl = `${PUBLIC_SITE_URL}/pedido`;
@@ -3160,7 +3204,11 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
       "",
       itens.length ? "Segue seu extrato em aberto:" : "Você não tem nada em aberto com a gente. Obrigada! 💕",
       ...itens,
-      ...(itens.length ? ["", `*Total: ${brl(r.aberto)}*`, "", "Qualquer dúvida é só chamar. Obrigada! 💕"] : []),
+      ...(itens.length ? ["", `*Total: ${brl(r.aberto)}*`] : []),
+      ...(itens.length && pixCfg
+        ? ["", "Para pagar, copie o código abaixo e cole no app do banco em *Pix copia e cola* (o valor já vai preenchido):", "", buildPixPayload(pixCfg, r.aberto)]
+        : []),
+      ...(itens.length ? ["", "Qualquer dúvida é só chamar. Obrigada! 💕"] : []),
     ].join("\n");
     return `https://wa.me/55${c.phone}?text=${encodeURIComponent(texto)}`;
   }
@@ -3224,12 +3272,21 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
         onAction={openNew}
         actionLabel="Novo cliente"
         extra={
+          <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => setPixOpen(true)}
+            style={{ background: pixCfg ? "var(--ok-soft)" : "#fff", color: pixCfg ? "var(--ok)" : "var(--ink)", border: `1px solid ${pixCfg ? "var(--ok-line)" : "var(--line)"}`, borderRadius: 12, padding: "11px 16px", fontSize: 13.5, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+            title={pixCfg ? "Pix configurado: aparece no extrato do cliente" : "Configurar o Pix para o cliente pagar pelo extrato"}
+          >
+            <Banknote size={16} /> {pixCfg ? "Pix ativo" : "Configurar Pix"}
+          </button>
           <button
             onClick={() => setQrOpen(true)}
             style={{ background: "var(--ink)", color: "#fff", border: "none", borderRadius: 12, padding: "11px 16px", fontSize: 13.5, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
           >
             <QrCode size={16} /> Cartaz do QR
           </button>
+          </div>
         }
       />
 
@@ -3261,6 +3318,47 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
           <div style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5 }}>
             Na janela de impressão, escolha a impressora ou "Salvar como PDF". Para mudar o que aparece no QR, use o Cardápio do dia.
           </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={pixOpen} onClose={() => setPixOpen(false)} title="Pix para pagamento" maxWidth={480}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
+            Com o Pix configurado, o cliente vê no extrato do QR um botão para copiar o código Pix com o valor em aberto já preenchido.
+            O mesmo código vai junto na mensagem de cobrança do WhatsApp. A baixa continua manual: quando o dinheiro cair, marque as vendas como pagas.
+          </div>
+          <div>
+            <FieldLabel>Tipo de chave</FieldLabel>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {PIX_TIPOS.map((t) => (
+                <ToggleButton key={t.key} active={pixForm.tipo === t.key} onClick={() => setPixForm({ ...pixForm, tipo: t.key })}>
+                  {t.label}
+                </ToggleButton>
+              ))}
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Chave Pix</FieldLabel>
+            <input
+              style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+              value={pixForm.chave}
+              onChange={(e) => setPixForm({ ...pixForm, chave: e.target.value })}
+              inputMode={pixForm.tipo === "celular" || pixForm.tipo === "cpf" ? "numeric" : "text"}
+              placeholder={{ celular: "(11) 99999-9999", cpf: "Somente números", email: "voce@email.com", aleatoria: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" }[pixForm.tipo]}
+            />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <FieldLabel>Nome de quem recebe</FieldLabel>
+              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} value={pixForm.nome} onChange={(e) => setPixForm({ ...pixForm, nome: e.target.value })} placeholder="Como aparece no banco" />
+            </div>
+            <div>
+              <FieldLabel>Cidade</FieldLabel>
+              <input style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} value={pixForm.cidade} onChange={(e) => setPixForm({ ...pixForm, cidade: e.target.value })} placeholder="Ex: São Paulo" />
+            </div>
+          </div>
+          <div style={{ fontSize: 12.5, color: "var(--muted)" }}>Dica: depois de salvar, faça um Pix de teste de R$ 0,01 pelo extrato para conferir se cai na conta certa.</div>
+          <button style={primaryBtnStyle} onClick={salvarPix} disabled={pixSaving}>{pixSaving ? "Salvando..." : "Salvar Pix"}</button>
         </div>
       </Modal>
 

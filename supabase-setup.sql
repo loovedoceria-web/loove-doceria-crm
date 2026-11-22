@@ -57,3 +57,25 @@ create policy "Autenticados atualizam configuracoes" on public.app_settings for 
 -- Autoatendimento por QR Code (/pedido): tabela customers, colunas sales.customer_id/source,
 -- products.show_in_qr/sort_order e funções public.qr_* (security definer, liberadas para anon).
 -- Aplicado no projeto pela migration "qr_pedidos_clientes" (veja o histórico de migrations no Supabase).
+
+-- Pix no extrato do QR (/pedido): a chave fica em app_settings (key = 'pix') e é
+-- configurada no CRM em Clientes & QR → "Pix". A página pública lê só por esta função.
+create or replace function public.qr_pix_config()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (select jsonb_build_object(
+       'tipo', value->>'tipo',
+       'chave', value->>'chave',
+       'nome', value->>'nome',
+       'cidade', value->>'cidade')
+     from public.app_settings
+     where key = 'pix' and coalesce(value->>'chave', '') <> ''),
+    'null'::jsonb);
+$$;
+revoke all on function public.qr_pix_config() from public;
+grant execute on function public.qr_pix_config() to anon, authenticated;

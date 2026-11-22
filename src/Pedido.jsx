@@ -6,8 +6,10 @@
 // grava tabelas diretamente e o preço sempre vem do cadastro de produtos.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useEffect, useMemo, useState } from "react";
-import { Minus, Plus, Check, ArrowLeft, Loader2, ReceiptText, LogOut } from "lucide-react";
+import { Minus, Plus, Check, ArrowLeft, Loader2, ReceiptText, LogOut, Copy } from "lucide-react";
+import QRCode from "qrcode";
 import { supabase } from "./supabaseClient";
+import { buildPixPayload, copyText } from "./pix";
 
 const STORAGE_KEY = "loove_qr_cliente";
 
@@ -87,12 +89,43 @@ export default function Pedido() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [resultado, setResultado] = useState(null);
   const [extrato, setExtrato] = useState(null);
+  const [pixCfg, setPixCfg] = useState(null);
+  const [pixQr, setPixQr] = useState("");
+  const [pixCopiado, setPixCopiado] = useState(false);
 
   useEffect(() => {
     rpc("qr_produtos", {})
       .then((d) => setProdutos(d || []))
       .catch((e) => setErro(e.message));
+    // Pix é opcional: se ainda não estiver configurado, o extrato só não mostra o pagamento
+    supabase.rpc("qr_pix_config").then(({ data, error }) => {
+      if (!error && data && data.chave) setPixCfg(data);
+    });
   }, []);
+
+  const emAberto = extrato ? Number(extrato.em_aberto) || 0 : 0;
+  const pixCode = useMemo(() => (pixCfg && emAberto > 0 ? buildPixPayload(pixCfg, emAberto) : ""), [pixCfg, emAberto]);
+
+  useEffect(() => {
+    setPixCopiado(false);
+    if (!pixCode) {
+      setPixQr("");
+      return;
+    }
+    QRCode.toDataURL(pixCode, { width: 440, margin: 1, color: { dark: "#3b2a2e", light: "#ffffff" } })
+      .then(setPixQr)
+      .catch(() => setPixQr(""));
+  }, [pixCode]);
+
+  async function copiarPix() {
+    const ok = await copyText(pixCode);
+    if (ok) {
+      setPixCopiado(true);
+      setTimeout(() => setPixCopiado(false), 4000);
+    } else {
+      setErro("Não deu para copiar automaticamente. Use o QR Code acima no app do banco.");
+    }
+  }
 
   const itens = useMemo(
     () => produtos.filter((p) => cart[p.id] > 0).map((p) => ({ ...p, qty: cart[p.id] })),
@@ -368,6 +401,22 @@ export default function Pedido() {
               <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", opacity: 0.85 }}>Em aberto</div>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700 }}>{brl(extrato.em_aberto)}</div>
             </div>
+            {pixCode && (
+              <div style={S.pixBox}>
+                <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 2 }}>Pagar com Pix</div>
+                <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12, lineHeight: 1.45 }}>
+                  Copie o código e cole no app do seu banco, em <b>Pix copia e cola</b>. O valor de {brl(emAberto)} já vai preenchido.
+                </div>
+                {pixQr && <img src={pixQr} alt="QR Code do Pix" style={S.pixQr} />}
+                <button style={{ ...S.primary, ...(pixCopiado ? { background: "var(--ok)" } : {}) }} onClick={copiarPix}>
+                  {pixCopiado ? <><Check size={18} /> Código copiado!</> : <><Copy size={18} /> Copiar código Pix</>}
+                </button>
+                <div style={S.pixCode}>{pixCode}</div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 10, lineHeight: 1.45 }}>
+                  Pagamento para <b>{pixCfg.nome}</b>. Depois que a Loove confirmar, as compras aparecem como pagas aqui.
+                </div>
+              </div>
+            )}
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)", margin: "4px 0 8px" }}>Últimas compras</div>
             {extrato.recentes.length === 0 && <div style={{ color: "var(--muted)", fontSize: 14 }}>Nenhuma compra ainda.</div>}
             {extrato.recentes.map((r, idx) => (
@@ -472,5 +521,8 @@ const S = {
   summaryRow: { display: "flex", justifyContent: "space-between", fontSize: 15, padding: "5px 0", gap: 12 },
   successIcon: { width: 72, height: 72, borderRadius: "50%", background: "var(--ok)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px auto 0", boxShadow: "0 0 0 8px var(--ok-soft)" },
   openBox: { background: "linear-gradient(135deg, var(--brand) 0%, #d97b8c 100%)", color: "#fff", borderRadius: 18, padding: "16px 18px", margin: "8px 0 18px" },
+  pixBox: { border: "1.5px solid var(--brand-line)", background: "var(--brand-soft)", borderRadius: 18, padding: "16px 16px 14px", margin: "0 0 18px", display: "flex", flexDirection: "column", textAlign: "center" },
+  pixQr: { width: 180, height: 180, alignSelf: "center", borderRadius: 12, background: "#fff", padding: 8, marginBottom: 12, boxSizing: "content-box" },
+  pixCode: { fontFamily: "monospace", fontSize: 11, color: "var(--muted)", wordBreak: "break-all", background: "#fff", borderRadius: 10, padding: "8px 10px", marginTop: 10, textAlign: "left", userSelect: "all" },
   extratoRow: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderTop: "1px solid var(--line-soft)", fontSize: 14.5 },
 };
