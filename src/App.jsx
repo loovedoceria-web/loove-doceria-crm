@@ -9,6 +9,7 @@ import {
   TrendingUp,
   Star,
   Plus,
+  Minus,
   Trash2,
   Lock,
   Mail,
@@ -2850,48 +2851,81 @@ function Gastos({ expenses, onAdd, onUpdate, onRemove, requestDelete, setView })
 // ─── MÓDULO: CARDÁPIO DO DIA ─────────────────────────────────────────────────
 // Define quais produtos aparecem na página do QR em cada data.
 // Sem cardápio na data, o QR mostra todos os produtos marcados "Aparece no QR".
+// selected é um Map: product_id -> quantidade levada ("" = sem limite)
 function CardapioDia({ products, setView, addToast }) {
   const [date, setDate] = useState(todayISO());
-  const [selected, setSelected] = useState(new Set());
-  const [savedSet, setSavedSet] = useState(new Set());
+  const [selected, setSelected] = useState(new Map());
+  const [savedMap, setSavedMap] = useState(new Map());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [vendidos, setVendidos] = useState({}); // nome do produto (minúsculo) -> qtd vendida na data
+  const [loadingVendidos, setLoadingVendidos] = useState(false);
 
   useEffect(() => {
     let cancel = false;
     setLoading(true);
     supabase
       .from("daily_menu")
-      .select("product_id")
+      .select("product_id, qty")
       .eq("menu_date", date)
       .then(({ data, error }) => {
         if (cancel) return;
         if (error) addToast("Erro ao carregar o cardápio: " + error.message, "error");
-        const set = new Set((data || []).map((r) => r.product_id));
-        setSelected(new Set(set));
-        setSavedSet(set);
+        const map = new Map((data || []).map((r) => [r.product_id, r.qty == null ? "" : String(r.qty)]));
+        setSelected(new Map(map));
+        setSavedMap(map);
         setLoading(false);
       });
+    carregarVendidos();
     return () => {
       cancel = true;
     };
   }, [date]);
 
-  const changed = selected.size !== savedSet.size || [...selected].some((id) => !savedSet.has(id));
+  // Soma o que já saiu de cada produto na data (QR, Vendas Empresa e balcão)
+  async function carregarVendidos() {
+    setLoadingVendidos(true);
+    const { data } = await supabase.from("sales").select("product_name, qty").eq("date", date).limit(5000);
+    const map = {};
+    (data || []).forEach((s) => {
+      const nome = (s.product_name || "").includes("—") ? splitPersonProduct(s.product_name).product : s.product_name || "";
+      const k = nome.trim().toLowerCase();
+      map[k] = (map[k] || 0) + Number(s.qty || 0);
+    });
+    setVendidos(map);
+    setLoadingVendidos(false);
+  }
+
+  const changed =
+    selected.size !== savedMap.size || [...selected].some(([id, q]) => !savedMap.has(id) || savedMap.get(id) !== q);
 
   function toggle(id) {
     setSelected((prev) => {
-      const next = new Set(prev);
+      const next = new Map(prev);
       if (next.has(id)) next.delete(id);
-      else next.add(id);
+      else next.set(id, "");
       return next;
+    });
+  }
+
+  function setQty(id, value) {
+    const clean = String(value).replace(/\D/g, "").slice(0, 4);
+    setSelected((prev) => new Map(prev).set(id, clean));
+  }
+
+  function stepQty(id, delta) {
+    setSelected((prev) => {
+      const atual = prev.get(id);
+      const base = atual === "" || atual == null ? 0 : parseInt(atual, 10);
+      const novo = Math.max(0, base + delta);
+      return new Map(prev).set(id, String(novo));
     });
   }
 
   async function repetirUltimo() {
     const { data, error } = await supabase
       .from("daily_menu")
-      .select("menu_date, product_id")
+      .select("menu_date, product_id, qty")
       .lt("menu_date", date)
       .order("menu_date", { ascending: false })
       .limit(200);
@@ -2900,7 +2934,7 @@ function CardapioDia({ products, setView, addToast }) {
       return;
     }
     const ultimaData = data[0].menu_date;
-    setSelected(new Set(data.filter((r) => r.menu_date === ultimaData).map((r) => r.product_id)));
+    setSelected(new Map(data.filter((r) => r.menu_date === ultimaData).map((r) => [r.product_id, r.qty == null ? "" : String(r.qty)])));
     addToast(`Copiado o cardápio de ${formatDatePt(ultimaData)}. Confira e salve.`);
   }
 
@@ -2909,7 +2943,7 @@ function CardapioDia({ products, setView, addToast }) {
     const { error: delErr } = await supabase.from("daily_menu").delete().eq("menu_date", date);
     let error = delErr;
     if (!error && selected.size > 0) {
-      const rows = [...selected].map((product_id) => ({ menu_date: date, product_id }));
+      const rows = [...selected].map(([product_id, q]) => ({ menu_date: date, product_id, qty: q === "" ? null : parseInt(q, 10) }));
       ({ error } = await supabase.from("daily_menu").insert(rows));
     }
     setSaving(false);
@@ -2917,7 +2951,7 @@ function CardapioDia({ products, setView, addToast }) {
       addToast("Erro ao salvar o cardápio: " + error.message, "error");
       return;
     }
-    setSavedSet(new Set(selected));
+    setSavedMap(new Map(selected));
     addToast(selected.size ? `Cardápio salvo: ${selected.size} produto(s) no QR.` : "Cardápio limpo: o QR volta a mostrar todos os produtos.");
   }
 
@@ -2963,8 +2997,11 @@ function CardapioDia({ products, setView, addToast }) {
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button style={chipBtn(false)} onClick={repetirUltimo}>Repetir o último</button>
-            <button style={chipBtn(false)} onClick={() => setSelected(new Set(products.map((p) => p.id)))}>Marcar todos</button>
-            <button style={chipBtn(false)} onClick={() => setSelected(new Set())}>Limpar</button>
+            <button style={chipBtn(false)} onClick={() => setSelected((prev) => new Map(products.map((p) => [p.id, prev.has(p.id) ? prev.get(p.id) : ""])))}>Marcar todos</button>
+            <button style={chipBtn(false)} onClick={() => setSelected(new Map())}>Limpar</button>
+            <button style={chipBtn(false)} onClick={carregarVendidos} disabled={loadingVendidos} title="Buscar de novo o que já foi vendido nesta data">
+              {loadingVendidos ? "Atualizando..." : "Atualizar vendidos"}
+            </button>
           </div>
         </div>
         <div style={{ marginTop: 14, padding: "12px 14px", borderRadius: 12, background: selected.size ? "var(--ok-soft)" : "var(--gold-soft)", color: selected.size ? "var(--ok)" : "var(--gold)", fontSize: 13.5, fontWeight: 600 }}>
@@ -2975,6 +3012,11 @@ function CardapioDia({ products, setView, addToast }) {
             : `Sem cardápio para ${dateLabel}: o QR mostra todos os ${qrPadrao} produtos marcados como "Aparece no QR".`}
           {changed && !loading && <span style={{ color: "var(--danger)", marginLeft: 8 }}>• Alterações não salvas</span>}
         </div>
+        {selected.size > 0 && (
+          <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5 }}>
+            Coloque quantos você levou de cada produto. Quando acabar, o QR mostra "Esgotado" e não deixa registrar mais. Deixe em branco para não ter limite.
+          </div>
+        )}
       </Panel>
 
       {grupos.map(([cat, lista]) => (
@@ -2983,10 +3025,15 @@ function CardapioDia({ products, setView, addToast }) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }} className="cardapio-grid">
             {lista.map((p) => {
               const on = selected.has(p.id);
+              const q = on ? selected.get(p.id) : "";
+              const levou = q === "" ? null : parseInt(q, 10);
+              const saiu = vendidos[(p.name || "").trim().toLowerCase()] || 0;
+              const sobra = levou == null ? null : Math.max(0, levou - saiu);
               return (
-                <button
+                <div
                   key={p.id}
                   onClick={() => toggle(p.id)}
+                  role="button"
                   style={{
                     textAlign: "left",
                     background: on ? "var(--brand-soft)" : "var(--surface)",
@@ -2995,12 +3042,13 @@ function CardapioDia({ products, setView, addToast }) {
                     padding: on ? "13px 14px" : "14px 15px",
                     cursor: "pointer",
                     display: "flex",
-                    alignItems: "center",
+                    flexDirection: "column",
                     gap: 10,
                     minWidth: 0,
                     boxShadow: "var(--shadow-sm)",
                   }}
                 >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                   <div style={{ width: 24, height: 24, borderRadius: 8, border: on ? "none" : "1.5px solid var(--line-strong)", background: on ? "var(--brand)" : "#fff", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     {on && <Check size={15} strokeWidth={3} />}
                   </div>
@@ -3008,7 +3056,31 @@ function CardapioDia({ products, setView, addToast }) {
                     <div style={{ fontWeight: 700, fontSize: 14, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
                     <div style={{ fontSize: 12.5, color: "var(--muted)" }}>{brl(p.price)}</div>
                   </div>
-                </button>
+                  </div>
+                  {on && (
+                    <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", gap: 6, cursor: "default" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-2)", flex: 1 }}>Levei</span>
+                        <button onClick={() => stepQty(p.id, -1)} style={qtyBtnStyle} aria-label="Diminuir"><Minus size={14} /></button>
+                        <input
+                          value={q}
+                          onChange={(e) => setQty(p.id, e.target.value)}
+                          inputMode="numeric"
+                          placeholder="∞"
+                          style={{ width: 46, textAlign: "center", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 4px", fontSize: 14, fontWeight: 700, background: "#fff", color: "var(--ink)" }}
+                        />
+                        <button onClick={() => stepQty(p.id, 1)} style={qtyBtnStyle} aria-label="Aumentar"><Plus size={14} /></button>
+                      </div>
+                      <div style={{ fontSize: 11.5, fontWeight: 600, color: sobra === 0 ? "var(--danger)" : "var(--muted)" }}>
+                        {levou == null
+                          ? `Sem limite · vendidos ${saiu}`
+                          : sobra === 0
+                          ? `Esgotado · vendidos ${saiu} de ${levou}`
+                          : `Vendidos ${saiu} · sobram ${sobra}`}
+                      </div>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -5311,6 +5383,20 @@ const inputStyle = {
   color: "var(--ink)",
   background: "#ffffff",
   transition: "border-color 0.15s, box-shadow 0.15s",
+};
+
+const qtyBtnStyle = {
+  width: 28,
+  height: 28,
+  borderRadius: 8,
+  border: "1px solid var(--brand-line)",
+  background: "#fff",
+  color: "var(--brand)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  padding: 0,
 };
 
 const primaryBtnStyle = {

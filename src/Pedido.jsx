@@ -22,7 +22,13 @@ const ERROS = {
   produto_invalido: "Um dos produtos não está mais disponível. Atualize a página.",
   limite_diario: "Limite de itens por dia atingido. Fale com a Loove.",
   configuracao: "Sistema em configuração. Fale com a Loove.",
+  esgotado: "Esse produto acabou. Atualize a página.",
 };
+
+// Limite de quanto a pessoa pode escolher de um produto
+function maxQty(p) {
+  return p.restantes == null ? 20 : Math.min(20, p.restantes);
+}
 
 function brl(v) {
   return (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -145,10 +151,29 @@ export default function Pedido() {
   }, [produtos]);
 
   function changeQty(id, delta) {
+    const p = produtos.find((x) => x.id === id);
+    const limite = p ? maxQty(p) : 20;
     setCart((prev) => {
-      const next = Math.max(0, Math.min(20, (prev[id] || 0) + delta));
+      const next = Math.max(0, Math.min(limite, (prev[id] || 0) + delta));
       return { ...prev, [id]: next };
     });
+  }
+
+  function recarregarProdutos() {
+    rpc("qr_produtos", {})
+      .then((d) => {
+        const lista = d || [];
+        setProdutos(lista);
+        // Ajusta o carrinho ao que ainda tem
+        setCart((prev) => {
+          const next = {};
+          lista.forEach((p) => {
+            if (prev[p.id]) next[p.id] = Math.min(prev[p.id], maxQty(p));
+          });
+          return next;
+        });
+      })
+      .catch(() => {});
   }
 
   async function buscarTelefone(e) {
@@ -209,11 +234,19 @@ export default function Pedido() {
         p_itens: itens.map((i) => ({ product_id: i.id, qty: i.qty })),
       });
       if (!r.ok) {
-        setErro(ERROS[r.erro] || "Não foi possível registrar.");
+        if (r.erro === "esgotado") {
+          setErro(
+            r.restantes > 0
+              ? `Só ${r.restantes === 1 ? "resta 1" : `restam ${r.restantes}`} de ${r.produto}. Ajustamos para você.`
+              : `${r.produto} acabou agora há pouco. 😢`
+          );
+          recarregarProdutos();
+        } else setErro(ERROS[r.erro] || "Não foi possível registrar.");
         if (r.erro === "cliente_nao_encontrado") sair();
       } else {
         setResultado(r);
         setCart({});
+        recarregarProdutos();
         setStep("sucesso");
       }
     } catch (err) {
@@ -339,12 +372,23 @@ export default function Pedido() {
                 <div style={S.grid}>
                   {lista.map((p) => {
                     const q = cart[p.id] || 0;
+                    const esgotado = p.restantes === 0;
+                    const noLimite = q >= maxQty(p);
                     return (
-                      <div key={p.id} style={{ ...S.product, ...(q > 0 ? S.productActive : {}) }} onClick={() => q === 0 && changeQty(p.id, 1)}>
+                      <div
+                        key={p.id}
+                        style={{ ...S.product, ...(q > 0 ? S.productActive : {}), ...(esgotado ? S.productOff : {}) }}
+                        onClick={() => !esgotado && q === 0 && changeQty(p.id, 1)}
+                      >
                         <div style={S.emoji}>{emojiFor(p.name, p.category)}</div>
                         <div style={S.productName}>{p.name.charAt(0).toUpperCase() + p.name.slice(1)}</div>
                         <div style={S.price}>{brl(p.price)}</div>
-                        {q === 0 ? (
+                        {p.restantes != null && p.restantes > 0 && p.restantes <= 5 && (
+                          <div style={S.restam}>{p.restantes === 1 ? "Último!" : `Restam ${p.restantes}`}</div>
+                        )}
+                        {esgotado ? (
+                          <div style={S.esgotado}>Esgotado</div>
+                        ) : q === 0 ? (
                           <button style={S.addBtn} onClick={(e) => { e.stopPropagation(); changeQty(p.id, 1); }}>
                             <Plus size={16} /> Adicionar
                           </button>
@@ -352,7 +396,7 @@ export default function Pedido() {
                           <div style={S.stepper} onClick={(e) => e.stopPropagation()}>
                             <button style={S.stepBtn} onClick={() => changeQty(p.id, -1)} aria-label="Diminuir"><Minus size={16} /></button>
                             <span style={{ fontWeight: 800, fontSize: 17, minWidth: 22, textAlign: "center" }}>{q}</span>
-                            <button style={S.stepBtn} onClick={() => changeQty(p.id, 1)} aria-label="Aumentar"><Plus size={16} /></button>
+                            <button style={{ ...S.stepBtn, ...(noLimite ? { opacity: 0.35, cursor: "default" } : {}) }} onClick={() => changeQty(p.id, 1)} disabled={noLimite} aria-label="Aumentar"><Plus size={16} /></button>
                           </div>
                         )}
                       </div>
@@ -524,5 +568,8 @@ const S = {
   pixBox: { border: "1.5px solid var(--brand-line)", background: "var(--brand-soft)", borderRadius: 18, padding: "16px 16px 14px", margin: "0 0 18px", display: "flex", flexDirection: "column", textAlign: "center" },
   pixQr: { width: 180, height: 180, alignSelf: "center", borderRadius: 12, background: "#fff", padding: 8, marginBottom: 12, boxSizing: "content-box" },
   pixCode: { fontFamily: "monospace", fontSize: 11, color: "var(--muted)", wordBreak: "break-all", background: "#fff", borderRadius: 10, padding: "8px 10px", marginTop: 10, textAlign: "left", userSelect: "all" },
+  productOff: { opacity: 0.5, cursor: "default", boxShadow: "none" },
+  esgotado: { width: "100%", borderRadius: 12, padding: "9px 0", fontWeight: 800, fontSize: 13, color: "var(--muted)", background: "var(--line-soft)", textAlign: "center" },
+  restam: { fontSize: 11.5, fontWeight: 800, color: "var(--danger)", marginTop: -4, marginBottom: 4 },
   extratoRow: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderTop: "1px solid var(--line-soft)", fontSize: 14.5 },
 };
