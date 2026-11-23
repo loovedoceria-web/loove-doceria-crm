@@ -10,6 +10,7 @@ import { Minus, Plus, Check, ArrowLeft, Loader2, ReceiptText, LogOut, Copy } fro
 import QRCode from "qrcode";
 import { supabase } from "./supabaseClient";
 import { buildPixPayload, copyText } from "./pix";
+import ProdutoIcone from "./ProdutoIcone";
 
 const STORAGE_KEY = "loove_qr_cliente";
 
@@ -380,7 +381,7 @@ export default function Pedido() {
                         style={{ ...S.product, ...(q > 0 ? S.productActive : {}), ...(esgotado ? S.productOff : {}) }}
                         onClick={() => !esgotado && q === 0 && changeQty(p.id, 1)}
                       >
-                        <div style={S.emoji}>{emojiFor(p.name, p.category)}</div>
+                        <ProdutoIcone name={p.name} size={64} fallback={<div style={S.emoji}>{emojiFor(p.name, p.category)}</div>} />
                         <div style={S.productName}>{p.name.charAt(0).toUpperCase() + p.name.slice(1)}</div>
                         <div style={S.price}>{brl(p.price)}</div>
                         {p.restantes != null && p.restantes > 0 && p.restantes <= 5 && (
