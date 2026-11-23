@@ -85,5 +85,5 @@ grant execute on function public.qr_pix_config() to anon, authenticated;
 -- qr_registrar_compra recusa com erro 'esgotado' quando a quantidade acaba.
 -- Aplicado pela migration "cardapio_quantidade_do_dia" (histórico de migrations no Supabase).
 
--- qr_meu_extrato: mostra tudo em aberto + pagas dos últimos 45 dias (até 80 linhas).
--- Aplicado pela migration "qr_extrato_mais_compras".
+-- qr_meu_extrato: o cliente vê só o que está em aberto (de qualquer mês); pagas ficam ocultas.
+-- Aplicado pela migration "qr_extrato_so_em_aberto".

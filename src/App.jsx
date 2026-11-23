@@ -3631,9 +3631,10 @@ function VincularVendas({ cliente, sales, onBulkUpdate }) {
     return Object.values(g);
   }
 
-  // Nomes lançados à mão que ainda não estão ligados a ninguém
+  // Nomes lançados à mão que ainda não estão ligados a ninguém — só compras EM ABERTO.
+  // As já pagas ficam como estão (sem vínculo) e nunca aparecem para o cliente.
   const livres = useMemo(() => {
-    const grupos = agrupar(sales.filter((s) => !s.customer_id && s.source !== "qr" && (s.product_name || "").includes("—")));
+    const grupos = agrupar(sales.filter((s) => !s.customer_id && s.source !== "qr" && s.status !== "Pago" && (s.product_name || "").includes("—")));
     grupos.forEach((g) => {
       const t = normNome(g.nome).split(" ").filter(Boolean);
       const comuns = t.filter((x) => tokensCliente.includes(x)).length;
@@ -3695,7 +3696,11 @@ function VincularVendas({ cliente, sales, onBulkUpdate }) {
         <div style={{ flex: 1, minWidth: 0, cursor: modo === "livre" ? "pointer" : "default" }} onClick={() => modo === "livre" && toggle(g.key)}>
           <div style={{ fontWeight: 700, fontSize: 14, color: "var(--ink)" }}>{g.nome}</div>
           <div style={{ fontSize: 12, color: "var(--muted)" }}>
-            {g.n} compra(s) · em aberto <b style={{ color: g.aberto > 0 ? "var(--danger)" : "var(--ok)" }}>{brl(g.aberto)}</b> · total {brl(g.total)}
+            {modo === "livre" ? (
+              <>{g.n} compra(s) em aberto · <b style={{ color: "var(--danger)" }}>{brl(g.aberto)}</b></>
+            ) : (
+              <>{g.n} compra(s) · em aberto <b style={{ color: g.aberto > 0 ? "var(--danger)" : "var(--ok)" }}>{brl(g.aberto)}</b></>
+            )}
             {g.ultima ? ` · última ${formatDatePt(g.ultima).slice(0, 5)}` : ""}
           </div>
         </div>
@@ -3732,7 +3737,7 @@ function VincularVendas({ cliente, sales, onBulkUpdate }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
-        Escolha quais nomes lançados à mão em <b>Vendas Empresa</b> são de <b>{cliente.full_name}</b>. As compras vinculadas passam a aparecer no extrato do QR, no valor do Pix e na cobrança pelo WhatsApp. Nada muda nos valores ou no status de pago.
+        Escolha quais nomes lançados à mão em <b>Vendas Empresa</b> são de <b>{cliente.full_name}</b>. Só as compras <b>em aberto</b> são vinculadas: elas passam a aparecer no extrato do QR, no valor do Pix e na cobrança pelo WhatsApp. As já pagas ficam como estão e o cliente não vê.
       </div>
 
       {ligados.length > 0 && (
@@ -3749,7 +3754,7 @@ function VincularVendas({ cliente, sales, onBulkUpdate }) {
 
       <div style={{ maxHeight: 360, overflowY: "auto", paddingRight: 2 }}>
         {livres.length === 0 ? (
-          <EmptyState text="Não há vendas lançadas à mão sem vínculo." />
+          <EmptyState text="Não há compras em aberto lançadas à mão sem vínculo." />
         ) : visiveis.length === 0 ? (
           <EmptyState text="Nenhum nome encontrado com essa busca." />
         ) : (
@@ -3774,7 +3779,7 @@ function VincularVendas({ cliente, sales, onBulkUpdate }) {
         {salvando
           ? "Salvando..."
           : selecionados.length
-          ? `Vincular ${qtdCompras} compra(s) · ${brl(qtdAberto)} em aberto`
+          ? `Vincular ${qtdCompras} compra(s) em aberto · ${brl(qtdAberto)}`
           : "Marque os nomes que são desta pessoa"}
       </button>
     </div>

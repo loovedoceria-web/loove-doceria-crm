@@ -461,8 +461,8 @@ export default function Pedido() {
                 </div>
               </div>
             )}
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)", margin: "4px 0 8px" }}>Últimas compras</div>
-            {extrato.recentes.length === 0 && <div style={{ color: "var(--muted)", fontSize: 14 }}>Nenhuma compra ainda.</div>}
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)", margin: "4px 0 8px" }}>O que está em aberto</div>
+            {extrato.recentes.length === 0 && <div style={{ color: "var(--muted)", fontSize: 14 }}>Nada em aberto. Você está em dia! 💕</div>}
             {extrato.recentes.map((r, idx) => (
               <div key={idx} style={S.extratoRow}>
                 <div>
