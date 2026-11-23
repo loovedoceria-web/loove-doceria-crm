@@ -3185,6 +3185,7 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
   const [pixCfg, setPixCfg] = useState(null); // config salva no banco
   const [pixForm, setPixForm] = useState({ tipo: "celular", chave: "", nome: "Loove Doceria", cidade: "" });
   const [pixSaving, setPixSaving] = useState(false);
+  const [aba, setAba] = useState("clientes"); // clientes | vendas
 
   useEffect(() => {
     supabase
@@ -3492,6 +3493,25 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
         </div>
       </Modal>
 
+      <div style={{ display: "inline-flex", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, padding: 4, gap: 4, marginBottom: 16 }}>
+        {[
+          ["clientes", "Clientes"],
+          ["vendas", "Vendas do QR por dia"],
+        ].map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setAba(k)}
+            style={{ border: "none", borderRadius: 9, padding: "9px 16px", fontSize: 13.5, fontWeight: 700, cursor: "pointer", background: aba === k ? "var(--brand)" : "transparent", color: aba === k ? "#fff" : "var(--ink-2)" }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {aba === "vendas" ? (
+        <VendasQrDia customers={customers} />
+      ) : (
+      <>
       <div className="grid-2-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
         <StatPill label="Clientes cadastrados" value={customers.length} />
         <StatPill label="Cadastrados pelo QR" value={viaQr} color="var(--cocoa)" />
@@ -3554,6 +3574,135 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
                 </div>
               );
             })}
+          </div>
+        )}
+      </Panel>
+      </>
+      )}
+    </div>
+  );
+}
+
+// Vendas registradas pelo QR Code em uma data escolhida
+function VendasQrDia({ customers }) {
+  const [date, setDate] = useState(todayISO());
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState("");
+
+  async function carregar(d = date) {
+    setLoading(true);
+    setErro("");
+    const { data, error } = await supabase
+      .from("sales")
+      .select("id, created_at, date, product_name, qty, total, status, customer_id")
+      .eq("source", "qr")
+      .eq("date", d)
+      .order("created_at", { ascending: false })
+      .limit(2000);
+    if (error) setErro("Erro ao carregar as vendas: " + error.message);
+    setRows(data || []);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    carregar(date);
+  }, [date]);
+
+  const nomePorId = useMemo(() => {
+    const m = {};
+    customers.forEach((c) => (m[c.id] = c.full_name));
+    return m;
+  }, [customers]);
+
+  const linhas = rows.map((s) => {
+    const { person, product } = splitPersonProduct(s.product_name);
+    return { ...s, cliente: nomePorId[s.customer_id] || person, produto: product };
+  });
+
+  const total = linhas.reduce((a, s) => a + Number(s.total || 0), 0);
+  const pago = linhas.filter((s) => s.status === "Pago").reduce((a, s) => a + Number(s.total || 0), 0);
+  const itens = linhas.reduce((a, s) => a + Number(s.qty || 0), 0);
+  const clientes = new Set(linhas.map((s) => s.customer_id || s.cliente)).size;
+
+  const porProduto = useMemo(() => {
+    const m = {};
+    linhas.forEach((s) => {
+      const r = (m[s.produto] = m[s.produto] || { qty: 0, total: 0 });
+      r.qty += Number(s.qty || 0);
+      r.total += Number(s.total || 0);
+    });
+    return Object.entries(m).sort((a, b) => b[1].total - a[1].total);
+  }, [rows, nomePorId]);
+
+  const hoje = todayISO();
+  const label = date === hoje ? "hoje" : date === addDaysISO(hoje, -1) ? "ontem" : formatDatePt(date);
+  const chip = (active) => ({
+    padding: "8px 14px",
+    borderRadius: 10,
+    border: active ? "1.5px solid var(--brand)" : "1px solid var(--line)",
+    background: active ? "var(--brand-soft)" : "var(--surface)",
+    color: active ? "var(--brand)" : "var(--ink-2)",
+    fontWeight: 700,
+    fontSize: 13,
+    cursor: "pointer",
+  });
+  const hora = (ts) => (ts ? new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }) : "");
+
+  return (
+    <div>
+      <Panel style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button style={chip(false)} onClick={() => setDate(addDaysISO(date, -1))} aria-label="Dia anterior"><ChevronLeft size={15} /></button>
+            <button style={chip(date === hoje)} onClick={() => setDate(hoje)}>Hoje</button>
+            <button style={chip(date === addDaysISO(hoje, -1))} onClick={() => setDate(addDaysISO(hoje, -1))}>Ontem</button>
+            <input type="date" value={date} max={hoje} onChange={(e) => e.target.value && setDate(e.target.value)} style={{ ...inputStyle, padding: "8px 12px" }} />
+            <button style={{ ...chip(false), opacity: date >= hoje ? 0.4 : 1 }} disabled={date >= hoje} onClick={() => setDate(addDaysISO(date, 1))} aria-label="Próximo dia"><ChevronRight size={15} /></button>
+          </div>
+          <button style={chip(false)} onClick={() => carregar()} disabled={loading}>{loading ? "Carregando..." : "Atualizar"}</button>
+        </div>
+      </Panel>
+
+      <div className="grid-2-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
+        <StatPill label={`Vendido ${label}`} value={brl(total)} color="var(--ok)" />
+        <StatPill label="Em aberto" value={brl(total - pago)} color="var(--danger)" />
+        <StatPill label="Itens" value={itens} />
+        <StatPill label="Clientes" value={clientes} color="var(--cocoa)" />
+      </div>
+
+      {porProduto.length > 0 && (
+        <Panel title="Por produto" style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {porProduto.map(([nome, r]) => (
+              <span key={nome} style={{ fontSize: 13, fontWeight: 600, background: "var(--brand-soft)", color: "var(--brand)", borderRadius: 999, padding: "6px 12px" }}>
+                {r.qty}x {nome} · {brl(r.total)}
+              </span>
+            ))}
+          </div>
+        </Panel>
+      )}
+
+      <Panel title={`Compras pelo QR — ${formatDatePt(date)}`} subtitle={linhas.length ? `${linhas.length} registro(s), do mais recente para o mais antigo` : undefined}>
+        {erro ? (
+          <EmptyState text={erro} />
+        ) : loading ? (
+          <div style={{ display: "flex", justifyContent: "center", padding: 24 }}><Loader2 className="spin" /></div>
+        ) : linhas.length === 0 ? (
+          <EmptyState text={`Nenhuma compra pelo QR em ${formatDatePt(date)}.`} />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {linhas.map((s) => (
+              <div key={s.id} style={{ display: "grid", gridTemplateColumns: "56px minmax(0, 1.3fr) minmax(0, 1.2fr) auto auto", alignItems: "center", gap: 12, padding: "11px 4px", borderBottom: "1px solid var(--line-soft)", fontSize: 14 }} className="qr-venda-row">
+                <span style={{ color: "var(--muted)", fontWeight: 600, fontSize: 13 }}>{hora(s.created_at)}</span>
+                <span style={{ fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.cliente}</span>
+                <span style={{ color: "var(--ink-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{Number(s.qty) > 1 ? `${s.qty}x ` : ""}{s.produto}</span>
+                <span style={{ fontWeight: 700, color: "var(--ink)" }}>{brl(s.total)}</span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, borderRadius: 999, padding: "3px 9px", background: s.status === "Pago" ? "var(--ok-soft)" : "var(--gold-soft)", color: s.status === "Pago" ? "var(--ok)" : "var(--gold)" }}>
+                  {s.status === "Pago" ? "Pago" : "Em aberto"}
+                </span>
+              </div>
+            ))}
           </div>
         )}
       </Panel>

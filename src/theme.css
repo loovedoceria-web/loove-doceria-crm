@@ -161,3 +161,14 @@ input:focus, select:focus, textarea:focus {
   .page-header-actions > button { flex: 1 1 auto; justify-content: center; }
   .hide-mobile { display: none !important; }
 }
+
+/* Vendas do QR por dia: no celular, hora + cliente na 1ª linha, produto/valor/status embaixo */
+@media (max-width: 640px) {
+  .qr-venda-row {
+    grid-template-columns: 48px minmax(0, 1fr) auto !important;
+    row-gap: 4px !important;
+  }
+  .qr-venda-row > span:nth-child(3) { grid-column: 2 / 3; font-size: 13px; }
+  .qr-venda-row > span:nth-child(4) { grid-column: 3 / 4; grid-row: 1; }
+  .qr-venda-row > span:nth-child(5) { grid-column: 3 / 4; grid-row: 2; justify-self: end; }
+}
