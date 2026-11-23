@@ -46,6 +46,8 @@ import {
   Users,
   QrCode,
   MessageCircle,
+  Link2,
+  Unlink,
   Check,
 } from "lucide-react";
 import {
@@ -1029,6 +1031,7 @@ export default function App() {
                 sales={sales}
                 cycleStartDay={cycleStartDay}
                 onSave={saveCustomer}
+                onBulkUpdate={bulkUpdateSales}
                 setView={navigate}
               />
             )}
@@ -3174,7 +3177,7 @@ function formatPhone(d) {
   return v;
 }
 
-function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
+function Clientes({ customers, sales, cycleStartDay, onSave, onBulkUpdate, setView }) {
   const [search, setSearch] = useState("");
   const [onlyOpen, setOnlyOpen] = useState(false);
   const [editing, setEditing] = useState(null); // null fechado | {} novo | cliente
@@ -3186,6 +3189,7 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
   const [pixForm, setPixForm] = useState({ tipo: "celular", chave: "", nome: "Loove Doceria", cidade: "" });
   const [pixSaving, setPixSaving] = useState(false);
   const [aba, setAba] = useState("clientes"); // clientes | vendas
+  const [vinculando, setVinculando] = useState(null); // cliente aberto no "Vincular vendas"
 
   useEffect(() => {
     supabase
@@ -3467,6 +3471,10 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
         </div>
       </Modal>
 
+      <Modal isOpen={vinculando !== null} onClose={() => setVinculando(null)} title={vinculando ? `Vincular vendas — ${vinculando.full_name}` : ""} maxWidth={620}>
+        {vinculando && <VincularVendas cliente={vinculando} sales={sales} onBulkUpdate={onBulkUpdate} />}
+      </Modal>
+
       <Modal isOpen={editing !== null} onClose={() => setEditing(null)} title={editing && editing.id ? "Editar cliente" : "Novo cliente"} maxWidth={480}>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
@@ -3554,6 +3562,7 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
                         {formatPhone(c.phone)}{c.sector ? ` · ${c.sector}` : ""}{r.ultima ? ` · última compra ${formatDatePt(r.ultima).slice(0, 5)}` : ""}
                       </div>
                     </div>
+                    <button onClick={() => setVinculando(c)} style={iconBtnStyle("var(--cocoa)")} title="Vincular vendas lançadas à mão a este cliente"><Link2 size={15} /></button>
                     <button onClick={() => openEdit(c)} style={iconBtnStyle("var(--brand)")} title="Editar cliente"><Pencil size={15} /></button>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12, gap: 10 }}>
@@ -3579,6 +3588,195 @@ function Clientes({ customers, sales, cycleStartDay, onSave, setView }) {
       </Panel>
       </>
       )}
+    </div>
+  );
+}
+
+// Normaliza nomes para comparar ("Camíla  maciel" = "camila maciel")
+function normNome(t) {
+  return String(t || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Liga, à mão, as vendas lançadas em "Vendas Empresa" (Pessoa — Produto) a um cliente cadastrado.
+// Nada é automático: a Loove escolhe quais nomes são dessa pessoa.
+function VincularVendas({ cliente, sales, onBulkUpdate }) {
+  const [busca, setBusca] = useState("");
+  const [marcados, setMarcados] = useState(new Set());
+  const [aberto, setAberto] = useState(null); // nome expandido para ver as compras
+  const [salvando, setSalvando] = useState(false);
+
+  const tokensCliente = normNome(cliente.full_name).split(" ").filter((t) => t.length > 1);
+  const primeiro = tokensCliente[0] || "";
+
+  function agrupar(lista) {
+    const g = {};
+    lista.forEach((s) => {
+      const { person } = splitPersonProduct(s.product_name);
+      const k = personKey(person);
+      if (!k) return;
+      const r = (g[k] = g[k] || { key: k, nome: person.trim(), ids: [], itens: [], n: 0, aberto: 0, total: 0, ultima: null });
+      r.ids.push(s.id);
+      r.itens.push(s);
+      r.n += 1;
+      r.total += Number(s.total || 0);
+      if (s.status !== "Pago") r.aberto += Number(s.total || 0);
+      if (!r.ultima || s.date > r.ultima) r.ultima = s.date;
+    });
+    return Object.values(g);
+  }
+
+  // Nomes lançados à mão que ainda não estão ligados a ninguém
+  const livres = useMemo(() => {
+    const grupos = agrupar(sales.filter((s) => !s.customer_id && s.source !== "qr" && (s.product_name || "").includes("—")));
+    grupos.forEach((g) => {
+      const t = normNome(g.nome).split(" ").filter(Boolean);
+      const comuns = t.filter((x) => tokensCliente.includes(x)).length;
+      g.score = (t[0] === primeiro ? 2 : 0) + comuns;
+    });
+    return grupos.sort((a, b) => b.score - a.score || b.aberto - a.aberto || a.nome.localeCompare(b.nome));
+  }, [sales, cliente.id]);
+
+  // Vendas lançadas à mão que já estão ligadas a este cliente
+  const ligados = useMemo(
+    () => agrupar(sales.filter((s) => s.customer_id === cliente.id && s.source !== "qr")).sort((a, b) => a.nome.localeCompare(b.nome)),
+    [sales, cliente.id]
+  );
+
+  const q = normNome(busca);
+  const visiveis = livres.filter((g) => (q ? normNome(g.nome).includes(q) : true));
+  const parecidos = visiveis.filter((g) => g.score > 0);
+  const outros = visiveis.filter((g) => g.score === 0);
+
+  const selecionados = livres.filter((g) => marcados.has(g.key));
+  const qtdCompras = selecionados.reduce((a, g) => a + g.n, 0);
+  const qtdAberto = selecionados.reduce((a, g) => a + g.aberto, 0);
+
+  function toggle(k) {
+    setMarcados((prev) => {
+      const n = new Set(prev);
+      n.has(k) ? n.delete(k) : n.add(k);
+      return n;
+    });
+  }
+
+  async function vincular() {
+    if (!selecionados.length) return;
+    const ok = window.confirm(
+      `Vincular ${qtdCompras} compra(s) (${selecionados.map((g) => g.nome).join(", ")}) a ${cliente.full_name}?\n\nElas passam a aparecer no extrato do QR e no valor do Pix dessa pessoa.`
+    );
+    if (!ok) return;
+    setSalvando(true);
+    const ids = selecionados.flatMap((g) => g.ids);
+    const feito = await onBulkUpdate(ids, { customer_id: cliente.id }, `${ids.length} compra(s) vinculada(s) a ${cliente.full_name}.`);
+    setSalvando(false);
+    if (feito) setMarcados(new Set());
+  }
+
+  async function desvincular(g) {
+    const ok = window.confirm(`Desvincular ${g.n} compra(s) de "${g.nome}" de ${cliente.full_name}?`);
+    if (!ok) return;
+    setSalvando(true);
+    await onBulkUpdate(g.ids, { customer_id: null }, `${g.n} compra(s) desvinculada(s).`);
+    setSalvando(false);
+  }
+
+  const linha = (g, modo) => (
+    <div key={g.key} style={{ border: "1px solid var(--line-soft)", borderRadius: 12, background: marcados.has(g.key) ? "var(--brand-soft)" : "var(--surface)", marginBottom: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px" }}>
+        {modo === "livre" && (
+          <input type="checkbox" checked={marcados.has(g.key)} onChange={() => toggle(g.key)} style={{ width: 18, height: 18, accentColor: "var(--brand)", flexShrink: 0, cursor: "pointer" }} />
+        )}
+        <div style={{ flex: 1, minWidth: 0, cursor: modo === "livre" ? "pointer" : "default" }} onClick={() => modo === "livre" && toggle(g.key)}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "var(--ink)" }}>{g.nome}</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>
+            {g.n} compra(s) · em aberto <b style={{ color: g.aberto > 0 ? "var(--danger)" : "var(--ok)" }}>{brl(g.aberto)}</b> · total {brl(g.total)}
+            {g.ultima ? ` · última ${formatDatePt(g.ultima).slice(0, 5)}` : ""}
+          </div>
+        </div>
+        <button
+          onClick={() => setAberto(aberto === g.key + modo ? null : g.key + modo)}
+          style={{ border: "1px solid var(--line)", background: "#fff", borderRadius: 8, padding: "5px 10px", fontSize: 12, fontWeight: 700, color: "var(--ink-2)", cursor: "pointer" }}
+        >
+          {aberto === g.key + modo ? "Ocultar" : "Ver"}
+        </button>
+        {modo === "ligado" && (
+          <button onClick={() => desvincular(g)} disabled={salvando} style={{ border: "1px solid var(--line)", background: "#fff", borderRadius: 8, padding: "5px 10px", fontSize: 12, fontWeight: 700, color: "var(--danger)", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+            <Unlink size={13} /> Desvincular
+          </button>
+        )}
+      </div>
+      {aberto === g.key + modo && (
+        <div style={{ borderTop: "1px solid var(--line-soft)", padding: "6px 12px 10px", maxHeight: 220, overflowY: "auto" }}>
+          {g.itens
+            .slice()
+            .sort((a, b) => (a.date < b.date ? 1 : -1))
+            .map((s) => (
+              <div key={s.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 12.5, padding: "4px 0", color: "var(--ink-2)" }}>
+                <span>{formatDatePt(s.date).slice(0, 5)} · {Number(s.qty) > 1 ? `${s.qty}x ` : ""}{splitPersonProduct(s.product_name).product}</span>
+                <span style={{ whiteSpace: "nowrap" }}>
+                  {brl(s.total)} <span style={{ color: s.status === "Pago" ? "var(--ok)" : "var(--gold)", fontWeight: 700 }}>{s.status === "Pago" ? "pago" : "aberto"}</span>
+                </span>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
+        Escolha quais nomes lançados à mão em <b>Vendas Empresa</b> são de <b>{cliente.full_name}</b>. As compras vinculadas passam a aparecer no extrato do QR, no valor do Pix e na cobrança pelo WhatsApp. Nada muda nos valores ou no status de pago.
+      </div>
+
+      {ligados.length > 0 && (
+        <div>
+          <FieldLabel>Já vinculadas a {cliente.full_name.split(" ")[0]}</FieldLabel>
+          {ligados.map((g) => linha(g, "ligado"))}
+        </div>
+      )}
+
+      <div style={{ position: "relative" }}>
+        <Search size={15} color="var(--muted-2)" style={{ position: "absolute", left: 12, top: 11 }} />
+        <input style={{ ...inputStyle, padding: "9px 12px 9px 34px", width: "100%", boxSizing: "border-box" }} placeholder="Buscar nome lançado à mão..." value={busca} onChange={(e) => setBusca(e.target.value)} />
+      </div>
+
+      <div style={{ maxHeight: 360, overflowY: "auto", paddingRight: 2 }}>
+        {livres.length === 0 ? (
+          <EmptyState text="Não há vendas lançadas à mão sem vínculo." />
+        ) : visiveis.length === 0 ? (
+          <EmptyState text="Nenhum nome encontrado com essa busca." />
+        ) : (
+          <>
+            {parecidos.length > 0 && (
+              <>
+                <FieldLabel>Nomes parecidos</FieldLabel>
+                {parecidos.map((g) => linha(g, "livre"))}
+              </>
+            )}
+            {outros.length > 0 && (
+              <>
+                <FieldLabel>{parecidos.length ? "Outros nomes" : "Nomes lançados à mão"}</FieldLabel>
+                {outros.map((g) => linha(g, "livre"))}
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      <button style={{ ...primaryBtnStyle, marginTop: 0, opacity: selecionados.length && !salvando ? 1 : 0.55 }} onClick={vincular} disabled={!selecionados.length || salvando}>
+        {salvando
+          ? "Salvando..."
+          : selecionados.length
+          ? `Vincular ${qtdCompras} compra(s) · ${brl(qtdAberto)} em aberto`
+          : "Marque os nomes que são desta pessoa"}
+      </button>
     </div>
   );
 }

@@ -84,3 +84,6 @@ grant execute on function public.qr_pix_config() to anon, authenticated;
 -- Funções qr_vendido / qr_restantes; qr_produtos passou a devolver "restantes" e
 -- qr_registrar_compra recusa com erro 'esgotado' quando a quantidade acaba.
 -- Aplicado pela migration "cardapio_quantidade_do_dia" (histórico de migrations no Supabase).
+
+-- qr_meu_extrato: mostra tudo em aberto + pagas dos últimos 45 dias (até 80 linhas).
+-- Aplicado pela migration "qr_extrato_mais_compras".
